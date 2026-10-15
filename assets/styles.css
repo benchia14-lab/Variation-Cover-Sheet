@@ -526,6 +526,21 @@ input[type=file]{ display:none; }
   font-size:11.5px; color:#355C41; line-height:1.6; margin-bottom:22px;
 }
 .good-note strong{ color:#24402C; }
+.connect-bar{ display:flex; gap:14px; align-items:center; margin-bottom:6px; }
+.connect-bar .print-btn{ width:auto; margin-top:0; padding:10px 20px; white-space:nowrap; }
+.flow-report{ list-style:none; margin:10px 0 18px; padding:0; font-size:11.5px; }
+.flow-report li{
+  display:flex; gap:10px; align-items:baseline;
+  padding:7px 10px; border:1px solid var(--line-soft); border-top:none; background:var(--panel);
+}
+.flow-report li:first-child{ border-top:1px solid var(--line-soft); border-radius:3px 3px 0 0; }
+.flow-report li:last-child{ border-radius:0 0 3px 3px; }
+.flow-report .fr-name{ flex:0 0 150px; font-weight:600; }
+.flow-report .fr-how{ flex:1 1 auto; color:var(--muted); }
+.flow-report .fr-mark{ flex:0 0 auto; font-weight:600; }
+.flow-report .ok .fr-mark, .flow-report li.ok .fr-mark{ color:var(--good); }
+.flow-report li.bad .fr-mark{ color:#A0402E; }
+.flow-report li.off .fr-mark{ color:var(--muted); }
 .field-served label::after{
   content:'served by the site';
   margin-left:8px; font-size:9px; letter-spacing:.06em; padding:1px 6px;

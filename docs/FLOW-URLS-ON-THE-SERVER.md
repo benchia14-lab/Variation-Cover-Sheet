@@ -78,8 +78,32 @@ Netlify → your site → **Deploys** → drag the folder onto the drop zone.
 
 ### Checking it took
 
-Open `https://your-site.netlify.app/.netlify/functions/flow` in a browser. You
-should get something like:
+**Settings → A → Connect to the flows.** That is the button for this. It asks
+the site which flows it can run, tries the ones it can, and reports back flow by
+flow:
+
+```
+Get projects           ✓  through this site — 14 projects came back for VIC
+File the PDF           ✓  through this site — configured
+Variation log — read   ✓  through this site — reached it, 32 rows in the log
+Variation log — write  ✓  through this site — configured
+Write professionally   —  not set on this site, and nothing pasted here
+```
+
+A ✗ shows what the flow said back, which is usually enough to fix it. A row of
+dashes everywhere, with "this site is not holding any flow URLs" above, means
+the function did not deploy or its variables are not set.
+
+It is safe to press whenever you want to know, and the same button appears on
+the form screen when the project dropdown has nothing in it.
+
+Two of the five are reported as **configured** rather than tested: filing a PDF
+would leave a file in SharePoint and the log write would leave a row, and a
+connection check has no business doing either. For those, "configured" means the
+URL is there to be called.
+
+You can also open `https://your-site.netlify.app/.netlify/functions/flow`
+directly in a browser. You should get something like:
 
 ```json
 {"ok":true,"configured":{"projects":true,"file":true,"logRead":true,"logWrite":true,"describe":false}}
@@ -88,8 +112,10 @@ should get something like:
 `true` means that variable is set and that flow will be called through the site.
 A 404 instead means the function did not deploy — see below.
 
-Then open the app and go to **Settings**. Flows the site is handling are marked
-**served by the site** and say there is nothing to paste.
+Flows the site is handling are marked **served by the site** in Settings, and
+their box says so rather than sitting empty — an empty box reads as broken even
+when everything is working. Those boxes are read-only, and saving never writes
+over what the site holds.
 
 ### If the function does not deploy
 

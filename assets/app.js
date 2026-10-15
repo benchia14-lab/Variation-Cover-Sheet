@@ -339,8 +339,9 @@ async function loadProjects(){
     projects = [];
     projectSelect.innerHTML = '<option value="">No projects flow configured</option>';
     projectSource.textContent = 'Not connected to SharePoint';
-    projectStatus.textContent = 'Add the projects flow in Settings to pull the register, or type the details in below.';
+    projectStatus.textContent = 'Not connected to the projects flow yet. Try Connect, or add the URL in Settings.';
     projectStatus.className = 'status-line';
+    document.getElementById('project-connect-wrap').hidden = false;
     setManualMode(true);
     updateFilingNote();
     return;
@@ -360,6 +361,7 @@ async function loadProjects(){
     // for the state we have left must not repopulate the dropdown.
     if(!currentState || currentState.code !== forState) return;
     projects = rows;
+    document.getElementById('project-connect-wrap').hidden = true;
     renderProjectOptions();
     setManualMode(!rows.length);
     projectSelect.disabled = !rows.length;
@@ -1688,10 +1690,17 @@ function describeProxy(){
   const served = Object.keys(flowInputs).filter(k => Flows.viaProxy(k));
 
   Object.keys(flowInputs).forEach(k => {
-    flowInputs[k].closest('.field').classList.toggle('field-served', Flows.viaProxy(k));
-    flowInputs[k].placeholder = Flows.viaProxy(k)
-      ? 'Held by the site — nothing to paste'
-      : flowInputs[k].dataset.placeholder || flowInputs[k].placeholder;
+    const box = flowInputs[k];
+    const servedHere = Flows.viaProxy(k);
+    box.closest('.field').classList.toggle('field-served', servedHere);
+    box.readOnly = servedHere;
+    // An empty box reads as broken even when everything is working, so a flow
+    // the site handles says so in the box rather than leaving a blank one.
+    if(servedHere){
+      box.value = 'Called through this site — the URL is held in Netlify, not here.';
+    }else{
+      box.placeholder = box.dataset.placeholder || box.placeholder;
+    }
   });
 
   if(!served.length){ note.hidden = true; return; }
@@ -1756,9 +1765,135 @@ function readStateEditor(){
   });
 }
 
+/* ---------------------------------------------------------------------------
+   Connect to the flows
+
+   The site can hold the trigger URLs itself, which is the point of
+   netlify/functions/flow.js — but the consequence is that the URL boxes stay
+   empty, and an empty box looks exactly like a broken one. This asks the site
+   what it can run, actually runs what it can, and says so flow by flow, so the
+   answer to "is this working?" is on screen rather than inferred.
+--------------------------------------------------------------------------- */
+const connectStatus = document.getElementById('flows-connect-status');
+const connectReport = document.getElementById('flows-connect-report');
+
+function reportRow(name, mark, how, state){
+  const li = document.createElement('li');
+  li.className = state;
+  li.innerHTML = '<span class="fr-name"></span><span class="fr-mark"></span><span class="fr-how"></span>';
+  li.querySelector('.fr-name').textContent = name;
+  li.querySelector('.fr-mark').textContent = mark;
+  li.querySelector('.fr-how').textContent = how;
+  return li;
+}
+
+// Proves a flow end to end where that is free of side effects. The two writing
+// flows are not called: filing a PDF would leave a file in SharePoint and the
+// log write would leave a row, and a connection test has no business doing
+// either. For those, reaching the flow is as far as a test should go.
+async function tryFlow(key){
+  if(key === 'projectsUrl'){
+    const where = (currentState && currentState.code)
+      || (StateRegister.rows().find(StateRegister.isConfigured) || {}).code || 'VIC';
+    const rows = await Flows.getProjects(where);
+    return rows.length
+      ? rows.length + (rows.length === 1 ? ' project' : ' projects') + ' came back for ' + where
+      : 'reached it, but no ' + where + ' projects came back — check the State column in the list';
+  }
+  if(key === 'logReadUrl'){
+    // No project id: this asks whether the flow answers at all, not for a
+    // particular project's history.
+    const rows = await Flows.listLog((currentState && currentState.code) || '', '');
+    // listLog hands back the narrowed array with the raw count hung off it.
+    const got = (rows && rows.received !== undefined) ? rows.received : rows.length;
+    return 'reached it, ' + got + ' row' + (got === 1 ? '' : 's') + ' in the log';
+  }
+  return '';
+}
+
+async function connectFlows(){
+  const buttons = [document.getElementById('flows-connect'), document.getElementById('project-connect')]
+    .filter(Boolean);
+  buttons.forEach(b => { b.disabled = true; });
+  connectReport.hidden = true;
+  connectReport.innerHTML = '';
+  connectStatus.textContent = 'Asking the site which flows it can run…';
+  connectStatus.className = 'status-line';
+
+  const proxy = await Flows.probeProxy();
+  describeProxy();
+
+  const rows = [];
+  let worked = 0, failed = 0;
+
+  for(const key of ['projectsUrl', 'fileUrl', 'logReadUrl', 'logWriteUrl', 'describeUrl']){
+    const name = FLOW_LABELS[key];
+    const served = Flows.viaProxy(key);
+    const pasted = !served && Flows.has(key);
+
+    if(!served && !pasted){
+      rows.push(reportRow(name, '—', proxy.available
+        ? 'not set on this site, and nothing pasted here'
+        : 'nothing pasted here', 'off'));
+      continue;
+    }
+    const how = served ? 'through this site' : 'from the URL saved in this browser';
+    try {
+      const detail = await tryFlow(key);
+      worked++;
+      rows.push(reportRow(name, '\u2713', detail ? how + ' — ' + detail : how + ' — configured', 'ok'));
+    } catch(err){
+      failed++;
+      rows.push(reportRow(name, '\u2717', how + ' — ' + (err.message || 'could not be reached'), 'bad'));
+    }
+  }
+
+  rows.forEach(r => connectReport.appendChild(r));
+  connectReport.hidden = false;
+
+  if(!proxy.available){
+    connectStatus.textContent = 'This site is not holding any flow URLs — the function answered nothing. '
+      + 'Either it was not deployed with the site, or its environment variables are not set. '
+      + 'Until then the URLs have to be pasted in below.';
+    connectStatus.className = failed || worked ? 'status-line' : 'status-line err';
+  }else if(failed){
+    connectStatus.textContent = worked + ' of ' + (worked + failed) + ' working. The ones marked \u2717 answered with an error.';
+    connectStatus.className = 'status-line err';
+  }else if(worked){
+    connectStatus.textContent = 'Connected. ' + worked + ' flow' + (worked === 1 ? '' : 's') + ' working.';
+    connectStatus.className = 'status-line ok';
+  }else{
+    connectStatus.textContent = 'The site answered, but none of the five environment variables are set on it.';
+    connectStatus.className = 'status-line err';
+  }
+
+  buttons.forEach(b => { b.disabled = false; });
+  // Whatever changed, the dropdown should now reflect it.
+  if(currentState) loadProjects();
+  updateFilingNote();
+}
+
+document.getElementById('flows-connect').addEventListener('click', connectFlows);
+document.getElementById('project-connect').addEventListener('click', async () => {
+  const button = document.getElementById('project-connect');
+  const was = button.textContent;
+  button.textContent = 'Connecting…';
+  await connectFlows();
+  button.textContent = was;
+  if(!Flows.has('projectsUrl')){
+    projectStatus.textContent = 'Still not connected. Open Settings — Connect to the flows there says why.';
+    projectStatus.className = 'status-line err';
+  }
+});
+
 document.getElementById('flows-save').addEventListener('click', () => {
   const next = {};
-  Object.keys(flowInputs).forEach(k => { next[k] = flowInputs[k].value; });
+  // A box the site serves holds an explanation, not a URL. Saving that would
+  // store a sentence where a URL belongs and break the flow the day the site
+  // stopped serving it.
+  Object.keys(flowInputs).forEach(k => {
+    if(!Flows.viaProxy(k)) next[k] = flowInputs[k].value;
+  });
   const ok = Flows.save(next);
   flowsStatus.textContent = ok
     ? 'Saved to this browser.'
@@ -1839,13 +1974,16 @@ document.getElementById('colmap-clear').addEventListener('click', () => {
 });
 
 document.getElementById('flows-test').addEventListener('click', async () => {
-  const url = flowInputs.projectsUrl.value.trim();
-  if(!url){
-    flowsStatus.textContent = 'Paste the projects flow URL first.';
+  const servedBySite = Flows.viaProxy('projectsUrl');
+  const url = servedBySite ? '' : flowInputs.projectsUrl.value.trim();
+  if(!servedBySite && !url){
+    flowsStatus.textContent = 'Paste the projects flow URL first, or use Connect to the flows if this site holds it.';
     flowsStatus.className = 'status-line err';
     return;
   }
-  Flows.save({ projectsUrl: url, fileUrl: flowInputs.fileUrl.value, describeUrl: flowInputs.describeUrl.value });
+  if(!servedBySite){
+    Flows.save({ projectsUrl: url, fileUrl: flowInputs.fileUrl.value, describeUrl: flowInputs.describeUrl.value });
+  }
   const testState = (currentState && currentState.code) || StateRegister.rows().find(StateRegister.isConfigured)?.code || 'VIC';
   flowsStatus.textContent = 'Asking the flow for ' + testState + ' projects…';
   flowsStatus.className = 'status-line';

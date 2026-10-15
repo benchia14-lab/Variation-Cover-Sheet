@@ -104,6 +104,9 @@
         <button class="refresh-btn" id="project-refresh" type="button">Refresh</button>
       </div>
       <div class="status-line" id="project-status"></div>
+      <div class="settings-actions" id="project-connect-wrap" hidden style="margin-bottom:14px;">
+        <button class="refresh-btn" id="project-connect" type="button">Connect to the flows</button>
+      </div>
 
       <!-- shown only when the register has no row to offer, or the pull failed -->
       <div class="field ac-wrap" id="project-manual-wrap" hidden>
@@ -369,6 +372,14 @@
 
   <div class="form-section">
     <div class="form-section-head"><span class="form-section-num">A</span><p class="form-section-title">Power Automate flows</p></div>
+
+    <div class="connect-bar">
+      <button class="print-btn" id="flows-connect" type="button">Connect to the flows</button>
+      <span class="settings-help" style="margin:0;">Asks this site which flows it can run, and tries them.
+        Do this first — the boxes below are only for flows the site is not handling.</span>
+    </div>
+    <div class="status-line" id="flows-connect-status"></div>
+    <ul class="flow-report" id="flows-connect-report" hidden></ul>
 
     <div class="good-note" id="proxy-note" hidden>
       <strong>This site holds the flow URLs itself.</strong>
