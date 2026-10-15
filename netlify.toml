@@ -15,6 +15,18 @@
   publish = "build/variation-coversheet"
   command = "python3 tools/make-deploy-folder.py"
 
+# netlify/functions/flow.js calls the Power Automate flows on the browser's
+# behalf, so the trigger URLs stay in this site's environment variables and are
+# never sent to anyone. It reads them at runtime, so unlike the static files it
+# needs no build to pick them up — which is why it works on a manual deploy too,
+# as long as the netlify/functions folder goes up with the site.
+#
+# The variables it wants, under Site configuration -> Environment variables:
+#   GET_PROJECT_URL  FILE_PDF_URL  VARIATION_LOG_READ_URL
+#   VARIATION_LOG_WRITE_URL  WRITE_PROFESSIONALLY_URL
+[functions]
+  directory = "netlify/functions"
+
 # No redirect rules are needed. The app routes on the URL fragment
 # (#/state/VIC), which browsers never send to the server, so every request is
 # for a file that really exists. An SPA catch-all would only mask typos.

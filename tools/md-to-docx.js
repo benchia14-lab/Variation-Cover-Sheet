@@ -41,6 +41,7 @@ const DOC_TITLES = {
   'POWER-AUTOMATE-SETUP.md': '3 - Building the Flows',
   'ROUTING-BY-STATE.md': '4 - Routing Each State to Its Own List',
   'SETTINGS-PASSWORD.md': '5 - Locking Settings with a Password',
+  'FLOW-URLS-ON-THE-SERVER.md': '6 - Keeping the Flow URLs on the Server',
 };
 
 /* ---------------------------------------------------------------- inline --- */

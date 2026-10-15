@@ -35,9 +35,19 @@ assets/state-register.js      the per-office letterhead (section 1).
 
 Everything else in here is the app itself. Re-drag after any change to it.
 
-The Power Automate flow URLs are NOT in this folder and never should be. Each
-person pastes them into Settings once, on each device they use. They are
-credentials: anyone holding one can run the flow.
+The Power Automate flow URLs are NOT in this folder and never should be.
+
+netlify/functions/flow.js calls the flows on the browser's behalf, reading the
+URLs from this site's environment variables in Netlify. Set those under Site
+configuration -> Environment variables:
+
+    GET_PROJECT_URL           VARIATION_LOG_WRITE_URL
+    FILE_PDF_URL              WRITE_PROFESSIONALLY_URL
+    VARIATION_LOG_READ_URL
+
+Any you leave unset fall back to the URL box in Settings, which each person
+pastes once per device. Either way they are credentials: anyone holding one can
+run the flow, so they stay out of the repository and off the page.
 
 
 IF YOU LOCK YOURSELF OUT OF SETTINGS

@@ -1665,13 +1665,50 @@ const flowInputs = {
   logWriteUrl: document.getElementById('flow-log-write'),
   describeUrl: document.getElementById('flow-describe')
 };
+Object.values(flowInputs).forEach(el => { el.dataset.placeholder = el.placeholder; });
 const flowsStatus = document.getElementById('flows-status');
 const statesStatus = document.getElementById('states-status');
 const stateEditorBody = document.getElementById('state-editor-body');
 
+// Names for the flows as the Settings labels call them, so the notice names
+// what someone is actually looking at.
+const FLOW_LABELS = {
+  projectsUrl: 'Get projects',
+  fileUrl: 'File the PDF',
+  logReadUrl: 'Variation log — read',
+  logWriteUrl: 'Variation log — write',
+  describeUrl: 'Write professionally'
+};
+
+/* A deployment can hold the trigger URLs server-side (netlify/functions/flow.js).
+   Where it does, the box below is not what gets called, and saying so is the
+   difference between "this is blank, is it broken?" and "that one is handled". */
+function describeProxy(){
+  const note = document.getElementById('proxy-note');
+  const served = Object.keys(flowInputs).filter(k => Flows.viaProxy(k));
+
+  Object.keys(flowInputs).forEach(k => {
+    flowInputs[k].closest('.field').classList.toggle('field-served', Flows.viaProxy(k));
+    flowInputs[k].placeholder = Flows.viaProxy(k)
+      ? 'Held by the site — nothing to paste'
+      : flowInputs[k].dataset.placeholder || flowInputs[k].placeholder;
+  });
+
+  if(!served.length){ note.hidden = true; return; }
+  const missing = Object.keys(flowInputs).filter(k => !Flows.viaProxy(k));
+  document.getElementById('proxy-note-detail').textContent =
+    served.map(k => FLOW_LABELS[k]).join(', ')
+    + (served.length === 1 ? ' is' : ' are') + ' called through this site, which keeps the '
+    + 'trigger URLs off every browser. Nothing to paste for '
+    + (served.length === 1 ? 'it' : 'those') + '.'
+    + (missing.length ? ' Still pasted here: ' + missing.map(k => FLOW_LABELS[k]).join(', ') + '.' : '');
+  note.hidden = false;
+}
+
 function loadSettingsForm(){
   const current = Flows.get();
   Object.keys(flowInputs).forEach(k => { flowInputs[k].value = current[k] || ''; });
+  describeProxy();
   flowsStatus.textContent = '';
   flowsStatus.className = 'status-line';
 
@@ -2140,5 +2177,14 @@ applyLogo(uploadedLogo || DEFAULT_LOGO);
 syncRefLock();
 updateModeHint();
 render();
-routeFromHash();
-syncPrefilled();
+
+// Ask the site whether it holds the flow URLs for us before drawing a screen
+// that depends on the answer — picking a state fires the projects flow, and it
+// has to know by then which way to call it. probeProxy resolves either way and
+// gives up after a moment, so this cannot leave the app unstarted.
+Flows.probeProxy().then(start, start);
+
+function start(){
+  routeFromHash();
+  syncPrefilled();
+}

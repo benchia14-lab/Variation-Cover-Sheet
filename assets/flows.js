@@ -72,7 +72,9 @@ const Flows = (() => {
     catch(e){ return false; }
   }
 
-  function has(key){ return !!settings[key]; }
+  // Counts a flow the site serves for us as configured, because to everything
+  // that asks, it is.
+  function has(key){ return configured(key); }
 
   // Turns fetch's deliberately vague failures into something a site manager can
   // act on. A cross-origin refusal and a dead network both surface as the same
@@ -118,6 +120,78 @@ const Flows = (() => {
     // whole, but not worth flooding a status line with
     if(message.length > 400) message = message.slice(0, 400) + '\u2026';
     return res.status + ': ' + message;
+  }
+
+  /* ---- the server-side proxy -------------------------------------------
+     When the site is deployed with netlify/functions/flow.js, the trigger URLs
+     live in Netlify's environment variables and never reach the browser. The
+     app then names the flow it wants instead of holding its URL.
+
+     This is asked once, on load, and the answer decides nothing permanent: a
+     flow the proxy cannot serve falls back to the URL box in Settings, and a
+     deployment with no function at all behaves exactly as it always did. So a
+     function that fails to deploy costs the feature, not the app. */
+  const PROXY_PATH = '/.netlify/functions/flow';
+  let proxy = { available: false, configured: {} };
+
+  // Which flow each setting is called by the proxy.
+  const PROXY_TARGETS = {
+    projectsUrl: 'projects',
+    fileUrl: 'file',
+    logReadUrl: 'logRead',
+    logWriteUrl: 'logWrite',
+    describeUrl: 'describe'
+  };
+
+  async function probeProxy(){
+    // Opened off the disk there is no server to ask, and asking costs a
+    // noticeable pause before the first screen.
+    if(location.protocol === 'file:') return proxy;
+    try {
+      // The app waits for this before it draws anything, so it must not be able
+      // to hang. A site with no function answers 404 at once; a sick one might
+      // not answer at all, and that must cost a moment, not the app.
+      const give_up = new AbortController();
+      const timer = setTimeout(() => give_up.abort(), 2500);
+      let res;
+      try { res = await fetch(PROXY_PATH, { method: 'GET', cache: 'no-store', signal: give_up.signal }); }
+      finally { clearTimeout(timer); }
+      if(!res.ok) return proxy;
+      const data = await res.json();
+      if(data && data.ok && data.configured && typeof data.configured === 'object'){
+        proxy = { available: true, configured: data.configured };
+      }
+    } catch(e){
+      // no function deployed, or no network: both mean "carry on as before"
+    }
+    return proxy;
+  }
+
+  // Does this flow go through the proxy? Only if the function is there AND that
+  // particular environment variable is actually set on the site.
+  function viaProxy(settingKey){
+    const target = PROXY_TARGETS[settingKey];
+    return !!(proxy.available && target && proxy.configured[target]);
+  }
+
+  function proxyUrl(settingKey){
+    return PROXY_PATH + '?target=' + encodeURIComponent(PROXY_TARGETS[settingKey]);
+  }
+
+  // Every flow call goes through here: the proxy when the site provides it,
+  // the pasted URL when it does not.
+  function endpointFor(settingKey){
+    if(viaProxy(settingKey)) return proxyUrl(settingKey);
+    return settings[settingKey];
+  }
+
+  // Configured at all, by either route.
+  function configured(settingKey){
+    return viaProxy(settingKey) || !!settings[settingKey];
+  }
+
+  function proxyState(){
+    return { available: proxy.available, configured: Object.assign({}, proxy.configured) };
   }
 
   async function postJson(url, payload){
@@ -332,12 +406,12 @@ const Flows = (() => {
   }
 
   async function getProjects(state){
-    if(!settings.projectsUrl){
+    if(!configured('projectsUrl')){
       const err = new Error('No projects flow configured — add its URL in Settings.');
       err.unconfigured = true;
       throw err;
     }
-    const data = await postJson(settings.projectsUrl, { state: state });
+    const data = await postJson(endpointFor('projectsUrl'), { state: state });
     const rows = extractRows(data).map(normaliseProject);
 
     // A row with no state belongs to whichever register it came from -- which
@@ -396,7 +470,7 @@ const Flows = (() => {
   // Returns 'confirmed' when the flow answered, or 'sent' when the browser
   // delivered it blind. Never claims more than it knows.
   async function fileVariation(payload){
-    const url = settings.fileUrl;
+    const url = endpointFor('fileUrl');
     if(!url){
       const err = new Error('No filing flow configured — add its URL in Settings.');
       err.unconfigured = true;
@@ -532,12 +606,12 @@ const Flows = (() => {
   // Both calls go to the one read flow. Without a reference it lists what the
   // project has; with one it is asking for that variation in full.
   async function readLog(query){
-    if(!settings.logReadUrl){
+    if(!configured('logReadUrl')){
       const err = new Error('No variation log configured — add its URL in Settings.');
       err.unconfigured = true;
       throw err;
     }
-    const data = await postJson(settings.logReadUrl, query);
+    const data = await postJson(endpointFor('logReadUrl'), query);
     const rows = extractRows(data).map(normaliseLogRow).filter(r => r.variationRef);
 
     // Narrow state, then project, in that order -- the same hierarchy the form
@@ -571,18 +645,18 @@ const Flows = (() => {
   }
 
   async function writeLog(payload){
-    if(!settings.logWriteUrl){
+    if(!configured('logWriteUrl')){
       const err = new Error('No variation log configured — add its URL in Settings.');
       err.unconfigured = true;
       throw err;
     }
     try {
-      const data = await postJson(settings.logWriteUrl, payload);
+      const data = await postJson(endpointFor('logWriteUrl'), payload);
       return { status: 'confirmed', response: data };
     } catch(err){
       if(!err.cors) throw err;
-      markBlind(settings.logWriteUrl);
-      await postBlind(settings.logWriteUrl, payload);
+      markBlind(endpointFor('logWriteUrl'));
+      await postBlind(endpointFor('logWriteUrl'), payload);
       return { status: 'sent' };
     }
   }
@@ -592,18 +666,18 @@ const Flows = (() => {
      --------------------------------------------------------------------- */
 
   async function describe(payload){
-    if(!settings.describeUrl){
+    if(!configured('describeUrl')){
       const err = new Error('No wording flow configured.');
       err.unconfigured = true;
       throw err;
     }
-    const data = await postJson(settings.describeUrl, payload);
+    const data = await postJson(endpointFor('describeUrl'), payload);
     const text = data && (data.description || data.text || data.result || data.output);
     if(!text) throw new Error('The wording flow replied without a description.');
     return String(text).trim();
   }
 
-  return { get, save, has, getProjects, fileVariation, describe,
+  return { get, save, has, probeProxy, proxyState, viaProxy, getProjects, fileVariation, describe,
            listLog, getLog, writeLog, sameRef, LOG_ALIASES,
            normaliseProject, extractRows, describeRow, describeRows, normKey,
            MAPPABLE, ALIASES, decodePath, splitSitePath };

@@ -96,8 +96,11 @@ as issued.
    and off until you set it. [docs/SETTINGS-PASSWORD.md](docs/SETTINGS-PASSWORD.md)
    says what it does and does not protect.
 
-Step 4 is per person per device, deliberately: a Power Automate trigger URL is
-a credential, and this one never goes near the repository.
+Step 5 is per person per device unless the site holds the URLs for you — see
+[docs/FLOW-URLS-ON-THE-SERVER.md](docs/FLOW-URLS-ON-THE-SERVER.md), which puts
+them in Netlify's environment variables behind a small function so no browser
+ever sees one. Either way a Power Automate trigger URL is a credential and never
+goes near the repository.
 
 ## It works with the flows missing
 
@@ -105,6 +108,7 @@ Every connection degrades on its own rather than taking the app with it.
 
 | Missing | What happens |
 |---|---|
+| The server-side function | Every flow falls back to the URL pasted in Settings, exactly as before |
 | Projects flow | The dropdown is replaced by a plain text field. Everything else is unchanged |
 | Filing flow | The PDF downloads as normal and says it wasn't filed |
 | The CORS header on the filing flow | The file is still delivered, blind; the app says to confirm it in SharePoint rather than naming the path |
@@ -134,6 +138,8 @@ assets/settings-password.js  salt and hash of the Settings password, or empty
 assets/settings-lock.js   checks it; the half that never changes
 assets/logo.js            default letterhead mark as a data URI
 assets/styles.css         styling, including the A4 page geometry
+netlify/functions/flow.js calls the flows server-side, so their URLs stay
+                          in Netlify's environment and never reach a browser
 vendor/                   html2pdf.js 0.10.1, bundled locally
 registers/                fill-in workbooks and CSV seeds for both registers
 docs/                     setup guides in Markdown; docs/word/ holds .docx copies

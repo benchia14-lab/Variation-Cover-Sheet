@@ -46,16 +46,23 @@ The app is plain static files — no build step, no functions, no server. There
 are two shapes it can be deployed in, and the choice matters later, because it
 decides what you replace when the password or the office register changes.
 
+Build both shapes at once:
+
+```
+python3 tools/make-deploy-folder.py
+```
+
 ### As one file — this is how this site is deployed
 
-Build the whole app into a single `index.html`:
+`build/single-file/` holds the whole app as a single `index.html`, plus
+`netlify/functions/flow.js` beside it. Netlify → your site → **Deploys**, and
+drag that **folder** onto the drop zone. For a new site: **Sites → Add new site
+→ Deploy manually**.
 
-```
-python3 build-single-file.py --out build/single-file/index.html
-```
-
-Then Netlify → your site → **Deploys**, and drag that one `index.html` onto the
-drop zone. For a new site: **Sites → Add new site → Deploy manually**.
+It is a folder rather than a bare file only because of the function, which is
+what lets the site hold the Power Automate URLs instead of every person pasting
+them in ([FLOW-URLS-ON-THE-SERVER.md](FLOW-URLS-ON-THE-SERVER.md)). Drop the
+`netlify` folder and you are back to a one-file deploy that works the old way.
 
 Everything is inside that file — stylesheet, scripts, the html2pdf library and
 the logos — so there is nothing else to upload and nothing that can be left
@@ -64,11 +71,7 @@ re-download the file and drag it again.
 
 ### As a folder
 
-```
-python3 tools/make-deploy-folder.py
-```
-
-That writes `build/variation-coversheet/`, holding the site and nothing else:
+`build/variation-coversheet/` holds the site and nothing else:
 the guides, the fill-in workbooks and the tools stay out of it, because
 everything you drag ends up at a public web address. Drag that folder onto the
 same drop zone.

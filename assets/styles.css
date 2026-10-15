@@ -521,6 +521,17 @@ input[type=file]{ display:none; }
   font-size:11.5px; color:#7A5B18; line-height:1.6; margin-bottom:22px;
 }
 .warn-note strong{ color:#5C440F; }
+.good-note{
+  border:1px solid #BFD3C4; background:#F2F6F3; border-radius:4px; padding:12px 14px;
+  font-size:11.5px; color:#355C41; line-height:1.6; margin-bottom:22px;
+}
+.good-note strong{ color:#24402C; }
+.field-served label::after{
+  content:'served by the site';
+  margin-left:8px; font-size:9px; letter-spacing:.06em; padding:1px 6px;
+  border-radius:8px; background:#DCE9E0; color:#355C41; text-transform:uppercase;
+}
+.field-served textarea{ background:#F2F6F3; border-color:#BFD3C4; }
 
 /* ---- Settings password gate -------------------------------------------- */
 .lock-gate{ display:flex; justify-content:center; padding:18px 0 40px; }
