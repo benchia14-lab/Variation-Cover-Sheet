@@ -457,10 +457,7 @@
   <div class="form-section">
     <div class="form-section-head"><span class="form-section-num">C</span><p class="form-section-title">Password on this screen</p></div>
     <p class="settings-help" id="pw-current">&nbsp;</p>
-    <p class="settings-help">Setting a password means replacing one small file,
-      <code>assets/settings-password.js</code>, in the folder you drag onto Netlify. This makes
-      that file for you — the password itself is never stored in it, only a hash, so it cannot be
-      read back out.</p>
+    <p class="settings-help" id="pw-how">&nbsp;</p>
 
     <div class="field-row">
       <div class="field">
@@ -479,7 +476,19 @@
     </div>
     <div class="status-line" id="pw-status"></div>
 
-    <div class="warn-note" id="pw-next" hidden>
+    <div class="warn-note" id="pw-next-page" hidden>
+      <strong>Now put it live.</strong>
+      <ol class="pw-steps">
+        <li>The download is a complete copy of this site with the password in it, named
+          <code>index.html</code>.</li>
+        <li>Netlify → your site → <strong>Deploys</strong> → drag that <code>index.html</code> onto
+          the drop zone.</li>
+      </ol>
+      Until that deploy finishes, the live site still has the old password — or none.
+      Keep the password somewhere safe: it cannot be recovered from the file.
+    </div>
+
+    <div class="warn-note" id="pw-next-folder" hidden>
       <strong>Now put it live.</strong>
       <ol class="pw-steps">
         <li>Find the folder you drag onto Netlify and open its <code>assets</code> folder.</li>

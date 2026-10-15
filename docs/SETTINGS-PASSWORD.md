@@ -43,14 +43,17 @@ Two things follow from that, and both are worth saying plainly:
 
 ## How it works, in one line
 
-The password lives as a hash in one small file, `assets/settings-password.js`.
-Changing the password means replacing that one file and deploying again. Nothing
-else in the folder changes.
+The password lives as a hash inside what you deploy, so changing it means
+deploying again. What exactly you replace depends on which shape the site is
+deployed in — and the app works that out for you, so in practice you click a
+button and drag what it gives you.
 
-```
-assets/settings-password.js    <- the only file that changes. 15 lines.
-assets/settings-lock.js        <- the checking code. never changes.
-```
+| Deployed as | What you replace |
+|---|---|
+| one `index.html` (what is live today) | that whole `index.html`, which the app hands you with the new password already in it |
+| a folder | `assets/settings-password.js` inside it — 15 lines |
+
+The checking code lives in `assets/settings-lock.js` and never changes.
 
 ---
 
@@ -60,16 +63,23 @@ No Node, no terminal, nothing installed. This is the way to do it on a
 drag-and-drop Netlify site.
 
 1. Open the site and go to **Settings** (the gear in the banner).
-2. Scroll to **C · Password on this screen**.
-3. Type the password twice and click **Create the file**. After a moment it
-   downloads `settings-password.js`. The password is not in that file — only a
-   hash of it.
-4. Find the folder you drag onto Netlify and open its **`assets`** folder.
-5. Move the downloaded `settings-password.js` in there, **replacing** the one
-   already in it.
-6. Netlify → your site → **Deploys** → drag the whole folder onto the drop zone.
+2. Scroll to **C · Password on this screen**. It tells you which shape this site
+   is deployed in, so you do not have to remember.
+3. Type the password twice and click **Create the file**.
 
-That is it. The next person to open the site gets the lock.
+**On a single-file site**, which is what is live today, it downloads a complete
+`index.html` — this site with the new password already in it. Netlify → your
+site → **Deploys** → drag that `index.html` onto the drop zone. Done.
+
+The copy it gives you is the page as the server sent it, with only the password
+block changed. Nothing you have typed into Settings goes into it, so a flow URL
+sitting in the box above cannot be published by accident.
+
+**On a folder site**, it downloads `settings-password.js` instead. Put it in the
+folder's `assets` folder, replacing the one there, and drag the folder.
+
+Either way the password itself is not in what you downloaded — only a hash of
+it. The next person to open the site gets the lock.
 
 **Until that deploy finishes, the live site still has the old password — or
 none.** Making the file changes nothing on its own.
@@ -108,16 +118,16 @@ and the push is the deploy.
 ## If you hand out the standalone file
 
 `Variation Cover Sheet.html` is a single self-contained copy for emailing to
-someone who needs it offline. It bakes in whatever password was set when it was
-built, and dropping a new `settings-password.js` next to it does nothing —
-there is no `assets` folder involved. To refresh it after a password change,
-someone with Python runs:
+someone who needs it offline. It is the same build as the live site, under a
+different name, and it bakes in whatever password was set when it was built.
+
+Opened straight off the disk it cannot rewrite itself — the button needs to read
+the page back over the network, and a file on disk is not served. So change the
+password on the website and send a fresh copy, or rebuild it:
 
 ```
 python3 build-single-file.py
 ```
-
-If that is a nuisance, the simpler answer is to point people at the website.
 
 ---
 
@@ -128,9 +138,20 @@ deploy it, by either method above. Nothing is lost by doing so: the flow URLs
 are in each person's browser, not behind the password.
 
 If you have locked yourself out of Settings and so cannot use the in-app button,
-open `assets/settings-password.js` in Notepad, blank out the two quoted values
-so they read `salt: ''` and `hash: ''`, save, and deploy. That unlocks Settings,
-and you can set a new password from inside it.
+you can blank the password by hand. Open the deployed file in Notepad —
+`assets/settings-password.js` on a folder site, or `index.html` on a single-file
+one — and find:
+
+```
+const SETTINGS_LOCK = {
+  salt: '…',
+  hash: '…',
+```
+
+Empty the two quoted values so they read `salt: ''` and `hash: ''`, save, and
+deploy. Settings is open again and you can set a new password from inside it.
+(`index.html` is one very long line in places; use Notepad's Find for
+`SETTINGS_LOCK` rather than scrolling.)
 
 ---
 

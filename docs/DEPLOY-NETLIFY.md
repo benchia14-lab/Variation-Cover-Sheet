@@ -42,33 +42,49 @@ old one once you are happy. It costs nothing and keeps the old register readable
 
 ## 1 · Deploy
 
-The app is plain static files — no build step, no functions, no server.
+The app is plain static files — no build step, no functions, no server. There
+are two shapes it can be deployed in, and the choice matters later, because it
+decides what you replace when the password or the office register changes.
 
-First build the folder that gets published:
+### As one file — this is how this site is deployed
+
+Build the whole app into a single `index.html`:
+
+```
+python3 build-single-file.py --out build/single-file/index.html
+```
+
+Then Netlify → your site → **Deploys**, and drag that one `index.html` onto the
+drop zone. For a new site: **Sites → Add new site → Deploy manually**.
+
+Everything is inside that file — stylesheet, scripts, the html2pdf library and
+the logos — so there is nothing else to upload and nothing that can be left
+behind half-copied. To change anything, including the password, you rebuild or
+re-download the file and drag it again.
+
+### As a folder
 
 ```
 python3 tools/make-deploy-folder.py
 ```
 
-That writes `build/variation-coversheet/`. It holds the site and nothing else:
+That writes `build/variation-coversheet/`, holding the site and nothing else:
 the guides, the fill-in workbooks and the tools stay out of it, because
-everything in the folder you drag ends up at a public web address.
+everything you drag ends up at a public web address. Drag that folder onto the
+same drop zone.
 
-### By drag and drop — this is how this site is deployed
+The folder's advantage is that a password change replaces one 15-line file
+instead of 1.4 MB. Its disadvantage is that there are nine files to keep
+together. Either works; the single file is what is live today.
 
-Netlify → **Sites → Add new site → Deploy manually**, and drag
-`build/variation-coversheet` — the **folder** — onto the drop zone. For a site
-that already exists: Netlify → your site → **Deploys**, and drag the folder
-there.
-
-Three things to watch:
+Two things to watch:
 
 - Drag the folder, not its contents, and not the repository root — Netlify
   publishes what you drop, and `netlify.toml` is not consulted for a manual
   deploy at all.
 - There is no Git history behind a manual deploy, so **every change means
-  dragging the folder again**. Nothing you change in the repository reaches the
-  site on its own.
+  dragging again**. Nothing you change in the repository reaches the site on
+  its own.
 - Keep one folder on your machine as the real one, and make changes there. Two
   half-updated copies is the way this goes wrong.
 
@@ -78,7 +94,11 @@ broken folder is caught before it is live rather than after.
 
 Changes that need a re-drag: the office register, the Settings password, and any
 change to the app itself. The flow URLs are not among them — those are typed
-into each person's browser and are not in the folder at all.
+into each person's browser and are not in the deployed files at all.
+
+The Settings password is the one change you can make without rebuilding
+anything: the app itself hands you the replacement to drag, in the shape your
+deployment needs. See [SETTINGS-PASSWORD.md](SETTINGS-PASSWORD.md).
 
 ### From Git
 

@@ -1931,27 +1931,91 @@ function showSettings(){
 const pwNew = document.getElementById('pw-new');
 const pwConfirm = document.getElementById('pw-confirm');
 const pwStatus = document.getElementById('pw-status');
-const pwNext = document.getElementById('pw-next');
+const pwNextPage = document.getElementById('pw-next-page');
+const pwNextFolder = document.getElementById('pw-next-folder');
+
+/* Two shapes get deployed and they need different things replaced.
+   The folder keeps its scripts in assets/, so one small file changes. The
+   single bundled file has everything inside it, and what gets dragged onto
+   Netlify is that one file — so the whole page has to be reissued. */
+function isBundledPage(){
+  return !document.querySelector('script[src]');
+}
 
 function describePasswordState(){
   document.getElementById('pw-current').textContent = SettingsLock.isLocked()
     ? 'A password is set on this deployment. Anyone opening Settings has to type it.'
     : 'No password is set — Settings is open to anyone who finds the site.';
+  document.getElementById('pw-how').textContent = isBundledPage()
+    ? 'This site is deployed as one file. Setting a password means replacing that file, so what '
+      + 'downloads below is a complete copy of the site with the new password already in it. The '
+      + 'password itself is never in it — only a hash, which cannot be read back out.'
+    : 'This site is deployed as a folder. Setting a password means replacing one small file in it, '
+      + 'assets/settings-password.js. The password itself is never in that file — only a hash, '
+      + 'which cannot be read back out.';
+}
+
+function download(text, name, type){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: type }));
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// Only the real declaration, which settings-password.js holds and nothing else
+// writes. SettingsLock.fileSource builds the same text out of quoted fragments,
+// so the copy of these words living inside it cannot match this.
+const LOCK_DECLARATION =
+  /const SETTINGS_LOCK = \{\s*salt: '[0-9a-f]*',\s*hash: '[0-9a-f]*',\s*iterations: \d+,?\s*\};/g;
+
+/* Reissue the whole page with a different password in it. The page is fetched
+   rather than read out of the DOM: the DOM has been changed by everything that
+   has happened since load, and serialising it would bake in whatever is on
+   screen -- including, on this screen, the flow URLs. */
+async function offerReplacementPage(salt, hash, iterations){
+  let html;
+  try{
+    const res = await fetch(location.href, { cache: 'no-store' });
+    if(!res.ok) throw new Error('the server answered ' + res.status);
+    html = await res.text();
+  }catch(e){
+    throw new Error('Could not read this page back to copy it (' + e.message + '). '
+      + 'Opening the file straight off the disk stops that; try it on the website instead.');
+  }
+  const found = html.match(LOCK_DECLARATION);
+  if(!found || found.length !== 1){
+    throw new Error('This page does not look like one this button can rewrite — found '
+      + (found ? found.length : 0) + ' password blocks in it, expected exactly one.');
+  }
+  const replaced = html.replace(LOCK_DECLARATION, SettingsLock.fileSource(salt, hash, iterations)
+    .replace(/^[\s\S]*?(const SETTINGS_LOCK)/, '$1').trim());
+  download(replaced, 'index.html', 'text/html');
 }
 
 function offerLockFile(salt, hash, iterations){
-  const blob = new Blob([SettingsLock.fileSource(salt, hash, iterations)], { type: 'text/javascript' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'settings-password.js';
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  download(SettingsLock.fileSource(salt, hash, iterations), 'settings-password.js', 'text/javascript');
+}
+
+// Whichever this deployment needs. Resolves to the note to show next.
+async function offerPasswordChange(salt, hash, iterations){
+  if(isBundledPage()){
+    await offerReplacementPage(salt, hash, iterations);
+    return pwNextPage;
+  }
+  offerLockFile(salt, hash, iterations);
+  return pwNextFolder;
+}
+
+function hidePasswordNotes(){
+  pwNextPage.hidden = true;
+  pwNextFolder.hidden = true;
 }
 
 document.getElementById('pw-make').addEventListener('click', () => {
   const entered = pwNew.value;
   const again = pwConfirm.value;
-  pwNext.hidden = true;
+  hidePasswordNotes();
   if(entered.length < 8){
     pwStatus.textContent = 'Use at least 8 characters. The hash ships inside the page, so a short password can be guessed at offline — a few words you will remember beats a mangled one you will not.';
     pwStatus.className = 'status-line err';
@@ -1965,24 +2029,40 @@ document.getElementById('pw-make').addEventListener('click', () => {
   pwStatus.textContent = 'Working…';
   pwStatus.className = 'status-line';
   // Same half-second of hashing the lock screen does, so give it a frame first.
-  requestAnimationFrame(() => setTimeout(() => {
+  requestAnimationFrame(() => setTimeout(async () => {
     const salt = SettingsLock.makeSalt();
     const iterations = SettingsLock.DEFAULT_ITERATIONS;
-    offerLockFile(salt, SettingsLock.derive(entered, salt, iterations), iterations);
+    let note;
+    try{
+      note = await offerPasswordChange(salt, SettingsLock.derive(entered, salt, iterations), iterations);
+    }catch(e){
+      pwStatus.textContent = e.message;
+      pwStatus.className = 'status-line err';
+      return;
+    }
     pwNew.value = '';
     pwConfirm.value = '';
-    pwStatus.textContent = 'settings-password.js downloaded. It is not in use yet.';
+    pwStatus.textContent = (note === pwNextPage ? 'index.html' : 'settings-password.js')
+      + ' downloaded. It is not in use yet.';
     pwStatus.className = 'status-line ok';
-    pwNext.hidden = false;
+    note.hidden = false;
   }, 0));
 });
 
-document.getElementById('pw-remove').addEventListener('click', () => {
-  if(!confirm('Make a settings-password.js with no password in it? Once you deploy that file, anyone who finds the site can open Settings.')) return;
-  offerLockFile('', '', SettingsLock.DEFAULT_ITERATIONS);
-  pwStatus.textContent = 'Downloaded a file with no password in it. It is not in use until you deploy it.';
+document.getElementById('pw-remove').addEventListener('click', async () => {
+  if(!confirm('Take the password off? Once you deploy what this downloads, anyone who finds the site can open Settings.')) return;
+  hidePasswordNotes();
+  let note;
+  try{
+    note = await offerPasswordChange('', '', SettingsLock.DEFAULT_ITERATIONS);
+  }catch(e){
+    pwStatus.textContent = e.message;
+    pwStatus.className = 'status-line err';
+    return;
+  }
+  pwStatus.textContent = 'Downloaded with no password in it. It is not in use until you deploy it.';
   pwStatus.className = 'status-line ok';
-  pwNext.hidden = false;
+  note.hidden = false;
 });
 
 document.getElementById('settings-gate-form').addEventListener('submit', e => {

@@ -4,6 +4,11 @@
     python3 build-single-file.py                       # -> Variation Cover Sheet.html
     python3 build-single-file.py --out somewhere.html
 
+To deploy the app AS a single file — which is how this site is published — build
+it straight to the name Netlify serves, and drag that one file:
+
+    python3 build-single-file.py --out build/single-file/index.html
+
 Everything is inlined — stylesheet, the html2pdf bundle, the logo and every
 script — so the result is a single file that runs with no server, no install
 and no network. Double-click it and the app opens.
@@ -70,6 +75,7 @@ def main():
 
     html = build()
     out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, encoding='utf-8')
     print('%s  (%.1f MB)' % (out.name, len(html.encode('utf-8')) / 1048576))
 

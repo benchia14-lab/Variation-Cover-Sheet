@@ -1,7 +1,11 @@
 VARIATION COVER SHEET — THE FOLDER YOU DEPLOY
 =============================================
 
-This folder is the website. Drag this whole folder onto Netlify:
+This folder is the website, in its multi-file shape. (The site can also be
+deployed as a single index.html, which is how it is published today. Either
+works — see docs/DEPLOY-NETLIFY.md.)
+
+Drag this whole folder onto Netlify:
 
     Netlify -> your site -> Deploys -> drag the folder onto the drop zone
 
