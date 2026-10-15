@@ -1,0 +1,36 @@
+# Netlify settings for the Variation Cover Sheet app.
+#
+# THIS FILE IS NOT USED TODAY. The site is deployed by hand — Netlify is not
+# linked to this repository — and netlify.toml is not consulted for a manual
+# deploy. It is here so that linking the repository later does the right thing
+# on its own. See docs/DEPLOY-NETLIFY.md.
+#
+# Why it does not just publish the repository root: everything published is at a
+# public web address, and the root also holds the setup guides, the fill-in
+# workbooks and the tools. None of that belongs on the open web. So the same
+# script that builds the folder for a manual deploy builds what Netlify serves,
+# and the two cannot drift apart.
+
+[build]
+  publish = "build/variation-coversheet"
+  command = "python3 tools/make-deploy-folder.py"
+
+# No redirect rules are needed. The app routes on the URL fragment
+# (#/state/VIC), which browsers never send to the server, so every request is
+# for a file that really exists. An SPA catch-all would only mask typos.
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Always revalidate the entry point, so a deploy is live for everyone on their
+# next reload rather than whenever their cache happens to expire. The asset
+# filenames are not content-hashed, so they are left on Netlify's ETag
+# revalidation for the same reason.
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"

@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Variation Cover Sheet Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<!-- ============ 1 · STATE PICKER ============ -->
+<div class="picker" id="view-picker" hidden>
+  <header class="site-banner">
+    <div class="site-banner-inner">
+      <div class="banner-logo" id="banner-logo"></div>
+      <div class="banner-title">Variation Cover Sheet</div>
+      <button class="banner-btn" id="picker-settings-btn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/>
+        </svg>
+        Settings
+      </button>
+    </div>
+  </header>
+
+  <main class="picker-main">
+    <div class="picker-head">
+      <h1>Which office is this variation from?</h1>
+      <p class="picker-sub">Your letterhead and the list of projects both follow from the answer.</p>
+    </div>
+
+    <div class="state-grid" id="state-grid"></div>
+
+    <div class="status-line" id="picker-status"></div>
+  </main>
+</div>
+
+<!-- ============ 2 · EDITOR ============ -->
+<div class="app" id="view-editor" hidden>
+
+  <!-- ============ FORM SIDE ============ -->
+  <div class="form-side">
+    <button class="back-link" id="back-to-picker" type="button">&larr; Change office</button>
+    <div class="brand"><span class="brand-mark"></span><h1>Variation Cover Sheet</h1></div>
+    <div class="subhead">Fill in the fields — the letter on the right updates as you go</div>
+
+    <div class="prefilled-bar" id="prefilled-bar" hidden>
+      <div class="prefilled-summary" id="prefilled-summary"></div>
+      <button class="refresh-btn" id="prefilled-toggle" type="button">Edit these</button>
+    </div>
+
+    <!-- ---- 1 · LETTERHEAD (filled from the state register) ---- -->
+    <div class="form-section">
+      <div class="form-section-head"><span class="form-section-num">1</span><p class="form-section-title">Letterhead</p></div>
+      <div class="source-line">
+        <span class="state-chip">
+          <span>Issuing from <strong id="chip-state">—</strong></span>
+          <button class="link-btn" id="chip-change" type="button">change</button>
+        </span>
+        <button class="refresh-btn" id="letterhead-reset" type="button">Reset to register</button>
+      </div>
+      <div class="prefilled-group" id="pf-letterhead">
+      <div class="field">
+        <label>Company logo</label>
+        <div class="logo-upload">
+          <div class="logo-preview" id="logo-preview"></div>
+          <div class="logo-upload-text"><div class="t1" id="logo-caption">Company logo</div><div class="t2">PNG or SVG works best</div></div>
+          <label class="file-btn" for="logo-file">Upload</label>
+          <input type="file" id="logo-file" accept="image/*">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="co-name">Company name</label><input type="text" id="co-name"></div>
+        <div class="field"><label for="co-abn">ABN</label><input type="text" id="co-abn" class="mono-input"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="co-acn">ACN <span style="text-transform:none;font-weight:400;">(optional)</span></label><input type="text" id="co-acn" class="mono-input"></div>
+        <div class="field ac-wrap"><label for="co-phone">Phone <span class="req-mark">*</span></label><input type="text" id="co-phone" class="mono-input" autocomplete="off"><div class="ac-list" id="ac-co-phone"></div></div>
+      </div>
+      <div class="field-row">
+        <div class="field ac-wrap"><label for="co-address">Address <span class="req-mark">*</span></label><textarea id="co-address" autocomplete="off"></textarea><div class="ac-list" id="ac-co-address"></div></div>
+        <div class="field ac-wrap"><label for="co-email">Email <span class="req-mark">*</span></label><input type="text" id="co-email" class="mono-input" autocomplete="off"><div class="ac-list" id="ac-co-email"></div></div>
+      </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- ---- 2 · PROJECT (pulled from the SharePoint register) ---- -->
+    <div class="form-section">
+      <div class="form-section-head"><span class="form-section-num">2</span><p class="form-section-title">Project &amp; recipient</p></div>
+
+      <div class="field">
+        <label for="project-select">Project <span class="req-mark">*</span></label>
+        <select id="project-select">
+          <option value="">Loading projects…</option>
+        </select>
+      </div>
+      <div class="source-line">
+        <span id="project-source">—</span>
+        <button class="refresh-btn" id="project-refresh" type="button">Refresh</button>
+      </div>
+      <div class="status-line" id="project-status"></div>
+
+      <!-- shown only when the register has no row to offer, or the pull failed -->
+      <div class="field ac-wrap" id="project-manual-wrap" hidden>
+        <label for="project">Project name <span class="req-mark">*</span></label>
+        <input type="text" id="project" placeholder="e.g. Warrnambool Hospital Redevelopment 25-135" autocomplete="off">
+        <div class="ac-list" id="ac-project"></div>
+      </div>
+
+      <div class="prefilled-group" id="pf-recipient">
+      <div class="field pulled-field">
+        <span class="pulled-tag" title="Filled from the SharePoint project register" id="tag-recipient-name" hidden>auto</span>
+        <label for="recipient-name">Head contractor / company <span class="req-mark">*</span></label>
+        <input type="text" id="recipient-name" placeholder="e.g. Kapitol Group" autocomplete="off">
+      </div>
+      <div class="field pulled-field ac-wrap">
+        <span class="pulled-tag" title="Filled from the SharePoint project register" id="tag-recipient-address" hidden>auto</span>
+        <label for="recipient-address">Recipient address <span class="req-mark">*</span></label>
+        <textarea id="recipient-address" placeholder="e.g. Level 3, 4 Broadcast Way,&#10;Artarmon NSW 2064" autocomplete="off"></textarea>
+        <div class="ac-list" id="ac-recipient-address"></div>
+      </div>
+      <div class="field pulled-field ac-wrap">
+        <span class="pulled-tag" title="Filled from the SharePoint project register" id="tag-attention" hidden>auto</span>
+        <label for="attention">Attention <span class="req-mark">*</span></label>
+        <input type="text" id="attention" placeholder="e.g. Glen O'Connor" autocomplete="off">
+        <div class="ac-list" id="ac-attention"></div>
+      </div>
+      <div class="ac-hint">Anything pulled from the register can still be typed over for this one letter</div>
+      </div>
+
+      <div class="filing-note" id="filing-note"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- ---- 3 · REFERENCE DETAILS (typed by hand) ---- -->
+    <div class="form-section">
+      <div class="form-section-head"><span class="form-section-num">3</span><p class="form-section-title">Reference details</p></div>
+
+      <div class="reopened" id="reopened-bar" hidden>
+        <span class="reopened-text"></span>
+        <button class="link-btn" id="reopened-new" type="button">Start a new variation</button>
+      </div>
+
+      <div class="field">
+        <label>What are you issuing?</label>
+        <div class="mode-toggle" id="mode-toggle">
+          <button type="button" class="mode-btn on" data-mode="new">A new variation</button>
+          <button type="button" class="mode-btn" data-mode="revise">A revision of a previous one</button>
+        </div>
+        <div class="ac-hint" id="mode-hint"></div>
+      </div>
+
+      <div class="field" id="log-history" hidden>
+        <label for="log-select">Previous variations on this project</label>
+        <div class="log-row">
+          <select id="log-select"><option value="">Select one to reopen…</option></select>
+          <button class="refresh-btn" id="log-load" type="button" disabled>Open</button>
+        </div>
+        <div class="ac-hint" id="log-count"></div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="varref">Variation reference</label>
+          <div class="log-row">
+            <input type="text" id="varref" class="mono-input" placeholder="e.g. VAR-042" autocomplete="off" readonly>
+            <button class="refresh-btn" id="varref-edit" type="button" title="Type a reference yourself">Edit</button>
+          </div>
+        </div>
+        <div class="field" id="varrev-field" hidden>
+          <label for="varrev">Revision</label>
+          <input type="text" id="varrev" class="mono-input" placeholder="1 or A" autocomplete="off" maxlength="6">
+        </div>
+      </div>
+      <div class="effective-ref" id="effective-ref" hidden></div>
+      <div class="status-line" id="varref-status"></div>
+      <div class="field"><label for="variationdesc">Variation description <span class="ac-hint" style="display:inline;margin:0;">(used in the Re: line and the PDF filename)</span></label><input type="text" id="variationdesc" placeholder="e.g. RPZ Valve Relocation"></div>
+      <div class="field-row">
+        <div class="field"><label for="siref">Site instruction ref</label><input type="text" id="siref" class="mono-input" placeholder="e.g. SI-118"></div>
+        <div class="field"><label for="clauseref">Clause ref (justification)</label><input type="text" id="clauseref" class="mono-input" placeholder="e.g. Cl 12.3 / GC21 Cl 36.1"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="aconexref">Aconex reference</label><input type="text" id="aconexref" class="mono-input" placeholder="e.g. RCC-1234"></div>
+        <div class="field"><label for="contractordirection">Contractors direction</label><input type="text" id="contractordirection" class="mono-input" placeholder="e.g. CD-027"></div>
+      </div>
+      <div class="field"><label for="emailref">Email reference</label><input type="text" id="emailref" placeholder="e.g. Email from Glen O'Connor, 14 Aug 2026"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- ---- 4 · DRAWINGS ---- -->
+    <div class="form-section">
+      <div class="form-section-head"><span class="form-section-num">4</span><p class="form-section-title">Drawing reference</p></div>
+      <div class="dwg-editor">
+        <div class="dwg-row dwg-row-head">
+          <div class="dwg-col">Drawing No.</div>
+          <div class="dwg-col">Drawing Name</div>
+          <div class="dwg-col dwg-col-rev">Old Rev</div>
+          <div class="dwg-col dwg-col-rev">New Rev</div>
+          <div class="dwg-col-remove"></div>
+        </div>
+        <div id="dwg-rows"></div>
+      </div>
+      <button class="add-row-btn" id="dwg-add-btn" type="button">+ Add drawing</button>
+      <div class="ac-hint">Press Enter in a field to jump to (or add) the next row</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- ---- 5 · DESCRIPTION ---- -->
+    <div class="form-section">
+      <div class="form-section-head"><span class="form-section-num">5</span><p class="form-section-title">Description of works</p></div>
+      <div class="field"><label for="desc-raw">Rough notes</label><textarea id="desc-raw" placeholder="Jot down what happened in your own words — e.g. 'RPZ moved cause the wall got thicker, needed a bigger valve too'"></textarea></div>
+      <div class="ai-row">
+        <label for="desc-final" style="margin-bottom:0;">Description of works (final)</label>
+        <button class="ai-btn" id="ai-btn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></svg>
+          Write professionally
+        </button>
+      </div>
+      <textarea id="desc-final" placeholder="Your professional description will appear here — or type it directly yourself"></textarea>
+      <div class="status-line" id="ai-status"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- ---- 6 · LETTER TEXT & SIGN-OFF ---- -->
+    <div class="form-section">
+      <div class="form-section-head"><span class="form-section-num">6</span><p class="form-section-title">Letter text &amp; sign-off</p></div>
+      <div class="field"><label for="intro-text">Intro line</label><textarea id="intro-text"></textarea></div>
+      <div class="field"><label for="closing-text">Closing line</label><textarea id="closing-text"></textarea></div>
+      <div class="field-row">
+      <div class="prefilled-group" id="pf-signoff">
+        <div class="field pulled-field">
+          <span class="pulled-tag" title="Filled from the SharePoint project register" id="tag-sig-name" hidden>auto</span>
+          <label for="sig-name">Issued by (name)</label><input type="text" id="sig-name" placeholder="e.g. Ben Smith">
+        </div>
+        <div class="field pulled-field">
+          <span class="pulled-tag" title="Filled from the SharePoint project register" id="tag-sig-title" hidden>auto</span>
+          <label for="sig-title">Position</label><input type="text" id="sig-title" placeholder="e.g. Project Engineer">
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="log-actions">
+      <button class="refresh-btn" id="log-save" type="button">Save to log</button>
+      <span class="status-line" id="log-status"></span>
+    </div>
+    <button class="print-btn" id="print-btn" type="button">Download PDF</button>
+    <div class="status-line err" id="print-status" style="text-align:center;"></div>
+    <div class="save-state" id="file-state"></div>
+  </div>
+
+  <!-- ============ PREVIEW SIDE ============ -->
+  <div class="preview-side">
+    <div class="sheet">
+
+      <div class="letterhead">
+        <div class="letterhead-logo" id="letterhead-logo"></div>
+        <div class="letterhead-co">
+          <div class="name" id="p-co-name">Company name</div>
+          <div class="co-detail-table">
+            <div class="co-detail-row" id="p-co-abn-row" style="display:none;"><span class="k">ABN:</span><span class="v" id="p-co-abn"></span></div>
+            <div class="co-detail-row" id="p-co-acn-row" style="display:none;"><span class="k">ACN:</span><span class="v" id="p-co-acn"></span></div>
+            <div class="co-detail-row" id="p-co-address-row" style="display:none;"><span class="k">Address:</span><span class="v" id="p-co-address"></span></div>
+            <div class="co-detail-row" id="p-co-phone-row" style="display:none;"><span class="k">Phone:</span><span class="v" id="p-co-phone"></span></div>
+            <div class="co-detail-row email-row" id="p-co-email-row" style="display:none;"><span class="k">Email:</span><span class="v" id="p-co-email"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sheet-inner">
+        <div class="letter-body">
+
+          <div class="letter-date" id="p-date">—</div>
+
+          <div class="recipient-block" id="p-recipient" style="display:none;"></div>
+
+          <div class="attn-row" id="p-attn-row" style="display:none;"><span class="k">Attention:</span><span class="v" id="p-attn"></span></div>
+          <div class="re-row" id="p-re-row" style="display:none;"><span class="k">Re:</span><span class="v" id="p-re"></span></div>
+
+          <p class="intro-text" id="p-intro" style="display:none;"></p>
+
+          <table class="ref-table">
+            <tr id="tr-project" style="display:none;"><td class="k">Project</td><td class="v" id="p-project"></td></tr>
+            <tr id="tr-siref" style="display:none;"><td class="k">Site Instruction Ref</td><td class="v" id="p-siref"></td></tr>
+            <tr id="tr-clauseref" style="display:none;"><td class="k">Clause Reference<br>(Justification)</td><td class="v" id="p-clauseref"></td></tr>
+            <tr id="tr-aconexref" style="display:none;"><td class="k">Aconex Reference</td><td class="v" id="p-aconexref"></td></tr>
+            <tr id="tr-contractordirection" style="display:none;"><td class="k">Contractors Direction</td><td class="v" id="p-contractordirection"></td></tr>
+            <tr id="tr-emailref" style="display:none;"><td class="k">Email Reference</td><td class="v" id="p-emailref"></td></tr>
+            <tr id="tr-desc" style="display:none;"><td class="k">Description of Works</td><td class="v" id="p-desc"></td></tr>
+          </table>
+
+          <div class="dwg-panel" id="dwg-panel" style="display:none;">
+            <p class="dwg-panel-title">Drawing Reference</p>
+            <table class="dwg-preview-table">
+              <thead><tr><th>Drawing No.</th><th>Drawing Name</th><th>Old Rev</th><th>New Rev</th></tr></thead>
+              <tbody id="dwg-preview-body"></tbody>
+            </table>
+          </div>
+
+          <p class="closing-text" id="p-closing" style="display:none;"></p>
+
+          <div class="sig-line-rule"></div>
+          <div class="sig-block">
+            <div class="name" id="p-sig-name" style="display:none;"></div>
+            <div class="line" id="p-sig-title" style="display:none;"></div>
+            <div class="line" id="p-sig-co" style="display:none;"></div>
+            <div class="line" id="p-sig-phone" style="display:none;"></div>
+            <div class="line" id="p-sig-email" style="display:none;"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="sheet-footer">
+        <span id="p-footer-co">Company name</span>
+        <span id="p-footer-ref" style="display:none;"></span>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ============ 3 · SETTINGS ============ -->
+<div class="settings" id="view-settings" hidden>
+  <button class="back-link" id="settings-back" type="button">&larr; Back</button>
+  <div class="brand"><span class="brand-mark"></span><h1>Settings</h1></div>
+  <div class="home-sub">Power Automate endpoints and the per-office letterhead register</div>
+
+  <div class="lock-gate" id="settings-gate" hidden>
+    <div class="lock-card">
+      <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+        <rect x="4" y="10.5" width="16" height="11" rx="2"/>
+        <path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>
+        <circle cx="12" cy="16" r="1.4"/>
+      </svg>
+      <p class="lock-title">Settings is password protected</p>
+      <p class="lock-sub">These are the flow URLs and the office register. Changing them affects
+        everyone using the app, so only the administrator gets in.</p>
+      <form class="lock-form" id="settings-gate-form" autocomplete="off">
+        <label class="lock-label" for="settings-password">Password</label>
+        <input type="password" id="settings-password" autocomplete="current-password" spellcheck="false">
+        <button class="print-btn" id="settings-unlock" type="submit">Unlock</button>
+      </form>
+      <div class="status-line" id="settings-gate-status"></div>
+      <p class="lock-foot">Forgotten it? It cannot be recovered — it was never stored. It is reset by
+        replacing <code>assets/settings-password.js</code> and deploying again.</p>
+    </div>
+  </div>
+
+  <div id="settings-body">
+
+  <div class="warn-note">
+    <strong>Treat these URLs as passwords.</strong> A Power Automate trigger URL ends in a
+    <code>sig=</code> value, and anyone holding the whole URL can run the flow. They are saved in
+    this browser only — never committed to the repository — so each person pastes them once on
+    each device they use.
+  </div>
+
+  <div class="form-section">
+    <div class="form-section-head"><span class="form-section-num">A</span><p class="form-section-title">Power Automate flows</p></div>
+
+    <div class="field">
+      <label for="flow-projects">Get projects — HTTP POST URL</label>
+      <textarea id="flow-projects" placeholder="https://prod-00.australiasoutheast.logic.azure.com:443/workflows/…&amp;sig=…"></textarea>
+    </div>
+    <p class="settings-help">Receives <code>{"state":"VIC"}</code> and answers with the project register
+      rows for that state. Without it the project dropdown stays empty and everything is typed by hand.</p>
+
+    <div class="field">
+      <label for="flow-file">File the PDF — HTTP POST URL</label>
+      <textarea id="flow-file" placeholder="https://prod-00.australiasoutheast.logic.azure.com:443/workflows/…&amp;sig=…"></textarea>
+    </div>
+    <p class="settings-help">Receives the finished PDF and the project's folder path when someone clicks
+      Download PDF. Without it the PDF still downloads, it just is not filed.</p>
+
+    <div class="field">
+      <label for="flow-log-read">Variation log — read URL</label>
+      <textarea id="flow-log-read" placeholder="Leave blank to work without a log"></textarea>
+    </div>
+    <p class="settings-help">Receives <code>{"state","projectId","variationRef"}</code>. Without a reference it
+      answers with that project's logged variations; with one, that variation in full. Without this flow the
+      app still works, it just cannot reopen anything.</p>
+
+    <div class="field">
+      <label for="flow-log-write">Variation log — write URL</label>
+      <textarea id="flow-log-write" placeholder="Leave blank to work without a log"></textarea>
+    </div>
+    <p class="settings-help">Receives the whole variation and creates or updates its row, matched on the
+      project and the variation reference together.</p>
+
+    <div class="field">
+      <label for="flow-describe">Write professionally — HTTP POST URL <span style="text-transform:none;font-weight:400;">(optional)</span></label>
+      <textarea id="flow-describe" placeholder="Leave blank to tidy the notes locally instead"></textarea>
+    </div>
+    <p class="settings-help">Optional. Left blank, the "Write professionally" button falls back to a local
+      tidy-up — real sentences and punctuation, but no rewriting.</p>
+
+    <div class="settings-actions">
+      <button class="print-btn" id="flows-save" type="button">Save endpoints</button>
+      <button class="refresh-btn" id="flows-test" type="button">Test projects flow</button>
+    </div>
+    <div class="status-line" id="flows-status"></div>
+
+    <div id="rawrow-wrap" hidden>
+      <p class="form-section-title" style="margin:22px 0 4px;">What the flow returned</p>
+      <p class="settings-help">The first project exactly as Power Automate sent it. If a field you
+        expect is not listed here, or is listed but empty, the flow is not sending it and no setting
+        in this app can change that — the fix is the flow's <strong>Select</strong> step.</p>
+      <table class="state-editor-table"><tbody id="rawrow-body"></tbody></table>
+    </div>
+
+    <div id="colmap-wrap" hidden>
+      <p class="form-section-title" style="margin:22px 0 4px;">Match the register columns</p>
+      <p class="settings-help">These are the columns your flow returned. The app matches them by
+        name where it can; set any it could not work out. A list built with SharePoint's
+        <strong>From Excel</strong> import often names its columns <code>field_1</code>,
+        <code>field_2</code> and so on, which nothing can interpret without being told.</p>
+      <table class="state-editor-table" id="colmap-table"><tbody id="colmap-body"></tbody></table>
+      <div class="settings-actions">
+        <button class="print-btn" id="colmap-save" type="button">Save mapping</button>
+        <button class="refresh-btn" id="colmap-clear" type="button">Clear and match by name</button>
+      </div>
+      <div class="status-line" id="colmap-status"></div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="form-section">
+    <div class="form-section-head"><span class="form-section-num">B</span><p class="form-section-title">Office register — section 1</p></div>
+    <p class="settings-help">One row per office. Edits are saved to this browser so you can correct a phone
+      number straight away; <strong>Export</strong> gives you a replacement
+      <code>assets/state-register.js</code> to commit so everyone gets them. The code is what gets
+      matched against the <code>State</code> column in SharePoint, so it must be spelled the same in both.</p>
+    <table class="state-editor-table" id="state-editor"><tbody id="state-editor-body"></tbody></table>
+    <div class="settings-actions">
+      <button class="print-btn" id="states-save" type="button">Save register</button>
+      <button class="refresh-btn" id="states-export" type="button">Export as file</button>
+      <button class="refresh-btn" id="states-reset" type="button">Reset to shipped values</button>
+    </div>
+    <div class="status-line" id="states-status"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="form-section">
+    <div class="form-section-head"><span class="form-section-num">C</span><p class="form-section-title">Password on this screen</p></div>
+    <p class="settings-help" id="pw-current">&nbsp;</p>
+    <p class="settings-help">Setting a password means replacing one small file,
+      <code>assets/settings-password.js</code>, in the folder you drag onto Netlify. This makes
+      that file for you — the password itself is never stored in it, only a hash, so it cannot be
+      read back out.</p>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="pw-new">New password</label>
+        <input type="password" id="pw-new" autocomplete="new-password" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="pw-confirm">Type it again</label>
+        <input type="password" id="pw-confirm" autocomplete="new-password" spellcheck="false">
+      </div>
+    </div>
+
+    <div class="settings-actions">
+      <button class="print-btn" id="pw-make" type="button">Create the file</button>
+      <button class="refresh-btn" id="pw-remove" type="button">Make a file with no password</button>
+    </div>
+    <div class="status-line" id="pw-status"></div>
+
+    <div class="warn-note" id="pw-next" hidden>
+      <strong>Now put it live.</strong>
+      <ol class="pw-steps">
+        <li>Find the folder you drag onto Netlify and open its <code>assets</code> folder.</li>
+        <li>Move the downloaded <code>settings-password.js</code> in there, replacing the one already there.</li>
+        <li>Netlify → your site → <strong>Deploys</strong> → drag the whole folder onto the drop zone.</li>
+      </ol>
+      Until that deploy finishes, the live site still has the old password — or none.
+      Keep the password somewhere safe: it cannot be recovered from the file.
+    </div>
+  </div>
+
+  </div><!-- /#settings-body -->
+</div>
+
+<script src="vendor/html2pdf.bundle.min.js"></script>
+<script src="assets/settings-password.js"></script>
+<script src="assets/settings-lock.js"></script>
+<script src="assets/logo.js"></script>
+<script src="assets/state-register.js"></script>
+<script src="assets/flows.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>

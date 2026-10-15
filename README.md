@@ -1,0 +1,160 @@
+# Variation Cover Sheet Generator
+
+Produces a variation cover sheet as a real A4 PDF, filling most of it from two
+registers so the person issuing it types only what is actually new.
+
+```
+open index.html            # works straight off the disk
+python3 -m http.server     # or serve the folder, then http://localhost:8000
+```
+
+**To hand it to someone else**, bundle it into one file first:
+
+```
+python3 build-single-file.py      # -> Variation Cover Sheet.html
+```
+
+Stylesheet, scripts, the html2pdf library and the logo all inline, so the result
+is a single file that runs with no server, no install and no network. Email it,
+drop it on a shared drive, double-click it. Flow URLs are per browser *and* per
+file location, so everyone pastes theirs once — and a rebuilt copy saved over
+the old one keeps them.
+
+## How a variation gets issued
+
+**1 · Pick an office.** Eight tiles, one per state and territory. The choice
+decides two things: which letterhead prints, and which slice of the project
+register gets pulled. Both follow immediately.
+
+**2 · Pick a project.** The dropdown is the SharePoint project register, read
+live through Power Automate: one register filtered to the state you chose, or a
+register per state that the flow picks between. Either way you only ever see
+your own state's projects.
+
+Picking one fills in six fields at once — project, head contractor, recipient
+address, attention, issued by, position. They then **fold away into a one-line
+summary**, because they are the same on every variation for that job and only
+stand between you and the fields you came to fill in. **Edit these** opens them
+when a letter needs something different. The letter on the right always shows
+them in full.
+
+**3 · Type the rest.** Variation reference, site instruction, clause, Aconex
+reference, drawings, description of works. These are per-variation and nothing
+can pre-fill them.
+
+**4 · Download PDF.** The file saves to your machine *and* goes to the filing
+flow, which writes it into that project's SharePoint folder. The line under the
+button says which of those happened.
+
+The letter on the right is the document, not a mock-up of it — the same markup
+is what gets captured into the PDF.
+
+## What comes from where
+
+Everything narrows in one order — **state, then project, then variation
+number** — which is the order the form asks for them and the order the log is
+filtered in. Project ids are only unique within the register they came from, so
+a register per state would otherwise pool two jobs' variation numbers under the
+same id.
+
+Variation numbers are allocated, not typed: the app reads the project's log and
+takes the next one in sequence, copying whatever format is already in use. A
+revision of an existing variation (`VAR-001.1`, `VAR-001A`) is its own entry and
+does not consume a number.
+
+Every variation is also logged. Entering a reference and saving writes a row to
+a SharePoint list keyed by the project and that reference; **Previous
+variations** on the form reopens any of them with every field, drawing and note
+as issued.
+
+| Section | Source |
+|---|---|
+| 1 · Letterhead | The state register — `assets/state-register.js`, shipped with the app |
+| 2 · Project & recipient | The SharePoint project register, via Power Automate |
+| 3 · Reference details | Typed |
+| 4 · Drawing reference | Typed |
+| 5 · Description of works | Typed, optionally reworded by a flow |
+| 6 · Letter text | Intro and closing default per state; *Issued by* and *Position* come from the project register |
+
+## Setting it up
+
+1. **Fill in the state register** — open `registers/State Register.xlsx`, fill
+   the yellow cells for each state you trade in, and paste the values into
+   `assets/state-register.js`. Or do it in the app: Settings → State register →
+   Export as file. Either way, commit it so everyone gets the same letterhead.
+2. **Build the SharePoint list** — upload
+   `registers/Variation Project Register.xlsx` via **New → List → From Excel**,
+   then fix three column types. Full detail in
+   [docs/SHAREPOINT-REGISTERS.md](docs/SHAREPOINT-REGISTERS.md).
+3. **Put it online** — [docs/DEPLOY-NETLIFY.md](docs/DEPLOY-NETLIFY.md). Do this
+   before the flows: they need the site's address baked into a CORS header.
+4. **Build the flows** — [docs/POWER-AUTOMATE-SETUP.md](docs/POWER-AUTOMATE-SETUP.md).
+5. **Paste the flow URLs** — Settings → Power Automate flows, then
+   **Test projects flow**.
+6. **Lock Settings, if you want to** — Settings → C → **Create the file**, drop
+   the downloaded `settings-password.js` into `assets/`, deploy again. Optional,
+   and off until you set it. [docs/SETTINGS-PASSWORD.md](docs/SETTINGS-PASSWORD.md)
+   says what it does and does not protect.
+
+Step 4 is per person per device, deliberately: a Power Automate trigger URL is
+a credential, and this one never goes near the repository.
+
+## It works with the flows missing
+
+Every connection degrades on its own rather than taking the app with it.
+
+| Missing | What happens |
+|---|---|
+| Projects flow | The dropdown is replaced by a plain text field. Everything else is unchanged |
+| Filing flow | The PDF downloads as normal and says it wasn't filed |
+| The CORS header on the filing flow | The file is still delivered, blind; the app says to confirm it in SharePoint rather than naming the path |
+| Wording flow | "Write professionally" tidies punctuation locally, and says that's all it did |
+| The variation log flows | The generator works exactly as before; nothing is recorded and nothing can be reopened |
+| A state's register row | The tile is greyed out; picking it gives you an empty letterhead to type into |
+| All three | A working cover sheet generator that produces the same PDF |
+
+No flow failure is ever silent, and none of them stops you getting the PDF.
+
+## The PDF
+
+Built as real A4 pages rather than one long image sliced up, so the letterhead
+repeats on every page, footers carry `Page n of m`, the reference table flows
+between pages without splitting a row, and the drawing table repeats its column
+headings when it runs on. If `html2pdf` can't run at all, the button falls back
+to the browser's print dialog with the same paginated document.
+
+## Layout of the code
+
+```
+index.html                markup for all three views
+assets/app.js             form, preview, pagination, filing, settings, routing
+assets/state-register.js  section 1 — the per-state letterhead rows
+assets/flows.js           the Power Automate client
+assets/settings-password.js  salt and hash of the Settings password, or empty
+assets/settings-lock.js   checks it; the half that never changes
+assets/logo.js            default letterhead mark as a data URI
+assets/styles.css         styling, including the A4 page geometry
+vendor/                   html2pdf.js 0.10.1, bundled locally
+registers/                fill-in workbooks and CSV seeds for both registers
+docs/                     setup guides in Markdown; docs/word/ holds .docx copies
+                          (ROUTING-BY-STATE.md stands alone: flow 1, one list per state)
+tools/register-to-js.py   office register workbook -> assets/state-register.js
+tools/add-logo.py         keys a logo's background off and stores it per office
+tools/md-to-docx.js       regenerates docs/word/*.docx from the Markdown guides
+                          (the only thing here with a dependency: npm install)
+tools/make-deploy-folder.py      builds the folder that gets dragged onto Netlify
+tools/set-settings-password.js   the same thing from a terminal, if you have Node
+build-single-file.py      bundles all of the above into one standalone .html
+netlify.toml              unused today — see docs/DEPLOY-NETLIFY.md
+```
+
+Nothing here is compiled and nothing is installed to run the app. `npm install`
+is needed only to regenerate the Word copies of the guides.
+
+## Where things are stored
+
+In the browser's local storage, per browser and per device: the flow URLs, any
+state-register edits made in Settings, an uploaded logo, and the dropdown
+suggestions built from what you have typed before. The Settings unlock, when a
+password is set, is kept for the tab's session only. Nothing else is kept —
+a variation lives in its PDF and in SharePoint, not in the app.

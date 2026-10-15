@@ -1,0 +1,620 @@
+:root{
+  --paper:#F6F4EF;
+  --ink:#1C2B3A;
+  --steel:#3C5978;
+  --steel-dark:#2A4258;
+  --line:#C9C2B4;
+  --line-soft:#E3DED2;
+  --red:#ED1C24;
+  --red-dark:#C4141B;
+  --muted:#6B6459;
+  --good:#3F6B4A;
+  --panel:#FFFFFF;
+  --label-bg:#4C5C6D;
+  --value-bg:#EFECE4;
+}
+*{box-sizing:border-box;}
+[hidden]{ display:none !important; }
+html,body{margin:0;padding:0;}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:'IBM Plex Sans', sans-serif;
+  font-size:14px;
+  line-height:1.5;
+}
+.app{
+  display:grid;
+  grid-template-columns: 420px 1fr;
+  min-height:100vh;
+}
+@media (max-width: 980px){
+  .app{ grid-template-columns: 1fr; }
+}
+
+/* ---------- FORM SIDE ---------- */
+.form-side{
+  background:var(--panel);
+  border-right:1px solid var(--line);
+  padding:28px 26px 60px;
+  overflow-y:auto;
+}
+.brand{ display:flex; align-items:baseline; gap:10px; margin-bottom:4px; }
+.brand-mark{ width:10px;height:10px; background:var(--red); transform:rotate(45deg); flex:0 0 auto; }
+h1{ font-family:'Space Grotesk', sans-serif; font-size:19px; font-weight:600; margin:0; letter-spacing:-0.01em; }
+.subhead{ color:var(--muted); font-size:12.5px; margin:2px 0 24px 20px; }
+
+.form-section{ margin-bottom:8px; }
+.form-section-head{ display:flex; align-items:center; gap:8px; margin:0 0 14px; }
+.form-section-num{
+  font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--muted);
+  border:1px solid var(--line); border-radius:2px; width:18px; height:18px;
+  display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+}
+.form-section-title{
+  font-family:'Space Grotesk', sans-serif; font-size:12.5px; font-weight:600;
+  color:var(--steel-dark); text-transform:uppercase; letter-spacing:0.05em; margin:0;
+}
+
+.field{ margin-bottom:16px; }
+.field-row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+label{
+  display:block; font-size:11.5px; font-weight:600; color:var(--steel-dark);
+  text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px;
+}
+input[type=text], input[type=password], textarea, select{
+  width:100%; background:var(--paper); border:1px solid var(--line); border-radius:3px;
+  padding:9px 10px; font-family:'IBM Plex Sans', sans-serif; font-size:13.5px; color:var(--ink); resize:vertical;
+}
+input[type=text]:focus, input[type=password]:focus, textarea:focus, select:focus{ outline:none; border-color:var(--steel); background:#fff; }
+.field-invalid{ border-color:var(--red) !important; background:#FCEDEC !important; }
+.req-mark{ color:var(--red); font-weight:700; text-transform:none; letter-spacing:0; }
+.mono-input{ font-family:'IBM Plex Mono', monospace; font-size:13px; }
+textarea{ min-height:60px; }
+#desc-raw{ min-height:64px; }
+#desc-final{ min-height:110px; }
+#recipient-address, #intro-text, #closing-text, #co-address{ min-height:52px; }
+
+.ai-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+.ai-row label{ margin-bottom:0; }
+.ai-btn{
+  display:inline-flex; align-items:center; gap:6px; background:var(--red); color:#fff;
+  border:none; border-radius:3px; padding:6px 11px; font-family:'IBM Plex Sans', sans-serif;
+  font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap;
+}
+.ai-btn:hover{ background:var(--red-dark); }
+.ai-btn:disabled{ background:#C7BFAE; cursor:default; }
+.ai-btn svg{ width:13px; height:13px; }
+
+.divider{ height:1px; background:var(--line-soft); margin:22px 0 20px; }
+
+.status-line{ font-size:11.5px; color:var(--muted); min-height:16px; margin-top:4px; }
+.status-line.err{ color:#A0402E; }
+.status-line.ok{ color:var(--good); }
+
+.print-btn{
+  width:100%; background:var(--steel); color:#fff; border:none; border-radius:3px; padding:12px;
+  font-family:'Space Grotesk', sans-serif; font-size:13.5px; font-weight:600; letter-spacing:0.01em;
+  cursor:pointer; margin-top:6px;
+}
+.print-btn:hover{ background:var(--steel-dark); }
+
+.logo-upload{
+  display:flex; align-items:center; gap:12px; border:1px dashed var(--line); border-radius:4px; padding:10px 12px;
+}
+.logo-preview{
+  width:112px; height:60px; border:1px solid var(--line-soft); border-radius:3px;
+  display:flex; align-items:center; justify-content:center; background:var(--paper); overflow:hidden; flex:0 0 auto;
+}
+.logo-preview img{ max-width:100%; max-height:100%; object-fit:contain; }
+.logo-upload-text{ flex:1; }
+.logo-upload-text .t1{ font-size:12.5px; font-weight:500; }
+.logo-upload-text .t2{ font-size:11px; color:var(--muted); margin-top:1px; }
+.file-btn{
+  display:inline-block; background:var(--paper); border:1px solid var(--line); border-radius:3px;
+  padding:6px 10px; font-size:11.5px; font-weight:600; color:var(--steel-dark); cursor:pointer; white-space:nowrap;
+}
+.file-btn:hover{ border-color:var(--steel); }
+input[type=file]{ display:none; }
+
+.ac-wrap{ position:relative; }
+.ac-hint{ font-size:10.5px; color:var(--muted); margin-top:4px; }
+.ac-list{
+  display:none; position:absolute; top:100%; left:0; right:0; margin-top:2px;
+  background:#fff; border:1px solid var(--line); border-radius:3px;
+  max-height:170px; overflow-y:auto; z-index:30;
+  box-shadow:0 6px 14px rgba(28,43,58,0.12);
+}
+.ac-item{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:7px 10px; font-size:12.5px; color:var(--ink); cursor:pointer;
+}
+.ac-item:hover, .ac-item.active{ background:var(--paper); }
+.ac-item + .ac-item{ border-top:1px solid var(--line-soft); }
+.ac-item-text{ white-space:pre-line; line-height:1.35; }
+.ac-item-remove{
+  flex:0 0 auto; color:var(--muted); font-size:14px; line-height:1; padding:2px 4px; border-radius:2px;
+}
+.ac-item-remove:hover{ color:var(--red); background:var(--line-soft); }
+
+.dwg-editor{ border:1px solid var(--line); border-radius:4px; overflow:hidden; margin-bottom:10px; }
+.dwg-row{
+  display:grid;
+  grid-template-columns: 1fr 1fr 64px 64px 22px;
+  gap:6px;
+  padding:6px;
+  align-items:center;
+}
+.dwg-row + .dwg-row{ border-top:1px solid var(--line-soft); }
+.dwg-row-head{ background:var(--paper); padding:8px 6px; }
+.dwg-col{
+  font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--muted);
+}
+.dwg-input{
+  width:100%; background:#fff; border:1px solid var(--line); border-radius:3px; padding:6px 7px;
+  font-family:'IBM Plex Sans', sans-serif; font-size:12.5px; color:var(--ink);
+}
+.dwg-input.mono-input{ font-family:'IBM Plex Mono', monospace; font-size:12px; }
+.dwg-input:focus{ outline:none; border-color:var(--steel); }
+.dwg-remove{
+  width:20px; height:20px; border:none; background:none; color:var(--muted); font-size:15px;
+  cursor:pointer; line-height:1; border-radius:3px;
+}
+.dwg-remove:hover{ color:var(--red); background:var(--line-soft); }
+.add-row-btn{
+  background:none; border:1px dashed var(--line); border-radius:3px; color:var(--steel-dark);
+  font-size:12px; font-weight:600; padding:7px 12px; cursor:pointer; width:100%;
+}
+.add-row-btn:hover{ border-color:var(--steel); background:var(--paper); }
+
+.dwg-panel{ margin-bottom:24px; }
+.dwg-panel-title{
+  font-family:'Space Grotesk', sans-serif; font-size:11px; font-weight:600; text-transform:uppercase;
+  letter-spacing:0.06em; color:var(--steel-dark); margin:0 0 8px;
+}
+.dwg-preview-table{ width:100%; border-collapse:collapse; }
+.dwg-preview-table th{
+  background:var(--label-bg); color:#fff; font-size:10.5px; font-weight:600; text-transform:uppercase;
+  letter-spacing:0.03em; text-align:left; padding:9px 12px;
+}
+.dwg-preview-table td{
+  background:var(--value-bg); font-size:13px; padding:8px 12px; border-top:1px solid #fff;
+}
+.dwg-preview-table td.rev{ font-family:'IBM Plex Mono', monospace; }
+
+/* ---------- PREVIEW SIDE ---------- */
+.preview-side{ padding:40px; display:flex; justify-content:center; align-items:flex-start; }
+.sheet{ width:100%; max-width:780px; background:#fff; border:1px solid var(--line); box-shadow: 0 4px 18px rgba(28,43,58,0.09); }
+.sheet-inner{ padding:0 54px 44px; }
+
+/* letterhead */
+.letterhead{
+  display:flex; justify-content:space-between; align-items:flex-start;
+  padding:38px 54px 18px; border-bottom:3px solid var(--ink);
+}
+/* 170x96, not the 150x60 this started at. Several of the office logos carry a
+   "MAJOR WORKS DIVISION" line under the mark, and at 60px tall that line was
+   too small to read. The letterhead does not grow to pay for it: the company
+   details beside it run 107-160px tall, so the box had that much slack
+   already, and 96 stays under even the shortest of them. */
+.letterhead-logo{ width:170px; height:96px; display:flex; align-items:center; justify-content:flex-start; flex:0 0 auto; }
+.letterhead-logo img{ max-width:100%; max-height:100%; object-fit:contain; }
+.letterhead-co{ text-align:right; }
+.letterhead-co .name{ font-family:'Space Grotesk', sans-serif; font-size:14.5px; font-weight:700; color:var(--ink); margin-bottom:6px; }
+.co-detail-table{ font-size:11px; }
+.co-detail-row{ display:flex; justify-content:flex-end; gap:8px; margin-bottom:2px; }
+.co-detail-row .k{ color:var(--muted); font-weight:600; min-width:52px; text-align:left; }
+.co-detail-row .v{ color:var(--ink); text-align:left; max-width:220px; white-space:pre-line; }
+.co-detail-row.email-row{ border-top:1px solid var(--line-soft); padding-top:4px; margin-top:4px; }
+
+/* body */
+.letter-body{ padding-top:26px; }
+.letter-date{ font-size:12.5px; color:var(--muted); margin-bottom:20px; }
+.recipient-block{ font-size:13.5px; margin-bottom:16px; white-space:pre-wrap; }
+.recipient-block.empty{ color:#B7B0A2; font-style:italic; }
+.attn-row, .re-row{ display:flex; gap:8px; font-size:13.5px; margin-bottom:6px; }
+.attn-row .k, .re-row .k{ font-weight:700; min-width:70px; }
+.re-row .k{ color:var(--red); }
+.re-row .v{ font-family:'IBM Plex Mono', monospace; font-weight:600; }
+
+.intro-text{ font-size:13.5px; margin:20px 0 22px; line-height:1.65; white-space:pre-wrap; }
+
+/* reference table */
+.ref-table{ width:100%; border-collapse:collapse; margin-bottom:24px; }
+.ref-table tr + tr td{ border-top:6px solid #fff; }
+.ref-table .k{
+  background:var(--label-bg); color:#fff; font-size:11.5px; font-weight:600;
+  text-transform:uppercase; letter-spacing:0.03em; padding:12px 16px; width:34%; vertical-align:top;
+}
+.ref-table .v{
+  background:var(--value-bg); color:var(--ink); font-size:13.5px; padding:12px 16px; vertical-align:top; line-height:1.55;
+}
+.ref-table .v.empty{ color:#9A9284; font-style:italic; }
+.ref-table .v .arrow{ color:var(--red); font-weight:600; margin:0 8px; font-style:normal; }
+
+.closing-text{ font-size:13.5px; margin:26px 0 30px; line-height:1.6; white-space:pre-wrap; }
+
+.sig-block{ font-size:13px; }
+.sig-block .name{ font-weight:700; }
+.sig-block .line{ margin-top:2px; }
+.sig-line-rule{ width:150px; border-top:1px solid var(--ink); margin-bottom:34px; }
+
+.sheet-footer{
+  margin-top:8px; padding:14px 54px; border-top:1px solid var(--line-soft);
+  display:flex; justify-content:space-between; font-size:10px; color:var(--muted);
+}
+
+/* ---------- REGISTER (HOME) ---------- */
+.home{ max-width:1080px; margin:0 auto; padding:40px 32px 80px; }
+.home-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:20px; margin-bottom:6px; }
+.home-head .brand{ margin-bottom:0; }
+.home-sub{ color:var(--muted); font-size:12.5px; margin:2px 0 26px 20px; }
+.home-new{ width:auto; margin-top:0; padding:11px 18px; flex:0 0 auto; }
+.home-toolbar{ display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+.home-toolbar input{ max-width:320px; }
+.home-count{ font-size:11.5px; color:var(--muted); font-family:'IBM Plex Mono', monospace; }
+.home-table{ width:100%; border-collapse:collapse; background:var(--panel); border:1px solid var(--line); }
+.home-table th{
+  background:var(--label-bg); color:#fff; font-size:10.5px; font-weight:600; text-transform:uppercase;
+  letter-spacing:0.04em; text-align:left; padding:10px 14px; white-space:nowrap;
+}
+.home-table td{ font-size:13px; padding:11px 14px; border-top:1px solid var(--line-soft); vertical-align:top; }
+.home-table tr:hover td{ background:var(--paper); }
+.home-table .c-ref{ font-family:'IBM Plex Mono', monospace; font-weight:600; white-space:nowrap; }
+.home-table .c-ref a{ color:var(--steel-dark); text-decoration:none; border-bottom:1px solid var(--line); }
+.home-table .c-ref a:hover{ color:var(--red); border-bottom-color:var(--red); }
+.home-table .c-desc a{ color:var(--ink); text-decoration:none; }
+.home-table .c-desc a:hover{ text-decoration:underline; }
+.home-table .c-when{ font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--muted); white-space:nowrap; }
+.home-table .c-actions{ text-align:right; white-space:nowrap; }
+.home-untitled{ color:#9A9284; font-style:italic; }
+.row-btn{
+  background:none; border:1px solid var(--line); border-radius:3px; color:var(--steel-dark);
+  font-size:11px; font-weight:600; padding:4px 8px; cursor:pointer; margin-left:6px;
+}
+.row-btn:hover{ border-color:var(--steel); background:var(--paper); }
+.row-btn.danger:hover{ border-color:var(--red); color:var(--red); }
+.home-empty{
+  border:1px dashed var(--line); border-radius:4px; padding:44px 20px; text-align:center; color:var(--muted); font-size:13px;
+}
+.home-empty strong{ display:block; color:var(--ink); font-size:14.5px; margin-bottom:6px; font-family:'Space Grotesk', sans-serif; }
+.back-link{
+  display:inline-flex; align-items:center; gap:6px; background:none; border:none; padding:0; cursor:pointer;
+  font-family:'IBM Plex Sans', sans-serif; font-size:12px; font-weight:600; color:var(--steel-dark);
+  text-transform:uppercase; letter-spacing:0.04em; margin-bottom:14px;
+}
+.back-link:hover{ color:var(--red); }
+.save-state{ font-size:11px; color:var(--muted); text-align:center; min-height:15px; margin-top:8px; }
+
+/* ---------- PAGINATED DOCUMENT ----------
+   What actually becomes the PDF: real A4 pages, each carrying its own
+   letterhead and footer. Sits off-screen while it is measured and captured. */
+.pdf-holder{ position:absolute; left:-10000px; top:0; width:794px; }
+.pdf-doc{ width:794px; }
+.pdf-page{
+  /* 794px is A4's width at 96dpi. A4's ratio would make the height 1122.94px,
+     but html2canvas rounds the captured pixel height up, which tips the image
+     just over 297mm and jsPDF emits a blank page after every page. 1122px
+     leaves a fifth of a millimetre of white at the foot instead. */
+  width:794px; height:1122px;
+  background:#fff; overflow:hidden;
+  display:flex; flex-direction:column;
+}
+.pdf-page .letterhead{ flex:0 0 auto; }
+.pdf-page-body{ flex:1 1 auto; padding:0 54px; overflow:hidden; }
+.pdf-page-body .letter-body{ padding-top:26px; }
+.pdf-page .sheet-footer{ flex:0 0 auto; margin-top:0; }
+.pdf-page-num{ font-family:'IBM Plex Mono', monospace; }
+.pdf-page .intro-text{ margin-top:0; }
+
+/* ---------- PRINT ----------
+   Only reached when the PDF button falls back to the print dialog, but it
+   has to produce the same letter. */
+@media print{
+  /* Chrome and Edge drop background colours by default. The reference table
+     puts white text on a dark label cell, so without this those cells print
+     as white on white and the letter comes out looking empty. */
+  html, body, .sheet, .sheet *{
+    -webkit-print-color-adjust:exact !important;
+    print-color-adjust:exact !important;
+  }
+  /* No page margin: both printed layouts carry their own. The paginated
+     pages are sized for a full sheet, and the plain sheet keeps the padding
+     it has on screen. A page margin on top of either overflows the paper. */
+  @page{ size:A4 portrait; margin:0; }
+  html, body{ background:#fff; margin:0; padding:0; height:auto; }
+  .home, .form-side, .back-link, .save-state{ display:none !important; }
+  /* the fallback fires with the paginated document already built: print
+     that, so the printed letter carries the same header on every page */
+  body.pdf-fallback .app{ display:none !important; }
+  body.pdf-fallback .pdf-holder{ position:static; left:auto; width:auto; }
+  body.pdf-fallback .pdf-doc{ width:auto; }
+  body.pdf-fallback .pdf-page{ width:auto; height:auto; page-break-after:always; }
+  body.pdf-fallback .pdf-page:last-child{ page-break-after:auto; }
+  body:not(.pdf-fallback) .pdf-holder{ display:none !important; }
+  /* the two-column grid must not survive into print: with the form column
+     hidden the sheet would otherwise be laid out inside a 420px track */
+  .app{ display:block !important; min-height:0 !important; }
+  .preview-side{ display:block !important; padding:0 !important; }
+  .sheet{ width:auto; max-width:none; border:none; box-shadow:none; background:#fff; }
+  .ref-table tr, .dwg-preview-table tr, .sig-block, .dwg-panel{ break-inside:avoid; page-break-inside:avoid; }
+  .dwg-preview-table thead{ display:table-header-group; }
+}
+
+.pdf-capture{ box-shadow:none !important; border:none !important; }
+/* ---------- SIGN-IN GATE ---------- */
+.gate{
+  min-height:100vh; display:flex; align-items:center; justify-content:center; padding:32px 20px;
+}
+.gate-card{
+  width:100%; max-width:420px; background:var(--panel); border:1px solid var(--line);
+  border-radius:4px; padding:32px 30px 28px;
+}
+.gate-card .brand{ margin-bottom:6px; }
+.gate-sub{ color:var(--muted); font-size:12.5px; margin:0 0 22px; }
+.gate-card .field{ margin-bottom:14px; }
+.gate-btn{ margin-top:10px; }
+.gate-note{
+  margin-top:18px; padding-top:16px; border-top:1px solid var(--line-soft);
+  font-size:11.5px; color:var(--muted); line-height:1.6;
+}
+.gate-note code{
+  font-family:'IBM Plex Mono', monospace; background:var(--value-bg); padding:1px 4px; border-radius:2px;
+}
+.home-head-actions{ display:flex; align-items:center; gap:10px; flex:0 0 auto; }
+.home-who{ font-size:11.5px; color:var(--muted); }
+.home-who strong{ color:var(--ink); font-weight:600; }
+.link-btn{
+  background:none; border:none; padding:0; color:var(--steel-dark); font-size:11.5px; font-weight:600;
+  cursor:pointer; text-decoration:underline; font-family:inherit;
+}
+.link-btn:hover{ color:var(--red); }
+.home-table .c-by{ font-size:12px; color:var(--muted); white-space:nowrap; }
+.home-live{ font-size:11px; color:var(--muted); font-family:'IBM Plex Mono', monospace; margin-left:auto; }
+.home-live.err{ color:#A0402E; }
+
+/* ==========================================================================
+   OPENING SCREEN — banner, then one tile per office
+
+   Choosing an office decides the letterhead and which projects are listed, so
+   it comes before the form rather than sitting inside it as one more field.
+   Each tile carries that office's own mark and is keyed to the colour sampled
+   from it, so the choice is made by recognising a logo rather than reading a
+   code.
+   ========================================================================== */
+.picker{ min-height:100vh; display:flex; flex-direction:column; }
+
+.site-banner{
+  background:var(--panel);
+  border-bottom:3px solid var(--ink);   /* the same rule the letterhead carries */
+  flex:0 0 auto;
+}
+.site-banner-inner{
+  max-width:1120px; margin:0 auto; padding:18px 32px;
+  display:flex; align-items:center; gap:20px;
+}
+.banner-logo{ flex:0 0 auto; height:62px; display:flex; align-items:center; }
+.banner-logo img{ height:100%; width:auto; display:block; }
+.banner-title{
+  flex:1 1 auto; font-family:'Space Grotesk', sans-serif; font-size:15px; font-weight:600;
+  color:var(--steel-dark); letter-spacing:0.01em;
+  padding-left:20px; border-left:1px solid var(--line-soft); align-self:stretch;
+  display:flex; align-items:center;
+}
+.banner-btn{
+  flex:0 0 auto; display:inline-flex; align-items:center; gap:8px;
+  background:var(--steel); color:#fff; border:none; border-radius:3px;
+  padding:10px 16px; font-family:'IBM Plex Sans', sans-serif; font-size:12.5px;
+  font-weight:600; cursor:pointer;
+}
+.banner-btn:hover{ background:var(--steel-dark); }
+.banner-btn svg{ width:15px; height:15px; flex:0 0 auto; }
+
+.picker-main{
+  flex:1 1 auto; width:100%; max-width:1180px; margin:0 auto; padding:40px 32px 48px;
+  /* centre what little there is in the height available, rather than hanging it
+     off the banner with a screen of nothing underneath */
+  display:flex; flex-direction:column; justify-content:center;
+}
+.picker-head{ margin-bottom:30px; }
+.picker-head h1{
+  font-family:'Space Grotesk', sans-serif; font-size:29px; font-weight:600;
+  color:var(--ink); margin:0 0 7px; letter-spacing:-0.015em;
+}
+.picker-sub{ color:var(--muted); font-size:13.5px; margin:0; }
+
+.state-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:20px; margin-bottom:24px; }
+@media (max-width: 980px){ .state-grid{ grid-template-columns:repeat(2, 1fr); } }
+@media (max-width: 560px){ .state-grid{ grid-template-columns:1fr; } }
+
+.state-tile{
+  position:relative; display:flex; flex-direction:column; align-items:flex-start;
+  background:var(--panel); border:1px solid var(--line); border-radius:5px;
+  padding:30px 24px 24px; cursor:pointer; text-align:left; font-family:inherit;
+  min-height:228px; overflow:hidden;
+  transition:border-color .12s, box-shadow .12s, transform .12s;
+}
+/* the office's own colour, taken from the mark on the tile */
+.state-tile::before{
+  content:''; position:absolute; top:0; left:0; right:0; height:5px;
+  background:var(--tile-brand, var(--line));
+}
+.state-tile:hover{
+  border-color:var(--tile-brand, var(--steel));
+  box-shadow:0 8px 20px rgba(28,43,58,0.12);
+  transform:translateY(-2px);
+}
+.state-tile:focus-visible{ outline:2px solid var(--steel); outline-offset:2px; }
+
+.tile-logo{
+  height:68px; width:100%; display:flex; align-items:center; justify-content:flex-start;
+  margin-bottom:auto;
+}
+.tile-logo img{ max-height:100%; max-width:90%; object-fit:contain; display:block; }
+.tile-name{
+  font-family:'Space Grotesk', sans-serif; font-size:16.5px; font-weight:600;
+  color:var(--ink); margin-top:20px;
+}
+.tile-entity{ font-size:12px; color:var(--muted); margin-top:4px; line-height:1.45; }
+
+.state-tile.unset{ background:var(--paper); }
+.state-tile.unset .tile-code{
+  font-family:'Space Grotesk', sans-serif; font-size:24px; font-weight:700; color:var(--muted);
+}
+.state-tile.unset .tile-entity{ font-style:italic; color:#9A9284; }
+
+#picker-status{ margin:0; }
+
+/* ==========================================================================
+   PROJECT PULL — section 2 of the form
+   ========================================================================== */
+.pulled-field{ position:relative; }
+.pulled-field input, .pulled-field textarea{ background:#F2F6F3; border-color:#BFD3C4; }
+.pulled-field input:focus, .pulled-field textarea:focus{ background:#fff; border-color:var(--steel); }
+/* Sits in the label's own line rather than over it: these fields live in a
+   half-width column where "Issued by (name)" plus a full "from register" tag
+   do not both fit, and the label is the half you cannot afford to clip. */
+.pulled-tag{
+  position:absolute; top:-1px; right:0; font-size:9px; font-weight:700; letter-spacing:0.06em;
+  text-transform:uppercase; color:var(--good); background:#E6EFE8; border-radius:2px;
+  padding:2px 5px; cursor:help;
+}
+.pulled-tag[hidden]{ display:none !important; }
+.pulled-field label{ padding-right:44px; }
+
+.source-line{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  font-size:11px; color:var(--muted); margin:-8px 0 14px;
+}
+.source-line .refresh-btn{
+  background:none; border:1px solid var(--line); border-radius:3px; color:var(--steel-dark);
+  font-size:10.5px; font-weight:600; padding:3px 8px; cursor:pointer; font-family:inherit; white-space:nowrap;
+}
+.source-line .refresh-btn:hover{ border-color:var(--steel); background:var(--paper); }
+.source-line .refresh-btn:disabled{ color:var(--muted); cursor:default; border-color:var(--line-soft); }
+
+.state-chip{
+  display:inline-flex; align-items:center; gap:7px; background:var(--value-bg);
+  border:1px solid var(--line); border-radius:3px; padding:4px 6px 4px 9px; font-size:11.5px;
+}
+.state-chip strong{ font-family:'Space Grotesk', sans-serif; font-weight:700; color:var(--steel-dark); }
+.state-chip .link-btn{ font-size:10.5px; }
+
+.filing-note{
+  font-size:11px; color:var(--muted); line-height:1.5; background:var(--paper);
+  border:1px solid var(--line-soft); border-radius:3px; padding:8px 10px; margin-top:10px;
+}
+.filing-note code{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; word-break:break-all; }
+.filing-note.off{ color:#8A6D3B; }
+
+/* ==========================================================================
+   SETTINGS — where the Power Automate endpoints live
+   ========================================================================== */
+.settings{ max-width:760px; margin:0 auto; padding:40px 32px 80px; }
+.settings .field textarea{ font-family:'IBM Plex Mono', monospace; font-size:11.5px; min-height:64px; }
+.settings-help{ font-size:11.5px; color:var(--muted); line-height:1.6; margin:-10px 0 16px; }
+.settings-help code{ font-family:'IBM Plex Mono', monospace; background:var(--value-bg); padding:1px 4px; border-radius:2px; }
+.settings-actions{ display:flex; gap:10px; align-items:center; margin-top:8px; }
+.settings-actions .print-btn{ width:auto; padding:10px 20px; margin-top:0; }
+.warn-note{
+  border:1px solid #E0C48A; background:#FBF4E4; border-radius:4px; padding:12px 14px;
+  font-size:11.5px; color:#7A5B18; line-height:1.6; margin-bottom:22px;
+}
+.warn-note strong{ color:#5C440F; }
+
+/* ---- Settings password gate -------------------------------------------- */
+.lock-gate{ display:flex; justify-content:center; padding:18px 0 40px; }
+.lock-card{
+  width:100%; max-width:420px; text-align:center;
+  border:1px solid var(--line); border-radius:6px; background:var(--panel);
+  padding:34px 30px 26px;
+}
+.lock-icon{ width:34px; height:34px; color:var(--muted); margin-bottom:14px; }
+.lock-title{ font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:15px; margin:0 0 8px; }
+.lock-sub{ font-size:11.5px; color:var(--muted); line-height:1.65; margin:0 0 20px; }
+.lock-form{ text-align:left; }
+.lock-label{
+  display:block; font-size:10px; font-weight:600; letter-spacing:.09em;
+  text-transform:uppercase; color:var(--muted); margin-bottom:6px;
+}
+.lock-form input{
+  width:100%; background:var(--paper); border:1px solid var(--line); border-radius:3px;
+  padding:9px 11px; font-size:13px; font-family:inherit; color:var(--ink);
+  margin-bottom:14px;
+}
+.lock-form input:focus{ outline:none; border-color:var(--steel); background:#fff; }
+.lock-form .print-btn{ width:100%; margin-top:0; }
+.lock-foot{
+  font-size:10.5px; color:var(--muted); line-height:1.6; margin:18px 0 0;
+  padding-top:14px; border-top:1px solid var(--line); text-align:left;
+}
+.pw-steps{ margin:8px 0 10px; padding-left:20px; }
+.pw-steps li{ margin-bottom:5px; }
+.lock-foot code{ font-family:'IBM Plex Mono', monospace; background:var(--value-bg); padding:1px 4px; border-radius:2px; word-break:break-all; }
+
+.state-editor-table{ width:100%; border-collapse:collapse; margin-bottom:10px; font-size:12px; }
+.state-editor-table th{
+  background:var(--label-bg); color:#fff; font-size:10px; font-weight:600; text-transform:uppercase;
+  letter-spacing:0.04em; text-align:left; padding:8px 10px;
+}
+.state-editor-table td{ padding:6px 8px; border-top:1px solid var(--line-soft); vertical-align:top; }
+.state-editor-table td.code{ font-family:'Space Grotesk', sans-serif; font-weight:700; color:var(--steel-dark); white-space:nowrap; }
+.state-editor-table textarea, .state-editor-table input{ font-size:11.5px; padding:5px 7px; }
+
+/* ==========================================================================
+   VARIATION LOG
+   ========================================================================== */
+.log-row{ display:flex; gap:8px; align-items:center; }
+.log-row select{ flex:1 1 auto; min-width:0; }
+.log-row .refresh-btn{ flex:0 0 auto; padding:8px 12px; }
+.log-actions{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.log-actions .refresh-btn{ flex:0 0 auto; padding:8px 14px; }
+.log-actions .status-line{ margin:0; flex:1 1 auto; }
+#varref-status:empty{ min-height:0; }
+.reopened{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  background:#EEF3F7; border:1px solid #BCCEDC; border-radius:3px;
+  padding:8px 10px; font-size:11.5px; color:var(--steel-dark); margin-bottom:14px;
+}
+.reopened[hidden]{ display:none !important; }
+.reopened strong{ font-family:'IBM Plex Mono', monospace; }
+
+/* ---- new vs revision, and the number that follows from it ---- */
+.mode-toggle{ display:flex; gap:0; border:1px solid var(--line); border-radius:3px; overflow:hidden; }
+.mode-btn{
+  flex:1 1 0; background:var(--paper); border:none; padding:8px 10px; cursor:pointer;
+  font-family:'IBM Plex Sans', sans-serif; font-size:12px; font-weight:600; color:var(--muted);
+  border-right:1px solid var(--line);
+}
+.mode-btn:last-child{ border-right:none; }
+.mode-btn.on{ background:var(--steel); color:#fff; }
+.mode-btn:not(.on):hover{ background:var(--value-bg); color:var(--steel-dark); }
+
+#varref[readonly]{ background:var(--value-bg); color:var(--steel-dark); font-weight:600; cursor:default; }
+#varref-edit{ flex:0 0 auto; padding:8px 12px; }
+
+.effective-ref{
+  font-family:'IBM Plex Mono', monospace; font-size:12.5px; color:var(--steel-dark);
+  background:var(--value-bg); border-radius:3px; padding:6px 10px; margin:-8px 0 10px;
+}
+.effective-ref[hidden]{ display:none !important; }
+.effective-ref strong{ color:var(--red); }
+.stranded{ color:#A0402E; }
+
+/* ==========================================================================
+   PREFILLED SUMMARY — what the registers filled in, folded away
+   ========================================================================== */
+.prefilled-bar{
+  display:flex; align-items:flex-start; gap:10px; background:var(--panel);
+  border:1px solid var(--line); border-radius:4px; padding:10px 12px; margin-bottom:22px;
+}
+.prefilled-bar[hidden]{ display:none !important; }
+.prefilled-summary{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:3px; }
+.prefilled-bar .refresh-btn{ flex:0 0 auto; }
+.pf-item{ font-size:12px; color:var(--ink); line-height:1.4; overflow-wrap:anywhere; }
+.pf-k{
+  display:inline-block; min-width:78px; padding-right:10px; font-size:10px; font-weight:700;
+  letter-spacing:0.04em; text-transform:uppercase; color:var(--muted); vertical-align:baseline;
+}
+.pf-open{ font-size:11.5px; color:var(--muted); line-height:1.45; }
+.prefilled-group[hidden]{ display:none !important; }

@@ -1,0 +1,11 @@
+# Built by build-single-file.py — generated, and 1.4 MB of it. Rebuild rather
+# than commit: python3 build-single-file.py
+Variation Cover Sheet.html
+
+# Built by tools/make-deploy-folder.py — the folder that gets dragged onto
+# Netlify, and a zip of it.
+build/
+
+.DS_Store
+node_modules/
+_test*.mjs

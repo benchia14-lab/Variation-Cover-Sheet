@@ -1,0 +1,13 @@
+{
+  "name": "variation-cover-sheet",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Variation cover sheet generator — static files, no build step. This file exists only for tools/md-to-docx.js, which is the one thing here that needs a package.",
+  "scripts": {
+    "docs": "node tools/md-to-docx.js",
+    "password": "node tools/set-settings-password.js"
+  },
+  "devDependencies": {
+    "docx": "^9.7.1"
+  }
+}
