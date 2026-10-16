@@ -26,6 +26,7 @@ textIds.forEach(id => els[id] = document.getElementById(id));
 const viewPicker = document.getElementById('view-picker');
 const viewEditor = document.getElementById('view-editor');
 const viewSettings = document.getElementById('view-settings');
+const viewAdmin = document.getElementById('view-admin');
 
 function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -339,7 +340,8 @@ async function loadProjects(){
     projects = [];
     projectSelect.innerHTML = '<option value="">No projects flow configured</option>';
     projectSource.textContent = 'Not connected to SharePoint';
-    projectStatus.textContent = 'Not connected to the projects flow yet. Try Connect, or add the URL in Settings.';
+    projectStatus.textContent = 'This copy of the app has no projects flow set up, so the register cannot be read. '
+      + 'Tell whoever set the app up — the connection is in Administrator settings, not something to fix here.';
     projectStatus.className = 'status-line';
     document.getElementById('project-connect-wrap').hidden = false;
     setManualMode(true);
@@ -1580,7 +1582,7 @@ function buildLogPayload(extra){
 async function saveToLog(reason){
   let ref = effectiveRef();
   if(!Flows.has('logWriteUrl')){
-    setLogStatus('No variation log configured — add its URL in Settings.', 'err');
+    setLogStatus('This app has no variation log set up — tell whoever set it up.', 'err');
     return false;
   }
   if(!selectedProject){
@@ -1762,6 +1764,8 @@ function describeProxy(){
   note.hidden = false;
 }
 
+/* The administrator screen. Everything here is shared by everyone using the
+   app, which is why it is one door further in than Settings. */
 function loadSettingsForm(){
   const current = Flows.get();
   Object.keys(flowInputs).forEach(k => { flowInputs[k].value = current[k] || ''; });
@@ -1776,7 +1780,11 @@ function loadSettingsForm(){
   else { colmapWrap.hidden = true; rawrowWrap.hidden = true; }
   colmapStatus.textContent = '';
   colmapStatus.className = 'status-line';
+}
 
+/* The ordinary Settings screen: the office letterhead, and nothing that could
+   stop the app working for everybody else. */
+function loadRegisterForm(){
   const rows = StateRegister.rows();
   stateEditorBody.innerHTML =
     '<tr><th>Code</th><th>Entity, ABN, ACN</th><th>Phone, email</th><th>Address</th></tr>' +
@@ -1927,66 +1935,18 @@ async function connectFlows(){
 }
 
 /* ---- showing the real URLs ------------------------------------------------
-   Guarded by the same password that guards Settings itself. With none set there
-   is nothing to check against, and showing them anyway would make the button a
-   lie — so it says to set one first. */
-const revealForm = document.getElementById('flows-reveal-form');
-const revealPassword = document.getElementById('flows-reveal-password');
-const revealStatus = document.getElementById('flows-reveal-status');
-
+   No second password here: this whole screen is already behind one, and asking
+   again for something you have just proved is friction pretending to be
+   security. The toggle is for shoulders and shared screens — it keeps the URLs
+   off the display until you actually want to look at them. */
 function setRevealed(on){
   urlsRevealed = on;
   if(!on) urlsUnlocked = false;
-  revealForm.hidden = true;
-  revealPassword.value = '';
-  revealStatus.textContent = '';
-  revealStatus.className = 'status-line';
   loadSettingsForm();
 }
 
 document.getElementById('flows-reveal').addEventListener('click', () => {
-  if(urlsRevealed){ setRevealed(false); return; }
-  if(!SettingsLock.isLocked()){
-    revealForm.hidden = true;
-    flowsStatus.textContent = 'No administrator password is set, so there is nothing to check against. '
-      + 'Set one in section D first — otherwise this button would be protecting nothing.';
-    flowsStatus.className = 'status-line err';
-    return;
-  }
-  revealForm.hidden = false;
-  revealPassword.focus();
-});
-
-document.getElementById('flows-reveal-cancel').addEventListener('click', () => {
-  revealForm.hidden = true;
-  revealPassword.value = '';
-  revealStatus.textContent = '';
-});
-
-revealForm.addEventListener('submit', e => {
-  e.preventDefault();
-  const entered = revealPassword.value;
-  if(!entered){
-    revealStatus.textContent = 'Enter the password.';
-    revealStatus.className = 'status-line err';
-    return;
-  }
-  const button = document.getElementById('flows-reveal-go');
-  revealStatus.textContent = 'Checking…';
-  revealStatus.className = 'status-line';
-  button.disabled = true;
-  requestAnimationFrame(() => setTimeout(() => {
-    const ok = SettingsLock.verify(entered);
-    button.disabled = false;
-    if(!ok){
-      revealPassword.value = '';
-      revealPassword.focus();
-      revealStatus.textContent = 'That password is not right.';
-      revealStatus.className = 'status-line err';
-      return;
-    }
-    setRevealed(true);
-  }, 0));
+  setRevealed(!urlsRevealed);
 });
 
 document.getElementById('flows-unlock').addEventListener('click', () => {
@@ -2155,7 +2115,7 @@ document.getElementById('states-export').addEventListener('click', () => {
 document.getElementById('states-reset').addEventListener('click', () => {
   if(!confirm('Discard this browser’s edits and go back to the values in assets/state-register.js?')) return;
   StateRegister.clear();
-  loadSettingsForm();
+  loadRegisterForm();
   renderStatePicker();
   statesStatus.textContent = 'Back to the shipped values.';
   statesStatus.className = 'status-line';
@@ -2166,7 +2126,7 @@ document.getElementById('states-reset').addEventListener('click', () => {
    ========================================================================== */
 
 function showOnly(view){
-  [viewPicker, viewEditor, viewSettings].forEach(v => { v.hidden = v !== view; });
+  [viewPicker, viewEditor, viewSettings, viewAdmin].forEach(v => { v.hidden = v !== view; });
   window.scrollTo(0, 0);
 }
 
@@ -2296,12 +2256,12 @@ document.getElementById('urls-strip').addEventListener('click', async () => {
    anyone who was already inside.
 --------------------------------------------------------------------------- */
 const UNLOCK_KEY = 'vcs-settings-unlocked';
-const settingsGate = document.getElementById('settings-gate');
-const settingsBody = document.getElementById('settings-body');
-const gatePassword = document.getElementById('settings-password');
-const gateStatus = document.getElementById('settings-gate-status');
+const adminGate = document.getElementById('admin-gate');
+const adminBody = document.getElementById('admin-body');
+const gatePassword = document.getElementById('admin-password');
+const gateStatus = document.getElementById('admin-gate-status');
 
-function settingsUnlocked(){
+function adminUnlocked(){
   if(!SettingsLock.isLocked()) return true;
   try{
     return sessionStorage.getItem(UNLOCK_KEY) === SettingsLock.fingerprint();
@@ -2316,10 +2276,19 @@ function markUnlocked(){
   try{ sessionStorage.setItem(UNLOCK_KEY, SettingsLock.fingerprint()); }catch(e){}
 }
 
+/* Settings is the ordinary screen: the office letterhead and nothing else.
+   Everything that decides how the app talks to Power Automate lives one door
+   further in, because it is shared by everyone using the app and nobody but the
+   administrator should be able to change it. */
 function showSettings(){
-  const open = settingsUnlocked();
-  settingsGate.hidden = open;
-  settingsBody.hidden = !open;
+  loadRegisterForm();
+  showOnly(viewSettings);
+}
+
+function showAdmin(){
+  const open = adminUnlocked();
+  adminGate.hidden = open;
+  adminBody.hidden = !open;
   if(open){
     loadSettingsForm();
     describePasswordState();
@@ -2330,7 +2299,7 @@ function showSettings(){
     gateStatus.textContent = '';
     gateStatus.className = 'status-line';
   }
-  showOnly(viewSettings);
+  showOnly(viewAdmin);
   if(!open) gatePassword.focus();
 }
 
@@ -2493,7 +2462,7 @@ document.getElementById('pw-remove').addEventListener('click', async () => {
   note.hidden = false;
 });
 
-document.getElementById('settings-gate-form').addEventListener('submit', e => {
+document.getElementById('admin-gate-form').addEventListener('submit', e => {
   e.preventDefault();
   const entered = gatePassword.value;
   if(!entered){
@@ -2501,7 +2470,7 @@ document.getElementById('settings-gate-form').addEventListener('submit', e => {
     gateStatus.className = 'status-line err';
     return;
   }
-  const button = document.getElementById('settings-unlock');
+  const button = document.getElementById('admin-unlock');
   gateStatus.textContent = 'Checking…';
   gateStatus.className = 'status-line';
   button.disabled = true;
@@ -2519,7 +2488,7 @@ document.getElementById('settings-gate-form').addEventListener('submit', e => {
     }
     gatePassword.value = '';
     markUnlocked();
-    showSettings();
+    showAdmin();
   }, 0));
 });
 
@@ -2544,6 +2513,7 @@ function openState(code){
 
 function routeFromHash(){
   const hash = location.hash;
+  if(hash === '#/settings/admin'){ showAdmin(); return; }
   if(hash === '#/settings'){ showSettings(); return; }
   const match = /^#\/state\/(.+)$/.exec(hash);
   if(match){ openState(decodeURIComponent(match[1])); return; }
@@ -2555,6 +2525,16 @@ window.addEventListener('hashchange', routeFromHash);
 document.getElementById('picker-settings-btn').addEventListener('click', () => { location.hash = '#/settings'; });
 document.getElementById('back-to-picker').addEventListener('click', () => { location.hash = ''; });
 document.getElementById('chip-change').addEventListener('click', () => { location.hash = ''; });
+document.getElementById('open-admin').addEventListener('click', () => {
+  location.hash = '#/settings/admin';
+});
+
+document.getElementById('admin-back').addEventListener('click', () => {
+  urlsUnlocked = false;
+  urlsRevealed = false;
+  location.hash = '#/settings';
+});
+
 document.getElementById('settings-back').addEventListener('click', () => {
   urlsUnlocked = false;
   urlsRevealed = false;

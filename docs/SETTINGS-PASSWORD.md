@@ -10,6 +10,21 @@ one takes a minute and does not need any software installed.
 
 ---
 
+## Two screens
+
+**Settings** is open to everyone using the app and holds one thing: the office
+register that fills in section 1 of the cover sheet. Someone correcting a phone
+number needs no password and can break nothing that matters.
+
+**Administrator settings**, behind the button at the top of Settings, holds
+everything shared by the whole organisation: the Power Automate connections,
+the column mapping, building the flow URLs into the app, and this password. That
+is the screen the password guards.
+
+The split exists because the two kinds of change are not alike. A wrong phone
+number is a wrong phone number. A changed flow URL stops the app working for
+everybody, on every laptop, at once.
+
 ## Read this first
 
 **This app is static files running in a browser, so the password check runs on
@@ -63,8 +78,8 @@ No Node, no terminal, nothing installed. This is the way to do it on a
 drag-and-drop Netlify site.
 
 1. Open the site and go to **Settings** (the gear in the banner).
-2. Scroll to **D · Password on this screen**. It tells you which shape this site
-   is deployed in, so you do not have to remember.
+2. **Administrator settings** → **C · Password on this screen**. It tells you
+   which shape this site is deployed in, so you do not have to remember.
 3. Type the password twice and click **Create the file**.
 
 **On a single-file site**, which is what is live today, it downloads a complete
@@ -180,8 +195,9 @@ deploy. Settings is open again and you can set a new password from inside it.
 
 ## What people see
 
-Opening Settings — from the gear in the banner or by typing `#/settings` —
-shows a password card instead of the settings. The rest of the app is untouched:
+Opening **Administrator settings** — from the button on the Settings screen, or
+by typing `#/settings/admin` — shows a password card instead of the flows.
+Settings itself stays open: the office register is not behind this. The rest of the app is untouched:
 the state tiles, the form, the preview, the PDF, the log all work for everyone
 exactly as before.
 

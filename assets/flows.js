@@ -425,7 +425,7 @@ const Flows = (() => {
 
   async function getProjects(state){
     if(!configured('projectsUrl')){
-      const err = new Error('No projects flow configured — add its URL in Settings.');
+      const err = new Error('This app has no projects flow set up — tell whoever set it up.');
       err.unconfigured = true;
       throw err;
     }
@@ -490,7 +490,7 @@ const Flows = (() => {
   async function fileVariation(payload){
     const url = endpointFor('fileUrl');
     if(!url){
-      const err = new Error('No filing flow configured — add its URL in Settings.');
+      const err = new Error('This app has no filing flow set up — tell whoever set it up.');
       err.unconfigured = true;
       throw err;
     }
@@ -625,7 +625,7 @@ const Flows = (() => {
   // project has; with one it is asking for that variation in full.
   async function readLog(query){
     if(!configured('logReadUrl')){
-      const err = new Error('No variation log configured — add its URL in Settings.');
+      const err = new Error('This app has no variation log set up — tell whoever set it up.');
       err.unconfigured = true;
       throw err;
     }
@@ -664,7 +664,7 @@ const Flows = (() => {
 
   async function writeLog(payload){
     if(!configured('logWriteUrl')){
-      const err = new Error('No variation log configured — add its URL in Settings.');
+      const err = new Error('This app has no variation log set up — tell whoever set it up.');
       err.unconfigured = true;
       throw err;
     }

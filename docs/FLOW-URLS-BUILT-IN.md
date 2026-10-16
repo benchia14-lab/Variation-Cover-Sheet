@@ -46,11 +46,11 @@ browser. It needs the function to deploy, which the drop zone may not do.
 
 In the app, once, from a browser where the flows already work:
 
-1. **Settings → A** — paste the five URLs into the boxes, as you would for
-   yourself. Press **Connect to the flows** to check they work before baking
-   them in.
-2. **Settings → C → Build the URLs in.** It downloads a copy of the app with
-   them inside it.
+1. **Settings → Administrator settings → A** — paste the five URLs into the
+   boxes. Press **Connect to the flows** to check they work before baking them
+   in.
+2. **B → Build the URLs in.** It downloads a copy of the app with them inside
+   it.
 3. Deploy that copy. On this site that means dragging the `index.html` it gives
    you onto Netlify → your site → **Deploys**. If you deploy a folder, put the
    downloaded `flow-config.js` into the folder's `assets` folder instead and drag
@@ -61,7 +61,7 @@ In the app, once, from a browser where the flows already work:
 
 ### Taking them back out
 
-**Settings → C → Build a copy with none in.** Deploy that, and the app is back
+**Administrator settings → B → Build a copy with none in.** Deploy that, and the app is back
 to the server function or per-person pasting.
 
 ### From a terminal instead
@@ -105,11 +105,11 @@ flow it is and that something is set, with the signature replaced by dots:
 https://defaulte52a9a8778f14048b91…al%2Frun&sv=1.0&sig=••••••••••  (hidden)
 ```
 
-**Show URLs (admin)** asks for the Settings password and then shows them in
-full. **Hide URLs** puts them back, and leaving Settings hides them anyway, so
-they are never left on screen. With no password set the button declines to do
-anything and says to set one in section D first — a reveal guarded by nothing
-would be a reveal in a costume.
+**Show URLs** shows them in full and **Hide URLs** puts them back; leaving the
+screen hides them anyway, so they are never left on display. There is no second
+password here — this screen is already behind one, and asking again for
+something you have just proved is friction pretending to be security. The toggle
+is for shoulders and shared screens.
 
 Only once they are shown does **Unlock to change** appear. Editing a row of dots
 could only ever save a row of dots.

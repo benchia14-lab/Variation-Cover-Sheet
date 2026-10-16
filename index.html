@@ -393,36 +393,74 @@
 <div class="settings" id="view-settings" hidden>
   <button class="back-link" id="settings-back" type="button">&larr; Back</button>
   <div class="brand"><span class="brand-mark"></span><h1>Settings</h1></div>
-  <div class="home-sub">Power Automate endpoints and the per-office letterhead register</div>
+  <div class="home-sub">The per-office letterhead that fills in section 1 of every cover sheet</div>
 
-  <div class="lock-gate" id="settings-gate" hidden>
+  <div class="admin-bar">
+    <button class="refresh-btn" id="open-admin" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"
+           style="width:14px;height:14px;vertical-align:-2px;margin-right:6px;">
+        <rect x="4" y="10.5" width="16" height="11" rx="2"/>
+        <path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>
+      </svg>
+      Administrator settings
+    </button>
+    <span class="settings-help" style="margin:0;">The Power Automate connections, and the password
+      on this screen. Password required.</span>
+  </div>
+
+  <div class="form-section">
+    <div class="form-section-head"><p class="form-section-title">Office register — section 1 of the cover sheet</p></div>
+    <p class="settings-help">One row per office. Edits are saved to this browser so you can correct a phone
+      number straight away; <strong>Export</strong> gives you a replacement
+      <code>assets/state-register.js</code> to commit so everyone gets them. The code is what gets
+      matched against the <code>State</code> column in SharePoint, so it must be spelled the same in both.</p>
+    <table class="state-editor-table" id="state-editor"><tbody id="state-editor-body"></tbody></table>
+    <div class="settings-actions">
+      <button class="print-btn" id="states-save" type="button">Save register</button>
+      <button class="refresh-btn" id="states-export" type="button">Export as file</button>
+      <button class="refresh-btn" id="states-reset" type="button">Reset to shipped values</button>
+    </div>
+    <div class="status-line" id="states-status"></div>
+  </div>
+
+</div>
+
+<!-- ============ 4 · ADMINISTRATOR SETTINGS ============ -->
+<div class="settings" id="view-admin" hidden>
+  <button class="back-link" id="admin-back" type="button">&larr; Back to settings</button>
+  <div class="brand"><span class="brand-mark"></span><h1>Administrator settings</h1></div>
+  <div class="home-sub">Power Automate connections, shared by everyone using this app</div>
+
+  <div class="lock-gate" id="admin-gate" hidden>
     <div class="lock-card">
       <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
         <rect x="4" y="10.5" width="16" height="11" rx="2"/>
         <path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>
         <circle cx="12" cy="16" r="1.4"/>
       </svg>
-      <p class="lock-title">Settings is password protected</p>
-      <p class="lock-sub">These are the flow URLs and the office register. Changing them affects
-        everyone using the app, so only the administrator gets in.</p>
-      <form class="lock-form" id="settings-gate-form" autocomplete="off">
-        <label class="lock-label" for="settings-password">Password</label>
-        <input type="password" id="settings-password" autocomplete="current-password" spellcheck="false">
-        <button class="print-btn" id="settings-unlock" type="submit">Unlock</button>
+      <p class="lock-title">Administrator settings</p>
+      <p class="lock-sub">The Power Automate connections behind this app. Changing them affects
+        everyone using it, so only the administrator gets in.</p>
+      <form class="lock-form" id="admin-gate-form" autocomplete="off">
+        <label class="lock-label" for="admin-password">Password</label>
+        <input type="password" id="admin-password" autocomplete="current-password" spellcheck="false">
+        <button class="print-btn" id="admin-unlock" type="submit">Unlock</button>
       </form>
-      <div class="status-line" id="settings-gate-status"></div>
+      <div class="status-line" id="admin-gate-status"></div>
       <p class="lock-foot">Forgotten it? It cannot be recovered — it was never stored. It is reset by
         replacing <code>assets/settings-password.js</code> and deploying again.</p>
     </div>
   </div>
 
-  <div id="settings-body">
+  <div id="admin-body">
 
   <div class="warn-note">
     <strong>Treat these URLs as passwords.</strong> A Power Automate trigger URL ends in a
-    <code>sig=</code> value, and anyone holding the whole URL can run the flow. They are saved in
-    this browser only — never committed to the repository — so each person pastes them once on
-    each device they use.
+    <code>sig=</code> value, and anyone holding the whole URL can run that flow. They are built
+    into this copy of the app so nobody has to paste them — which also means they are in the page
+    itself, readable by anyone who can open the site. The Microsoft sign-in in front of the app
+    redirects people; it does not stop the file being downloaded. See
+    <code>docs/SIGN-IN.md</code>.
   </div>
 
   <div class="form-section">
@@ -435,16 +473,6 @@
       <span class="settings-help" style="margin:0;">Asks this site which flows it can run, and tries them.
         Do this first — the boxes below are only for flows the site is not handling.</span>
     </div>
-    <form class="reveal-row" id="flows-reveal-form" hidden autocomplete="off">
-      <label class="lock-label" for="flows-reveal-password">Administrator password</label>
-      <div class="reveal-row-inner">
-        <input type="password" id="flows-reveal-password" autocomplete="current-password" spellcheck="false">
-        <button class="print-btn" id="flows-reveal-go" type="submit">Show</button>
-        <button class="refresh-btn" id="flows-reveal-cancel" type="button">Cancel</button>
-      </div>
-      <div class="status-line" id="flows-reveal-status"></div>
-    </form>
-
     <div class="status-line" id="flows-connect-status"></div>
     <ul class="flow-report" id="flows-connect-report" hidden></ul>
 
@@ -518,29 +546,13 @@
     </div>
   </div>
 
-  <div class="divider"></div>
-
-  <div class="form-section">
-    <div class="form-section-head"><span class="form-section-num">B</span><p class="form-section-title">Office register — section 1</p></div>
-    <p class="settings-help">One row per office. Edits are saved to this browser so you can correct a phone
-      number straight away; <strong>Export</strong> gives you a replacement
-      <code>assets/state-register.js</code> to commit so everyone gets them. The code is what gets
-      matched against the <code>State</code> column in SharePoint, so it must be spelled the same in both.</p>
-    <table class="state-editor-table" id="state-editor"><tbody id="state-editor-body"></tbody></table>
-    <div class="settings-actions">
-      <button class="print-btn" id="states-save" type="button">Save register</button>
-      <button class="refresh-btn" id="states-export" type="button">Export as file</button>
-      <button class="refresh-btn" id="states-reset" type="button">Reset to shipped values</button>
-    </div>
-    <div class="status-line" id="states-status"></div>
-  </div>
 
   <div class="divider"></div>
 
   <div class="form-section">
-    <div class="form-section-head"><span class="form-section-num">C</span><p class="form-section-title">Build the flow URLs into the app</p></div>
+    <div class="form-section-head"><span class="form-section-num">B</span><p class="form-section-title">Build the flow URLs into the app</p></div>
     <p class="settings-help" id="urls-current">&nbsp;</p>
-    <p class="settings-help">Takes whatever is in the five boxes in section A and gives you back a copy of the
+    <p class="settings-help">Takes whatever is in the five boxes above and gives you back a copy of the
       app with them inside it. Deploy that, and nobody has to paste anything — it works on every
       laptop that opens the site.</p>
 
@@ -566,10 +578,11 @@
     </div>
   </div>
 
+
   <div class="divider"></div>
 
   <div class="form-section">
-    <div class="form-section-head"><span class="form-section-num">D</span><p class="form-section-title">Password on this screen</p></div>
+    <div class="form-section-head"><span class="form-section-num">C</span><p class="form-section-title">Password on this screen</p></div>
     <p class="settings-help" id="pw-current">&nbsp;</p>
     <p class="settings-help" id="pw-how">&nbsp;</p>
 
@@ -614,7 +627,7 @@
     </div>
   </div>
 
-  </div><!-- /#settings-body -->
+  </div><!-- /#admin-body -->
 </div>
 
 <script src="vendor/html2pdf.bundle.min.js"></script>

@@ -99,7 +99,8 @@ anyone who asks for it.
 4. **Build the flows** — [docs/POWER-AUTOMATE-SETUP.md](docs/POWER-AUTOMATE-SETUP.md).
 5. **Paste the flow URLs** — Settings → Power Automate flows, then
    **Test projects flow**.
-6. **Lock Settings, if you want to** — Settings → D → **Create the file**, drop
+6. **Lock the administrator screen** — Settings → Administrator settings → C →
+   **Create the file**, drop
    the downloaded `settings-password.js` into `assets/`, deploy again. Optional,
    and off until you set it. [docs/SETTINGS-PASSWORD.md](docs/SETTINGS-PASSWORD.md)
    says what it does and does not protect.
@@ -138,7 +139,7 @@ to the browser's print dialog with the same paginated document.
 ## Layout of the code
 
 ```
-index.html                markup for all three views
+index.html                markup for all four views
 assets/app.js             form, preview, pagination, filing, settings, routing
 assets/state-register.js  section 1 — the per-state letterhead rows
 assets/flows.js           the Power Automate client
