@@ -42,6 +42,7 @@ const DOC_TITLES = {
   'ROUTING-BY-STATE.md': '4 - Routing Each State to Its Own List',
   'SETTINGS-PASSWORD.md': '5 - Locking Settings with a Password',
   'FLOW-URLS-ON-THE-SERVER.md': '6 - Keeping the Flow URLs on the Server',
+  'FLOW-URLS-BUILT-IN.md': '7 - Building the Flow URLs into the App',
 };
 
 /* ---------------------------------------------------------------- inline --- */

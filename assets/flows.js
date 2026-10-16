@@ -178,16 +178,34 @@ const Flows = (() => {
     return PROXY_PATH + '?target=' + encodeURIComponent(PROXY_TARGETS[settingKey]);
   }
 
-  // Every flow call goes through here: the proxy when the site provides it,
-  // the pasted URL when it does not.
+  /* Every flow call goes through here. Three places a URL can come from, most
+     specific first:
+
+       1. the site's own function — the URL never reaches the browser
+       2. a URL pasted into Settings — this browser only, so it is the way to
+          point one flow somewhere else without redeploying for everybody
+       3. a URL built into the app — assets/flow-urls.js, the same for everyone
+          who opens the site, and the reason most people paste nothing
+
+     Built-in comes last so that a deliberate override in front of you always
+     wins over what the build happened to ship with. */
   function endpointFor(settingKey){
     if(viaProxy(settingKey)) return proxyUrl(settingKey);
-    return settings[settingKey];
+    if(settings[settingKey]) return settings[settingKey];
+    return FlowUrls.get(settingKey);
   }
 
-  // Configured at all, by either route.
+  // Where a flow's URL is coming from, for anything that has to explain itself.
+  function sourceOf(settingKey){
+    if(viaProxy(settingKey)) return 'site';
+    if(settings[settingKey]) return 'pasted';
+    if(FlowUrls.get(settingKey)) return 'builtin';
+    return 'none';
+  }
+
+  // Configured at all, by any route.
   function configured(settingKey){
-    return viaProxy(settingKey) || !!settings[settingKey];
+    return sourceOf(settingKey) !== 'none';
   }
 
   function proxyState(){
@@ -677,7 +695,8 @@ const Flows = (() => {
     return String(text).trim();
   }
 
-  return { get, save, has, probeProxy, proxyState, viaProxy, getProjects, fileVariation, describe,
+  return { get, save, has, probeProxy, proxyState, viaProxy, sourceOf, builtIn: FlowUrls.get,
+           getProjects, fileVariation, describe,
            listLog, getLog, writeLog, sameRef, LOG_ALIASES,
            normaliseProject, extractRows, describeRow, describeRows, normKey,
            MAPPABLE, ALIASES, decodePath, splitSitePath };

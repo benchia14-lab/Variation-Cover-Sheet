@@ -471,7 +471,38 @@
   <div class="divider"></div>
 
   <div class="form-section">
-    <div class="form-section-head"><span class="form-section-num">C</span><p class="form-section-title">Password on this screen</p></div>
+    <div class="form-section-head"><span class="form-section-num">C</span><p class="form-section-title">Build the flow URLs into the app</p></div>
+    <p class="settings-help" id="urls-current">&nbsp;</p>
+    <p class="settings-help">Takes whatever is in the five boxes in section A and gives you back a copy of the
+      app with them inside it. Deploy that, and nobody has to paste anything — it works on every
+      laptop that opens the site.</p>
+
+    <div class="warn-note">
+      <strong>Only do this behind a sign-in.</strong> A trigger URL's <code>sig=</code> value is the
+      whole authentication, so a copy with them in it hands all five flows to anyone served the page.
+      That is fine once the site is behind Microsoft sign-in and being served the page already means
+      being in your organisation. It is not fine on an open site, and a filled-in copy should never
+      be committed to a public repository.
+    </div>
+
+    <div class="settings-actions">
+      <button class="print-btn" id="urls-build" type="button">Build the URLs in</button>
+      <button class="refresh-btn" id="urls-strip" type="button">Build a copy with none in</button>
+    </div>
+    <div class="status-line" id="urls-status"></div>
+
+    <div class="warn-note" id="urls-next" hidden>
+      <strong>Now put it live.</strong>
+      <ol class="pw-steps" id="urls-next-steps"></ol>
+      Until that deploy finishes nothing has changed for anyone else. Check it afterwards with
+      <strong>Connect to the flows</strong> above, on a colleague's laptop rather than your own.
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="form-section">
+    <div class="form-section-head"><span class="form-section-num">D</span><p class="form-section-title">Password on this screen</p></div>
     <p class="settings-help" id="pw-current">&nbsp;</p>
     <p class="settings-help" id="pw-how">&nbsp;</p>
 
@@ -524,6 +555,8 @@
 <script src="assets/settings-lock.js"></script>
 <script src="assets/logo.js"></script>
 <script src="assets/state-register.js"></script>
+<script src="assets/flow-config.js"></script>
+<script src="assets/flow-urls.js"></script>
 <script src="assets/flows.js"></script>
 <script src="assets/app.js"></script>
 </body>

@@ -547,6 +547,11 @@ input[type=file]{ display:none; }
   border-radius:8px; background:#DCE9E0; color:#355C41; text-transform:uppercase;
 }
 .field-served textarea{ background:#F2F6F3; border-color:#BFD3C4; }
+.field-builtin label::after{
+  content:'built into the app';
+  margin-left:8px; font-size:9px; letter-spacing:.06em; padding:1px 6px;
+  border-radius:8px; background:#E2E6EC; color:#3C5978; text-transform:uppercase;
+}
 
 /* ---- Settings password gate -------------------------------------------- */
 .lock-gate{ display:flex; justify-content:center; padding:18px 0 40px; }

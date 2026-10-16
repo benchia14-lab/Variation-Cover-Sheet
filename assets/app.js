@@ -1691,13 +1691,21 @@ function describeProxy(){
 
   Object.keys(flowInputs).forEach(k => {
     const box = flowInputs[k];
-    const servedHere = Flows.viaProxy(k);
-    box.closest('.field').classList.toggle('field-served', servedHere);
-    box.readOnly = servedHere;
-    // An empty box reads as broken even when everything is working, so a flow
-    // the site handles says so in the box rather than leaving a blank one.
-    if(servedHere){
+    const field = box.closest('.field');
+    const source = Flows.sourceOf(k);
+    field.classList.toggle('field-served', source === 'site');
+    field.classList.toggle('field-builtin', source === 'builtin');
+    box.readOnly = source === 'site';
+    // An empty box reads as broken even when everything is working, so every
+    // flow says where its URL comes from rather than leaving a blank one.
+    if(source === 'site'){
       box.value = 'Called through this site — the URL is held in Netlify, not here.';
+    }else if(source === 'builtin'){
+      // Shown, not hidden: it is already in the page source of this very copy,
+      // and seeing it is how you check the right one got built in. Editing it
+      // overrides it for this browser only.
+      box.value = Flows.builtIn(k);
+      box.placeholder = box.dataset.placeholder || box.placeholder;
     }else{
       box.placeholder = box.dataset.placeholder || box.placeholder;
     }
@@ -1828,16 +1836,17 @@ async function connectFlows(){
 
   for(const key of ['projectsUrl', 'fileUrl', 'logReadUrl', 'logWriteUrl', 'describeUrl']){
     const name = FLOW_LABELS[key];
-    const served = Flows.viaProxy(key);
-    const pasted = !served && Flows.has(key);
+    const source = Flows.sourceOf(key);
 
-    if(!served && !pasted){
+    if(source === 'none'){
       rows.push(reportRow(name, '—', proxy.available
-        ? 'not set on this site, and nothing pasted here'
-        : 'nothing pasted here', 'off'));
+        ? 'not set on this site, not built in, nothing pasted here'
+        : 'not built in, and nothing pasted here', 'off'));
       continue;
     }
-    const how = served ? 'through this site' : 'from the URL saved in this browser';
+    const how = source === 'site' ? 'through this site'
+      : source === 'builtin' ? 'built into the app'
+      : 'from the URL saved in this browser';
     try {
       const detail = await tryFlow(key);
       worked++;
@@ -1851,19 +1860,23 @@ async function connectFlows(){
   rows.forEach(r => connectReport.appendChild(r));
   connectReport.hidden = false;
 
-  if(!proxy.available){
-    connectStatus.textContent = 'This site is not holding any flow URLs — the function answered nothing. '
-      + 'Either it was not deployed with the site, or its environment variables are not set. '
-      + 'Until then the URLs have to be pasted in below.';
-    connectStatus.className = failed || worked ? 'status-line' : 'status-line err';
-  }else if(failed){
-    connectStatus.textContent = worked + ' of ' + (worked + failed) + ' working. The ones marked \u2717 answered with an error.';
+  /* What actually happened comes first. The function being absent only matters
+     when nothing else is working — said any earlier it reads as the cause of a
+     failure it had nothing to do with. */
+  if(failed){
+    connectStatus.textContent = worked + ' of ' + (worked + failed) + ' working. '
+      + 'The ones marked \u2717 are configured but answered with an error — the message beside each says what.';
     connectStatus.className = 'status-line err';
   }else if(worked){
     connectStatus.textContent = 'Connected. ' + worked + ' flow' + (worked === 1 ? '' : 's') + ' working.';
     connectStatus.className = 'status-line ok';
+  }else if(proxy.available){
+    connectStatus.textContent = 'This site answered, but none of its five environment variables are set, '
+      + 'nothing is built into the app, and nothing is pasted here.';
+    connectStatus.className = 'status-line err';
   }else{
-    connectStatus.textContent = 'The site answered, but none of the five environment variables are set on it.';
+    connectStatus.textContent = 'Nothing is configured: this site holds no flow URLs, none are built into '
+      + 'the app, and none are pasted here. Build them in below, or paste them above.';
     connectStatus.className = 'status-line err';
   }
 
@@ -1892,7 +1905,11 @@ document.getElementById('flows-save').addEventListener('click', () => {
   // store a sentence where a URL belongs and break the flow the day the site
   // stopped serving it.
   Object.keys(flowInputs).forEach(k => {
-    if(!Flows.viaProxy(k)) next[k] = flowInputs[k].value;
+    if(Flows.viaProxy(k)) return;                     // the box holds an explanation
+    const typed = flowInputs[k].value.trim();
+    // Saving a box that is only showing what the build already carries would
+    // pin this browser to today's URL and quietly ignore the next deploy.
+    next[k] = (typed && typed === Flows.builtIn(k)) ? '' : typed;
   });
   const ok = Flows.save(next);
   flowsStatus.textContent = ok
@@ -2046,6 +2063,110 @@ function showPicker(){
 }
 
 /* ---------------------------------------------------------------------------
+   Building the flow URLs into the app
+
+   The URLs have to live somewhere the browser can read, and on a static site
+   that means inside what gets deployed. This takes the five boxes in section A
+   and hands back a copy of the app carrying them, in whichever shape this
+   deployment uses — the same job the password button does, and for the same
+   reason: there is no build step here to do it for us.
+--------------------------------------------------------------------------- */
+const urlsStatus = document.getElementById('urls-status');
+const urlsNext = document.getElementById('urls-next');
+const urlsSteps = document.getElementById('urls-next-steps');
+
+function describeBuiltIn(){
+  const built = Object.keys(flowInputs).filter(k => !!Flows.builtIn(k));
+  document.getElementById('urls-current').textContent = built.length
+    ? built.length + ' of 5 URLs ' + (built.length === 1 ? 'is' : 'are') + ' built into this copy of the app: '
+      + built.map(k => FLOW_LABELS[k]).join(', ') + '. Everyone opening this site uses them.'
+    : 'No URLs are built into this copy — everyone has to paste their own, or the site has to serve them.';
+}
+
+function showUrlSteps(forPage){
+  urlsSteps.innerHTML = '';
+  const steps = forPage
+    ? ['The download is a complete copy of this site with the URLs in it, named <code>index.html</code>.',
+       'Netlify → your site → <strong>Deploys</strong> → drag that <code>index.html</code> onto the drop zone.',
+       'If you deploy a folder, put the file in the folder first, keeping <code>netlify/</code> beside it.']
+    : ['Open the <code>assets</code> folder of the folder you drag onto Netlify.',
+       'Move the downloaded <code>flow-config.js</code> in there, replacing the one already present.',
+       'Netlify → your site → <strong>Deploys</strong> → drag the whole folder onto the drop zone.'];
+  steps.forEach(s => {
+    const li = document.createElement('li');
+    li.innerHTML = s;
+    urlsSteps.appendChild(li);
+  });
+  urlsNext.hidden = false;
+}
+
+// What is on screen in section A, which is what gets built in. A box the site
+// serves holds an explanation rather than a URL, so its built-in value is kept
+// instead of that sentence.
+function urlsFromForm(){
+  const out = {};
+  Object.keys(flowInputs).forEach(k => {
+    out[k] = Flows.viaProxy(k) ? Flows.builtIn(k) : flowInputs[k].value;
+  });
+  return out;
+}
+
+async function buildUrlsIn(urls){
+  let source;
+  try{
+    source = FlowUrls.fileSource(urls);        // validates every one of them
+  }catch(e){
+    urlsStatus.textContent = e.message;
+    urlsStatus.className = 'status-line err';
+    return false;
+  }
+  try{
+    if(isBundledPage()){
+      await rewriteDeployedPage(URLS_DECLARATION, declarationOnly(source, 'const FLOW_URLS'), 'flow URL');
+      showUrlSteps(true);
+    }else{
+      download(source, 'flow-config.js', 'text/javascript');
+      showUrlSteps(false);
+    }
+  }catch(e){
+    urlsStatus.textContent = e.message;
+    urlsStatus.className = 'status-line err';
+    return false;
+  }
+  return true;
+}
+
+document.getElementById('urls-build').addEventListener('click', async () => {
+  urlsNext.hidden = true;
+  const urls = urlsFromForm();
+  const count = FlowUrls.KEYS.filter(k => String(urls[k] || '').trim()).length;
+  if(!count){
+    urlsStatus.textContent = 'All five boxes in section A are empty — there is nothing to build in. '
+      + 'Paste the URLs up there first.';
+    urlsStatus.className = 'status-line err';
+    return;
+  }
+  urlsStatus.textContent = 'Building…';
+  urlsStatus.className = 'status-line';
+  if(await buildUrlsIn(urls)){
+    urlsStatus.textContent = 'Downloaded, with ' + count + ' URL' + (count === 1 ? '' : 's')
+      + ' built in. Nothing has changed until you deploy it.';
+    urlsStatus.className = 'status-line ok';
+  }
+});
+
+document.getElementById('urls-strip').addEventListener('click', async () => {
+  if(!confirm('Build a copy with no URLs in it? Once deployed, everyone has to paste their own again.')) return;
+  urlsNext.hidden = true;
+  const blank = {};
+  FlowUrls.KEYS.forEach(k => { blank[k] = ''; });
+  if(await buildUrlsIn(blank)){
+    urlsStatus.textContent = 'Downloaded with no URLs in it. Nothing has changed until you deploy it.';
+    urlsStatus.className = 'status-line ok';
+  }
+});
+
+/* ---------------------------------------------------------------------------
    Settings password gate
 
    Settings holds the flow URLs and the office register, so it is not something
@@ -2085,6 +2206,7 @@ function showSettings(){
   if(open){
     loadSettingsForm();
     describePasswordState();
+    describeBuiltIn();
   }else{
     // Never leave a typed password sitting in the field behind a Back.
     gatePassword.value = '';
@@ -2138,17 +2260,24 @@ function download(text, name, type){
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-// Only the real declaration, which settings-password.js holds and nothing else
-// writes. SettingsLock.fileSource builds the same text out of quoted fragments,
-// so the copy of these words living inside it cannot match this.
+/* Only the real declarations, which the generated files hold and nothing else
+   writes. Each fileSource() builds the same text out of quoted fragments, so the
+   copies of these words living inside them cannot match these. */
 const LOCK_DECLARATION =
   /const SETTINGS_LOCK = \{\s*salt: '[0-9a-f]*',\s*hash: '[0-9a-f]*',\s*iterations: \d+,?\s*\};/g;
+const URLS_DECLARATION =
+  /const FLOW_URLS = \{\s*projectsUrl: '[^']*',\s*fileUrl: '[^']*',\s*logReadUrl: '[^']*',\s*logWriteUrl: '[^']*',\s*describeUrl: '[^']*',?\s*\};/g;
 
-/* Reissue the whole page with a different password in it. The page is fetched
-   rather than read out of the DOM: the DOM has been changed by everything that
-   has happened since load, and serialising it would bake in whatever is on
-   screen -- including, on this screen, the flow URLs. */
-async function offerReplacementPage(salt, hash, iterations){
+// The declaration on its own, without the comment header the file also carries.
+function declarationOnly(source, keyword){
+  return source.slice(source.indexOf(keyword)).trim();
+}
+
+/* Reissue the whole page with something different built into it. The page is
+   fetched rather than read out of the DOM: the DOM has been changed by
+   everything that has happened since load, and serialising it would bake in
+   whatever is on screen — including, on this screen, the flow URLs. */
+async function rewriteDeployedPage(pattern, replacement, what){
   let html;
   try{
     const res = await fetch(location.href, { cache: 'no-store' });
@@ -2158,14 +2287,21 @@ async function offerReplacementPage(salt, hash, iterations){
     throw new Error('Could not read this page back to copy it (' + e.message + '). '
       + 'Opening the file straight off the disk stops that; try it on the website instead.');
   }
-  const found = html.match(LOCK_DECLARATION);
+  const found = html.match(pattern);
   if(!found || found.length !== 1){
     throw new Error('This page does not look like one this button can rewrite — found '
-      + (found ? found.length : 0) + ' password blocks in it, expected exactly one.');
+      + (found ? found.length : 0) + ' ' + what + ' blocks in it, expected exactly one.');
   }
-  const replaced = html.replace(LOCK_DECLARATION, SettingsLock.fileSource(salt, hash, iterations)
-    .replace(/^[\s\S]*?(const SETTINGS_LOCK)/, '$1').trim());
-  download(replaced, 'index.html', 'text/html');
+  // A function replacement, not a string: a URL can contain $& and friends,
+  // which String.replace would otherwise treat as instructions.
+  download(html.replace(pattern, () => replacement), 'index.html', 'text/html');
+}
+
+async function offerReplacementPage(salt, hash, iterations){
+  await rewriteDeployedPage(
+    LOCK_DECLARATION,
+    declarationOnly(SettingsLock.fileSource(salt, hash, iterations), 'const SETTINGS_LOCK'),
+    'password');
 }
 
 function offerLockFile(salt, hash, iterations){

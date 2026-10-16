@@ -56,7 +56,8 @@ def build():
 
     for rel in ['vendor/html2pdf.bundle.min.js', 'assets/settings-password.js',
                 'assets/settings-lock.js', 'assets/logo.js',
-                'assets/state-register.js', 'assets/flows.js', 'assets/app.js']:
+                'assets/state-register.js', 'assets/flow-config.js', 'assets/flow-urls.js',
+                'assets/flows.js', 'assets/app.js']:
         tag = '<script src="%s"></script>' % rel
         if tag not in html:
             sys.exit('index.html no longer loads %s — the builder is out of date' % rel)

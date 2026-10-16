@@ -91,7 +91,7 @@ as issued.
 4. **Build the flows** — [docs/POWER-AUTOMATE-SETUP.md](docs/POWER-AUTOMATE-SETUP.md).
 5. **Paste the flow URLs** — Settings → Power Automate flows, then
    **Test projects flow**.
-6. **Lock Settings, if you want to** — Settings → C → **Create the file**, drop
+6. **Lock Settings, if you want to** — Settings → D → **Create the file**, drop
    the downloaded `settings-password.js` into `assets/`, deploy again. Optional,
    and off until you set it. [docs/SETTINGS-PASSWORD.md](docs/SETTINGS-PASSWORD.md)
    says what it does and does not protect.
@@ -138,6 +138,8 @@ assets/settings-password.js  salt and hash of the Settings password, or empty
 assets/settings-lock.js   checks it; the half that never changes
 assets/logo.js            default letterhead mark as a data URI
 assets/styles.css         styling, including the A4 page geometry
+assets/flow-config.js     flow URLs built into the deployment, or blank
+assets/flow-urls.js       reads them; the half that never changes
 netlify/functions/flow.js calls the flows server-side, so their URLs stay
                           in Netlify's environment and never reach a browser
 vendor/                   html2pdf.js 0.10.1, bundled locally
@@ -150,6 +152,7 @@ tools/md-to-docx.js       regenerates docs/word/*.docx from the Markdown guides
                           (the only thing here with a dependency: npm install)
 tools/make-deploy-folder.py      builds the folder that gets dragged onto Netlify
 tools/set-settings-password.js   the same thing from a terminal, if you have Node
+tools/set-flow-urls.js    builds the flow URLs in from a terminal
 build-single-file.py      bundles all of the above into one standalone .html
 netlify.toml              unused today — see docs/DEPLOY-NETLIFY.md
 ```

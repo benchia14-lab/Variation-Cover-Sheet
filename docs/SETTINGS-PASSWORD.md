@@ -63,7 +63,7 @@ No Node, no terminal, nothing installed. This is the way to do it on a
 drag-and-drop Netlify site.
 
 1. Open the site and go to **Settings** (the gear in the banner).
-2. Scroll to **C · Password on this screen**. It tells you which shape this site
+2. Scroll to **D · Password on this screen**. It tells you which shape this site
    is deployed in, so you do not have to remember.
 3. Type the password twice and click **Create the file**.
 

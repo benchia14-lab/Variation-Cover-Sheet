@@ -25,7 +25,7 @@ copies is the way this goes wrong.
 WHAT CHANGES, AND WHEN YOU NEED TO RE-DRAG
 ------------------------------------------
 assets/settings-password.js   the Settings password.
-                              Set it in the app: Settings -> C -> Create the
+                              Set it in the app: Settings -> D -> Create the
                               file, then drop the download in here over the
                               old one. Re-drag.
 

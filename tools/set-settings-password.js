@@ -5,7 +5,7 @@
        node tools/set-settings-password.js --clear
 
    This needs Node installed. If you do not have it, you do not need it: the
-   app does the same job under Settings -> C. Password on this screen, and
+   app does the same job under Settings -> D. Password on this screen, and
    downloads the same file.
 
    It writes assets/settings-password.js — a salt and a hash, nothing else. The
