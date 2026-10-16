@@ -97,6 +97,29 @@ asked again.
 
 ---
 
+## Keeping it out of the repository
+
+This repository is public, so the committed `assets/settings-password.js` is
+blank. A password hash is designed to ship inside the page — it is not the
+password, and it cannot be turned back into one. But publishing yours in a
+public repository hands anyone a fixed target to guess against offline at their
+leisure, and git keeps it even after the file is changed back.
+
+So keep the filled-in file beside the filled-in `flow-config.js`, somewhere that
+is not the checkout, and point the builder at both:
+
+```
+python3 tools/make-deploy-folder.py \
+    --flow-config       ~/axis-private/flow-config.js \
+    --settings-password ~/axis-private/settings-password.js
+```
+
+Both paths are checked before anything is built, so pointing at the wrong file
+fails immediately rather than destroying the last good build on the way.
+
+The in-app route needs none of this: the file it downloads goes from your
+downloads folder straight to Netlify and never touches the repository.
+
 ## Or, if you have Node installed
 
 Same job, from the root of this repository:
