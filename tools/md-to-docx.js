@@ -43,6 +43,7 @@ const DOC_TITLES = {
   'SETTINGS-PASSWORD.md': '5 - Locking Settings with a Password',
   'FLOW-URLS-ON-THE-SERVER.md': '6 - Keeping the Flow URLs on the Server',
   'FLOW-URLS-BUILT-IN.md': '7 - Building the Flow URLs into the App',
+  'SIGN-IN.md': '8 - Microsoft Sign-In',
 };
 
 /* ---------------------------------------------------------------- inline --- */

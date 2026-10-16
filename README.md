@@ -76,6 +76,14 @@ as issued.
 | 5 · Description of works | Typed, optionally reworded by a flow |
 | 6 · Letter text | Intro and closing default per state; *Issued by* and *Position* come from the project register |
 
+## Who can open it
+
+Microsoft sign-in, per the Internal Tool Sign-In Standard: anyone not signed in
+with an Axis account is sent to `login.html` first.
+[docs/SIGN-IN.md](docs/SIGN-IN.md) covers it, including what it does **not**
+protect — the check runs in the browser, so the page itself is still served to
+anyone who asks for it.
+
 ## Setting it up
 
 1. **Fill in the state register** — open `registers/State Register.xlsx`, fill
@@ -140,6 +148,9 @@ assets/logo.js            default letterhead mark as a data URI
 assets/styles.css         styling, including the A4 page geometry
 assets/flow-config.js     flow URLs built into the deployment, or blank
 assets/flow-urls.js       reads them; the half that never changes
+login.html, msal-browser.min.js, app-config.js, axis services group.jpg
+                          the Internal Tool Sign-In Standard's files, unedited
+favicon.ico, apple-touch-icon.png   the Axis mark
 netlify/functions/flow.js calls the flows server-side, so their URLs stay
                           in Netlify's environment and never reach a browser
 vendor/                   html2pdf.js 0.10.1, bundled locally

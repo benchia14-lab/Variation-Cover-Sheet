@@ -1685,6 +1685,12 @@ const FLOW_LABELS = {
 /* A deployment can hold the trigger URLs server-side (netlify/functions/flow.js).
    Where it does, the box below is not what gets called, and saying so is the
    difference between "this is blank, is it broken?" and "that one is handled". */
+/* The built-in URLs are read-only, which is the point — but a wrong one then
+   has no way back except rebuilding from source. This is the way back, and it
+   is behind the Settings password like everything else on this screen. It
+   lasts until Settings is left. */
+let urlsUnlocked = false;
+
 function describeProxy(){
   const note = document.getElementById('proxy-note');
   const served = Object.keys(flowInputs).filter(k => Flows.viaProxy(k));
@@ -1695,7 +1701,10 @@ function describeProxy(){
     const source = Flows.sourceOf(k);
     field.classList.toggle('field-served', source === 'site');
     field.classList.toggle('field-builtin', source === 'builtin');
-    box.readOnly = source === 'site';
+    // Locked, both of them. A URL the site serves is not what gets called, and
+    // one built into the app is the same for everybody — a stray keystroke in
+    // either box is a flow that stops working for reasons nobody can see.
+    box.readOnly = (source === 'site') || (source === 'builtin' && !urlsUnlocked);
     // An empty box reads as broken even when everything is working, so every
     // flow says where its URL comes from rather than leaving a blank one.
     if(source === 'site'){
@@ -1710,6 +1719,11 @@ function describeProxy(){
       box.placeholder = box.dataset.placeholder || box.placeholder;
     }
   });
+
+  const unlock = document.getElementById('flows-unlock');
+  const anyBuiltIn = Object.keys(flowInputs).some(k => Flows.sourceOf(k) === 'builtin');
+  unlock.hidden = !anyBuiltIn;
+  unlock.textContent = urlsUnlocked ? 'Lock again' : 'Unlock to change';
 
   if(!served.length){ note.hidden = true; return; }
   const missing = Object.keys(flowInputs).filter(k => !Flows.viaProxy(k));
@@ -1885,6 +1899,16 @@ async function connectFlows(){
   if(currentState) loadProjects();
   updateFilingNote();
 }
+
+document.getElementById('flows-unlock').addEventListener('click', () => {
+  if(!urlsUnlocked && !confirm(
+      'These URLs are built into the app and are the same for everyone using it.\n\n' +
+      'Changing one here only changes it in your browser. To change it for everybody, ' +
+      'edit it and then use "Build the URLs in" below, and deploy what that gives you.\n\n' +
+      'Unlock them?')) return;
+  urlsUnlocked = !urlsUnlocked;
+  loadSettingsForm();
+});
 
 document.getElementById('flows-connect').addEventListener('click', connectFlows);
 document.getElementById('project-connect').addEventListener('click', async () => {
@@ -2439,6 +2463,7 @@ document.getElementById('picker-settings-btn').addEventListener('click', () => {
 document.getElementById('back-to-picker').addEventListener('click', () => { location.hash = ''; });
 document.getElementById('chip-change').addEventListener('click', () => { location.hash = ''; });
 document.getElementById('settings-back').addEventListener('click', () => {
+  urlsUnlocked = false;
   location.hash = currentState ? '#/state/' + encodeURIComponent(currentState.code) : '';
 });
 

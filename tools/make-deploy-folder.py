@@ -9,12 +9,14 @@ It builds the site in both shapes, so you drag whichever suits:
     build/single-file/            index.html -- the whole app in one file
     build/variation-coversheet/   the same app as separate files
 
-Both also carry netlify/functions/flow.js, which is what lets the site hold the
-Power Automate trigger URLs itself instead of every person pasting them in. The
-function needs the environment variables named in it; without them, or without
-the function, the app falls back to the URL boxes in Settings and nothing
-breaks. Which is why a folder is dragged now even for the single-file shape:
-one file cannot carry a function beside it.
+Both carry the Internal Tool Sign-In Standard's files — login.html,
+msal-browser.min.js, app-config.js and the logo — because index.html sends
+anyone not signed in to /login.html, and that page has to exist. Both also carry
+netlify/functions/flow.js, which can hold the Power Automate trigger URLs so
+nobody pastes them.
+
+That is why a folder is dragged now, even for the single-file shape: one file
+cannot carry the sign-in pages beside it.
 
 The site is deployed by hand — Netlify is not linked to the repository — so what
 goes live is whatever folder someone drags. This builds that folder so it holds
@@ -43,6 +45,12 @@ DIRS = ['assets', 'vendor']
 README = 'READ ME FIRST.txt'
 FUNCTIONS = Path('netlify') / 'functions'
 
+# The Internal Tool Sign-In Standard's files, which sit beside index.html and
+# are copied in unchanged. Without them the app redirects to a sign-in page that
+# is not there, so a folder missing any of these is not deployable.
+SIGN_IN = ['login.html', 'msal-browser.min.js', 'app-config.js', 'axis services group.jpg']
+ICONS = ['favicon.ico', 'apple-touch-icon.png']
+
 
 def check_references(folder):
     """Everything index.html asks for has to be in the folder, or the site is
@@ -64,6 +72,22 @@ def add_functions(folder):
     if not src.is_dir():
         sys.exit('missing: %s/' % FUNCTIONS)
     shutil.copytree(src, folder / FUNCTIONS)
+
+
+def add_sign_in(folder):
+    for rel in SIGN_IN + ICONS:
+        src = ROOT / rel
+        if not src.exists():
+            sys.exit('missing: %s — the sign-in standard needs it beside index.html' % rel)
+        shutil.copy2(src, folder / rel)
+
+    # index.html redirects to /login.html when nobody is signed in. Shipping one
+    # without the other is a site that bounces everyone to a 404.
+    html = (folder / 'index.html').read_text(encoding='utf-8')
+    if '/login.html' in html and not (folder / 'login.html').exists():
+        sys.exit('index.html redirects to /login.html, which is not in the folder')
+    if 'msal-browser.min.js' in html and not (folder / 'msal-browser.min.js').exists():
+        sys.exit('index.html loads msal-browser.min.js, which is not in the folder')
 
 
 def report(folder, archive):
@@ -92,8 +116,9 @@ def build_multi(out_dir):
     note = ROOT / 'tools' / 'deploy-readme.txt'
     if note.exists():
         shutil.copy2(note, folder / README)
-    check_references(folder)
     add_functions(folder)
+    add_sign_in(folder)
+    check_references(folder)
     return folder, shutil.make_archive(str(out_dir / (NAME + '-site')), 'zip',
                                        root_dir=str(out_dir), base_dir=NAME)
 
@@ -111,8 +136,9 @@ def build_single(out_dir):
         # The bundler has already said what is missing; repeating a traceback
         # on top of it would only bury the message.
         sys.exit('build-single-file.py could not build the bundle — see above.')
-    check_references(folder)
     add_functions(folder)
+    add_sign_in(folder)
+    check_references(folder)
     return folder, shutil.make_archive(str(out_dir / 'single-file-site'), 'zip',
                                        root_dir=str(out_dir), base_dir='single-file')
 
