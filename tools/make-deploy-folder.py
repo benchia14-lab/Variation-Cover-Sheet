@@ -104,7 +104,7 @@ def fresh(folder):
     return folder
 
 
-def build_multi(out_dir):
+def build_multi(out_dir, flow_config=None):
     """The app as separate files."""
     folder = fresh(out_dir / NAME)
     shutil.copy2(ROOT / 'index.html', folder / 'index.html')
@@ -113,6 +113,13 @@ def build_multi(out_dir):
         if not src.is_dir():
             sys.exit('missing: %s/' % rel)
         shutil.copytree(src, folder / rel)
+    if flow_config:
+        src = Path(flow_config)
+        if not src.exists():
+            sys.exit('missing: %s' % flow_config)
+        if 'const FLOW_URLS' not in src.read_text(encoding='utf-8'):
+            sys.exit('%s does not declare FLOW_URLS — wrong file?' % flow_config)
+        shutil.copy2(src, folder / 'assets' / 'flow-config.js')
     note = ROOT / 'tools' / 'deploy-readme.txt'
     if note.exists():
         shutil.copy2(note, folder / README)
@@ -123,15 +130,17 @@ def build_multi(out_dir):
                                        root_dir=str(out_dir), base_dir=NAME)
 
 
-def build_single(out_dir):
+def build_single(out_dir, flow_config=None):
     """The whole app bundled into one index.html, plus the function."""
     folder = fresh(out_dir / 'single-file')
     # The bundler is the one definition of how the app inlines itself; running
     # it is better than a second copy of that logic living here.
     import subprocess
-    done = subprocess.run([sys.executable, str(ROOT / 'build-single-file.py'),
-                           '--out', str(folder / 'index.html')],
-                          cwd=str(ROOT), stdout=subprocess.DEVNULL)
+    cmd = [sys.executable, str(ROOT / 'build-single-file.py'),
+           '--out', str(folder / 'index.html')]
+    if flow_config:
+        cmd += ['--flow-config', str(flow_config)]
+    done = subprocess.run(cmd, cwd=str(ROOT), stdout=subprocess.DEVNULL)
     if done.returncode:
         # The bundler has already said what is missing; repeating a traceback
         # on top of it would only bury the message.
@@ -147,15 +156,19 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--out', default=str(ROOT / 'build'),
                     help='where to put the folders and zips (default: ./build)')
+    ap.add_argument('--flow-config', metavar='PATH',
+                    help='build with the trigger URLs from this flow-config.js. '
+                         'Keep it OUTSIDE the repository — this repository is public, '
+                         'and a committed copy publishes all five URLs.')
     args = ap.parse_args()
     out = Path(args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
 
     print('ONE FILE (plus the function) — this is what is deployed today')
-    report(*build_single(out))
+    report(*build_single(out, args.flow_config))
     print('')
     print('SEPARATE FILES (plus the function)')
-    report(*build_multi(out))
+    report(*build_multi(out, args.flow_config))
     print('')
     print('Drag one of those folders — not its contents — onto Netlify under Deploys.')
     print('The netlify/functions folder has to go up with it, which is why it is a')

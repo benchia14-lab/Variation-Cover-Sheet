@@ -79,7 +79,54 @@ Flags you leave out keep what is already there. It writes
 back with `node tools/set-flow-urls.js --clear` — or use the in-app route, which
 never writes into the repository at all.
 
+### Keeping a filled-in copy outside the repository
+
+The safest arrangement if you build from source: keep one filled-in
+`flow-config.js` somewhere that is not the checkout, and point the builders at
+it. Nothing in the repository ever holds a URL, so nothing can be committed by
+accident.
+
+```
+python3 tools/make-deploy-folder.py --flow-config ~/axis-private/flow-config.js
+python3 build-single-file.py --flow-config ~/axis-private/flow-config.js --out build/index.html
+```
+
+Both refuse a file that does not declare `FLOW_URLS`, so pointing at the wrong
+one fails loudly rather than building a site with no flows.
+
 ---
+
+## Seeing them afterwards
+
+Built-in URLs are **masked** in Settings. Each box shows enough to tell which
+flow it is and that something is set, with the signature replaced by dots:
+
+```
+https://defaulte52a9a8778f14048b91…al%2Frun&sv=1.0&sig=••••••••••  (hidden)
+```
+
+**Show URLs (admin)** asks for the Settings password and then shows them in
+full. **Hide URLs** puts them back, and leaving Settings hides them anyway, so
+they are never left on screen. With no password set the button declines to do
+anything and says to set one in section D first — a reveal guarded by nothing
+would be a reveal in a costume.
+
+Only once they are shown does **Unlock to change** appear. Editing a row of dots
+could only ever save a row of dots.
+
+Masks are never mistaken for URLs: saving with them on screen stores nothing,
+and rebuilding with **Build the URLs in** keeps the real ones rather than baking
+the dots in.
+
+### What the masking is for, and what it is not
+
+It is for shoulders, screenshots and shared screens: a flow URL should not be
+sitting in plain sight while you demonstrate something.
+
+It is **not** a secret kept from the people using the app. The URLs are in the
+deployed page, and anyone who can open the site can read them in view-source or
+with `curl`. No amount of hiding in the interface changes that — see
+[SIGN-IN.md](SIGN-IN.md) for what does.
 
 ## Where a URL comes from
 

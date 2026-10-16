@@ -1691,6 +1691,27 @@ const FLOW_LABELS = {
    lasts until Settings is left. */
 let urlsUnlocked = false;
 
+/* Whether the real URLs are on screen at all. They are masked by default, so a
+   shoulder, a screenshot or a shared screen does not give a trigger URL away.
+
+   WHAT THIS IS. It hides them in the interface. It does not hide them from the
+   page: they are in the deployed file, and anyone who can open the site can
+   read them in view-source. Stopping that is the server's job, not this
+   screen's — see docs/SIGN-IN.md. */
+let urlsRevealed = false;
+
+// Enough to tell which flow a URL belongs to and that something is set, with
+// nothing anyone could use.
+function maskUrl(url){
+  const text = String(url || '');
+  if(!text) return '';
+  const sigAt = text.indexOf('sig=');
+  const body = sigAt === -1 ? text : text.slice(0, sigAt + 4);
+  const head = body.length > 58 ? body.slice(0, 34) + '…' + body.slice(-20) : body;
+  const sigLength = sigAt === -1 ? 0 : text.length - sigAt - 4;
+  return head + (sigLength ? '•'.repeat(Math.min(sigLength, 24)) + '  (hidden)' : '  (hidden)');
+}
+
 function describeProxy(){
   const note = document.getElementById('proxy-note');
   const served = Object.keys(flowInputs).filter(k => Flows.viaProxy(k));
@@ -1701,19 +1722,19 @@ function describeProxy(){
     const source = Flows.sourceOf(k);
     field.classList.toggle('field-served', source === 'site');
     field.classList.toggle('field-builtin', source === 'builtin');
+    field.classList.toggle('field-masked', source === 'builtin' && !urlsRevealed);
     // Locked, both of them. A URL the site serves is not what gets called, and
     // one built into the app is the same for everybody — a stray keystroke in
     // either box is a flow that stops working for reasons nobody can see.
-    box.readOnly = (source === 'site') || (source === 'builtin' && !urlsUnlocked);
+    box.readOnly = (source === 'site') || (source === 'builtin' && (!urlsRevealed || !urlsUnlocked));
     // An empty box reads as broken even when everything is working, so every
     // flow says where its URL comes from rather than leaving a blank one.
     if(source === 'site'){
       box.value = 'Called through this site — the URL is held in Netlify, not here.';
     }else if(source === 'builtin'){
-      // Shown, not hidden: it is already in the page source of this very copy,
-      // and seeing it is how you check the right one got built in. Editing it
+      // Masked until an administrator asks for it. Once revealed, editing it
       // overrides it for this browser only.
-      box.value = Flows.builtIn(k);
+      box.value = urlsRevealed ? Flows.builtIn(k) : maskUrl(Flows.builtIn(k));
       box.placeholder = box.dataset.placeholder || box.placeholder;
     }else{
       box.placeholder = box.dataset.placeholder || box.placeholder;
@@ -1721,8 +1742,13 @@ function describeProxy(){
   });
 
   const unlock = document.getElementById('flows-unlock');
+  const reveal = document.getElementById('flows-reveal');
   const anyBuiltIn = Object.keys(flowInputs).some(k => Flows.sourceOf(k) === 'builtin');
-  unlock.hidden = !anyBuiltIn;
+  reveal.hidden = !anyBuiltIn;
+  reveal.textContent = urlsRevealed ? 'Hide URLs' : 'Show URLs (admin)';
+  // Nothing to unlock while they are still hidden: editing a row of dots would
+  // only ever save a row of dots.
+  unlock.hidden = !anyBuiltIn || !urlsRevealed;
   unlock.textContent = urlsUnlocked ? 'Lock again' : 'Unlock to change';
 
   if(!served.length){ note.hidden = true; return; }
@@ -1900,6 +1926,69 @@ async function connectFlows(){
   updateFilingNote();
 }
 
+/* ---- showing the real URLs ------------------------------------------------
+   Guarded by the same password that guards Settings itself. With none set there
+   is nothing to check against, and showing them anyway would make the button a
+   lie — so it says to set one first. */
+const revealForm = document.getElementById('flows-reveal-form');
+const revealPassword = document.getElementById('flows-reveal-password');
+const revealStatus = document.getElementById('flows-reveal-status');
+
+function setRevealed(on){
+  urlsRevealed = on;
+  if(!on) urlsUnlocked = false;
+  revealForm.hidden = true;
+  revealPassword.value = '';
+  revealStatus.textContent = '';
+  revealStatus.className = 'status-line';
+  loadSettingsForm();
+}
+
+document.getElementById('flows-reveal').addEventListener('click', () => {
+  if(urlsRevealed){ setRevealed(false); return; }
+  if(!SettingsLock.isLocked()){
+    revealForm.hidden = true;
+    flowsStatus.textContent = 'No administrator password is set, so there is nothing to check against. '
+      + 'Set one in section D first — otherwise this button would be protecting nothing.';
+    flowsStatus.className = 'status-line err';
+    return;
+  }
+  revealForm.hidden = false;
+  revealPassword.focus();
+});
+
+document.getElementById('flows-reveal-cancel').addEventListener('click', () => {
+  revealForm.hidden = true;
+  revealPassword.value = '';
+  revealStatus.textContent = '';
+});
+
+revealForm.addEventListener('submit', e => {
+  e.preventDefault();
+  const entered = revealPassword.value;
+  if(!entered){
+    revealStatus.textContent = 'Enter the password.';
+    revealStatus.className = 'status-line err';
+    return;
+  }
+  const button = document.getElementById('flows-reveal-go');
+  revealStatus.textContent = 'Checking…';
+  revealStatus.className = 'status-line';
+  button.disabled = true;
+  requestAnimationFrame(() => setTimeout(() => {
+    const ok = SettingsLock.verify(entered);
+    button.disabled = false;
+    if(!ok){
+      revealPassword.value = '';
+      revealPassword.focus();
+      revealStatus.textContent = 'That password is not right.';
+      revealStatus.className = 'status-line err';
+      return;
+    }
+    setRevealed(true);
+  }, 0));
+});
+
 document.getElementById('flows-unlock').addEventListener('click', () => {
   if(!urlsUnlocked && !confirm(
       'These URLs are built into the app and are the same for everyone using it.\n\n' +
@@ -1930,6 +2019,7 @@ document.getElementById('flows-save').addEventListener('click', () => {
   // stopped serving it.
   Object.keys(flowInputs).forEach(k => {
     if(Flows.viaProxy(k)) return;                     // the box holds an explanation
+    if(Flows.sourceOf(k) === 'builtin' && !urlsRevealed) return;   // a mask, not a URL
     const typed = flowInputs[k].value.trim();
     // Saving a box that is only showing what the build already carries would
     // pin this browser to today's URL and quietly ignore the next deploy.
@@ -2130,7 +2220,10 @@ function showUrlSteps(forPage){
 function urlsFromForm(){
   const out = {};
   Object.keys(flowInputs).forEach(k => {
-    out[k] = Flows.viaProxy(k) ? Flows.builtIn(k) : flowInputs[k].value;
+    // A box showing a mask, or an explanation, holds no URL. Keep what is
+    // already built in rather than baking the dots into the next build.
+    const masked = Flows.sourceOf(k) === 'builtin' && !urlsRevealed;
+    out[k] = (Flows.viaProxy(k) || masked) ? Flows.builtIn(k) : flowInputs[k].value;
   });
   return out;
 }
@@ -2464,6 +2557,7 @@ document.getElementById('back-to-picker').addEventListener('click', () => { loca
 document.getElementById('chip-change').addEventListener('click', () => { location.hash = ''; });
 document.getElementById('settings-back').addEventListener('click', () => {
   urlsUnlocked = false;
+  urlsRevealed = false;
   location.hash = currentState ? '#/state/' + encodeURIComponent(currentState.code) : '';
 });
 

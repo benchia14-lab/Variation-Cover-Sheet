@@ -46,7 +46,7 @@ def guard(text, rel):
     return text
 
 
-def build():
+def build(flow_config=None):
     html = read('index.html')
 
     css = read('assets/styles.css')
@@ -61,7 +61,17 @@ def build():
         tag = '<script src="%s"></script>' % rel
         if tag not in html:
             sys.exit('index.html no longer loads %s — the builder is out of date' % rel)
-        html = html.replace(tag, '<script>\n' + guard(read(rel), rel) + '\n</script>')
+        source = read(rel)
+        # The URLs can come from a file kept outside the repository, so a build
+        # with real ones in it never needs a credential committed to get there.
+        if rel == 'assets/flow-config.js' and flow_config:
+            path = Path(flow_config)
+            if not path.exists():
+                sys.exit('missing: %s' % flow_config)
+            source = path.read_text(encoding='utf-8')
+            if 'const FLOW_URLS' not in source:
+                sys.exit('%s does not declare FLOW_URLS — wrong file?' % flow_config)
+        html = html.replace(tag, '<script>\n' + guard(source, rel) + '\n</script>')
 
     if 'src="assets/' in html or 'src="vendor/' in html or 'href="assets/' in html:
         sys.exit('something still points at a separate file; not shipping a broken bundle')
@@ -72,9 +82,13 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--out', default=str(DEFAULT_OUT), help='where to write the bundle')
+    ap.add_argument('--flow-config', metavar='PATH',
+                    help='use this flow-config.js instead of the one in assets/. '
+                         'Keep a filled-in one OUTSIDE the repository: this repository is '
+                         'public, and a committed copy publishes the trigger URLs.')
     args = ap.parse_args()
 
-    html = build()
+    html = build(args.flow_config)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, encoding='utf-8')

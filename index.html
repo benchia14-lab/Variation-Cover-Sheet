@@ -430,10 +430,21 @@
 
     <div class="connect-bar">
       <button class="print-btn" id="flows-connect" type="button">Connect to the flows</button>
+      <button class="refresh-btn" id="flows-reveal" type="button" hidden>Show URLs (admin)</button>
       <button class="refresh-btn" id="flows-unlock" type="button" hidden>Unlock to change</button>
       <span class="settings-help" style="margin:0;">Asks this site which flows it can run, and tries them.
         Do this first — the boxes below are only for flows the site is not handling.</span>
     </div>
+    <form class="reveal-row" id="flows-reveal-form" hidden autocomplete="off">
+      <label class="lock-label" for="flows-reveal-password">Administrator password</label>
+      <div class="reveal-row-inner">
+        <input type="password" id="flows-reveal-password" autocomplete="current-password" spellcheck="false">
+        <button class="print-btn" id="flows-reveal-go" type="submit">Show</button>
+        <button class="refresh-btn" id="flows-reveal-cancel" type="button">Cancel</button>
+      </div>
+      <div class="status-line" id="flows-reveal-status"></div>
+    </form>
+
     <div class="status-line" id="flows-connect-status"></div>
     <ul class="flow-report" id="flows-connect-report" hidden></ul>
 

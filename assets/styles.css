@@ -547,6 +547,12 @@ input[type=file]{ display:none; }
   border-radius:8px; background:#DCE9E0; color:#355C41; text-transform:uppercase;
 }
 .field-served textarea{ background:#F2F6F3; border-color:#BFD3C4; }
+.reveal-row{ margin:10px 0 4px; padding:12px 14px; border:1px solid var(--line); border-radius:4px; background:var(--panel); max-width:460px; }
+.reveal-row-inner{ display:flex; gap:8px; align-items:center; }
+.reveal-row-inner input{ flex:1 1 auto; margin:0; }
+.reveal-row-inner .print-btn{ width:auto; margin-top:0; padding:9px 16px; }
+.reveal-row-inner .refresh-btn{ white-space:nowrap; }
+.field-masked textarea{ color:var(--muted); font-style:italic; background:#F3F2EE; }
 .field-builtin label::after{
   content:'built into the app';
   margin-left:8px; font-size:9px; letter-spacing:.06em; padding:1px 6px;
