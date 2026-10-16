@@ -104,7 +104,7 @@ def fresh(folder):
     return folder
 
 
-def build_multi(out_dir, flow_config=None):
+def build_multi(out_dir, flow_config=None, settings_password=None):
     """The app as separate files."""
     folder = fresh(out_dir / NAME)
     shutil.copy2(ROOT / 'index.html', folder / 'index.html')
@@ -113,13 +113,16 @@ def build_multi(out_dir, flow_config=None):
         if not src.is_dir():
             sys.exit('missing: %s/' % rel)
         shutil.copytree(src, folder / rel)
-    if flow_config:
-        src = Path(flow_config)
+    for given, name, needle in [(flow_config, 'flow-config.js', 'const FLOW_URLS'),
+                                (settings_password, 'settings-password.js', 'const SETTINGS_LOCK')]:
+        if not given:
+            continue
+        src = Path(given)
         if not src.exists():
-            sys.exit('missing: %s' % flow_config)
-        if 'const FLOW_URLS' not in src.read_text(encoding='utf-8'):
-            sys.exit('%s does not declare FLOW_URLS — wrong file?' % flow_config)
-        shutil.copy2(src, folder / 'assets' / 'flow-config.js')
+            sys.exit('missing: %s' % given)
+        if needle not in src.read_text(encoding='utf-8'):
+            sys.exit('%s does not declare %s — wrong file?' % (given, needle.split()[1]))
+        shutil.copy2(src, folder / 'assets' / name)
     note = ROOT / 'tools' / 'deploy-readme.txt'
     if note.exists():
         shutil.copy2(note, folder / README)
@@ -130,7 +133,7 @@ def build_multi(out_dir, flow_config=None):
                                        root_dir=str(out_dir), base_dir=NAME)
 
 
-def build_single(out_dir, flow_config=None):
+def build_single(out_dir, flow_config=None, settings_password=None):
     """The whole app bundled into one index.html, plus the function."""
     folder = fresh(out_dir / 'single-file')
     # The bundler is the one definition of how the app inlines itself; running
@@ -140,6 +143,8 @@ def build_single(out_dir, flow_config=None):
            '--out', str(folder / 'index.html')]
     if flow_config:
         cmd += ['--flow-config', str(flow_config)]
+    if settings_password:
+        cmd += ['--settings-password', str(settings_password)]
     done = subprocess.run(cmd, cwd=str(ROOT), stdout=subprocess.DEVNULL)
     if done.returncode:
         # The bundler has already said what is missing; repeating a traceback
@@ -160,15 +165,31 @@ def main():
                     help='build with the trigger URLs from this flow-config.js. '
                          'Keep it OUTSIDE the repository — this repository is public, '
                          'and a committed copy publishes all five URLs.')
+    ap.add_argument('--settings-password', metavar='PATH',
+                    help='build with the administrator password from this '
+                         'settings-password.js, kept outside the repository likewise.')
     args = ap.parse_args()
     out = Path(args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
 
+    # Checked before anything is built, because building clears the output
+    # folder first: a wrong path would otherwise destroy the last good build on
+    # its way to failing.
+    for given, needle, what in [(args.flow_config, 'const FLOW_URLS', 'FLOW_URLS'),
+                                (args.settings_password, 'const SETTINGS_LOCK', 'SETTINGS_LOCK')]:
+        if not given:
+            continue
+        src = Path(given)
+        if not src.exists():
+            sys.exit('missing: %s' % given)
+        if needle not in src.read_text(encoding='utf-8'):
+            sys.exit('%s does not declare %s — wrong file?' % (given, what))
+
     print('ONE FILE (plus the function) — this is what is deployed today')
-    report(*build_single(out, args.flow_config))
+    report(*build_single(out, args.flow_config, args.settings_password))
     print('')
     print('SEPARATE FILES (plus the function)')
-    report(*build_multi(out, args.flow_config))
+    report(*build_multi(out, args.flow_config, args.settings_password))
     print('')
     print('Drag one of those folders — not its contents — onto Netlify under Deploys.')
     print('The netlify/functions folder has to go up with it, which is why it is a')

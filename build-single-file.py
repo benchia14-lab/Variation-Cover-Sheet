@@ -46,7 +46,20 @@ def guard(text, rel):
     return text
 
 
-def build(flow_config=None):
+def read_private(path_text, needle, what):
+    """A generated file kept outside the repository. Checked rather than
+    trusted: pointing at the wrong one should fail here, not produce a site
+    with no flows or no password and no sign of why."""
+    path = Path(path_text)
+    if not path.exists():
+        sys.exit('missing: %s' % path_text)
+    source = path.read_text(encoding='utf-8')
+    if needle not in source:
+        sys.exit('%s does not declare %s — wrong file?' % (path_text, what))
+    return source
+
+
+def build(flow_config=None, settings_password=None):
     html = read('index.html')
 
     css = read('assets/styles.css')
@@ -62,15 +75,13 @@ def build(flow_config=None):
         if tag not in html:
             sys.exit('index.html no longer loads %s — the builder is out of date' % rel)
         source = read(rel)
-        # The URLs can come from a file kept outside the repository, so a build
-        # with real ones in it never needs a credential committed to get there.
+        # The URLs and the administrator password hash can both come from files
+        # kept outside the repository, so a build carrying them never needs a
+        # secret committed to get there.
         if rel == 'assets/flow-config.js' and flow_config:
-            path = Path(flow_config)
-            if not path.exists():
-                sys.exit('missing: %s' % flow_config)
-            source = path.read_text(encoding='utf-8')
-            if 'const FLOW_URLS' not in source:
-                sys.exit('%s does not declare FLOW_URLS — wrong file?' % flow_config)
+            source = read_private(flow_config, 'const FLOW_URLS', 'FLOW_URLS')
+        if rel == 'assets/settings-password.js' and settings_password:
+            source = read_private(settings_password, 'const SETTINGS_LOCK', 'SETTINGS_LOCK')
         html = html.replace(tag, '<script>\n' + guard(source, rel) + '\n</script>')
 
     if 'src="assets/' in html or 'src="vendor/' in html or 'href="assets/' in html:
@@ -86,9 +97,12 @@ def main():
                     help='use this flow-config.js instead of the one in assets/. '
                          'Keep a filled-in one OUTSIDE the repository: this repository is '
                          'public, and a committed copy publishes the trigger URLs.')
+    ap.add_argument('--settings-password', metavar='PATH',
+                    help='use this settings-password.js instead of the one in assets/, '
+                         'so the administrator password hash is not committed either.')
     args = ap.parse_args()
 
-    html = build(args.flow_config)
+    html = build(args.flow_config, args.settings_password)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, encoding='utf-8')
