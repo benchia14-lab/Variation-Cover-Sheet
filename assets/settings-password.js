@@ -9,7 +9,7 @@
  * the app ships. See docs/SETTINGS-PASSWORD.md.
  */
 const SETTINGS_LOCK = {
-  salt: '',
-  hash: '',
+  salt: 'dc76eb8524d12a1244d344b277e8f3d3',
+  hash: '0a2b42dcad5283859a50c3b272f9321da3ff697124dc39aec4765459c05933a2',
   iterations: 60000
 };
