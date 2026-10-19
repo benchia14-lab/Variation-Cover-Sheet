@@ -782,6 +782,24 @@ Two things to match to your own flow:
   typo — a single quote inside a Power Automate string literal is written by
   doubling it.
 
+### When it is the Write professionally flow
+
+The app sends it `notes`, `project`, `state` and `clauseRef`, which is the shape
+this guide specifies, so a 502 here is the flow itself rather than its input.
+Open the run and look at the generator action. The usual causes, in order:
+
+- **AI Builder credits.** *Create text with GPT* needs them, and a tenant with
+  none — or none left this month — fails the action outright. This is the most
+  common one by some distance.
+- **The content filter** rejected the prompt or the result. Site notes about
+  demolition or damage can trip it.
+- **No Response on the path taken.** Same as below.
+- **It took too long.** Generation plus the rest of the flow has to finish
+  inside the ~120 second synchronous limit.
+
+Nothing is blocked while it is broken: the button falls back to tidying the
+notes locally and says so, and the notes themselves are never touched.
+
 ### Every branch needs its own Response
 
 The other common cause of a 502. A flow that branches (a reference supplied →

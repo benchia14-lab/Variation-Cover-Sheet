@@ -134,6 +134,21 @@ const Flows = (() => {
     return res.status + ': ' + message;
   }
 
+  /* The same failure said two ways. An administrator checking connections wants
+     the tracking id and which action to open; an estimator halfway through a
+     variation wants to know whether to keep typing. Handing the second one a
+     Power Automate diagnostic is noise they cannot act on. */
+  function plainMessage(err){
+    if(!err) return 'it did not work';
+    if(err.unconfigured) return err.message;
+    const status = err.status;
+    if(status === 502 || status === 504) return 'the flow did not answer';
+    if(status === 401 || status === 403) return 'the flow refused the request';
+    if(status >= 500) return 'the flow hit an error';
+    if(err.cors) return 'the flow could not be reached';
+    return (err.message || 'it did not work').replace(/\s+/g, ' ').trim();
+  }
+
   /* ---- the server-side proxy -------------------------------------------
      When the site is deployed with netlify/functions/flow.js, the trigger URLs
      live in Netlify's environment variables and never reach the browser. The
@@ -707,7 +722,7 @@ const Flows = (() => {
     return String(text).trim();
   }
 
-  return { get, save, has, probeProxy, proxyState, viaProxy, sourceOf, builtIn: FlowUrls.get,
+  return { get, save, has, plainMessage, probeProxy, proxyState, viaProxy, sourceOf, builtIn: FlowUrls.get,
            getProjects, fileVariation, describe,
            listLog, getLog, writeLog, sameRef, LOG_ALIASES,
            normaliseProject, extractRows, describeRow, describeRows, normKey,

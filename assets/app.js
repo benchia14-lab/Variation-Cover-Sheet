@@ -742,7 +742,12 @@ aiBtn.addEventListener('click', async () => {
     aiStatus.textContent = 'Description generated — edit it freely before downloading.';
     aiStatus.className = 'status-line ok';
   } catch(err){
-    aiStatus.textContent = (err.message || 'The wording flow failed') + ' Write it directly, or use the notes as they are.';
+    // Short, because this is the form, not the administrator's screen. The
+    // full diagnosis is one click away under Connect to the flows, where
+    // somebody can actually act on it.
+    aiStatus.textContent = 'The wording flow is not available right now \u2014 '
+      + Flows.plainMessage(err) + '. Your notes are untouched; write the description '
+      + 'directly, or use them as they are.';
     aiStatus.className = 'status-line err';
   } finally {
     aiBtn.disabled = false;
