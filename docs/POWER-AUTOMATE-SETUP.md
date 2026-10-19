@@ -731,24 +731,33 @@ after it, which is not valid OData. SharePoint answers 400, the flow fails, and
 the caller sees 502.
 
 It matters because the app asks this flow *“are you there?”* with no project in
-mind. Build the filter so it leaves out the clauses it has no value for. In the
-**$filter** box, switch to the expression editor and paste:
+mind, and SharePoint rejects a **blank** filter as firmly as a malformed one —
+even a filter containing just a space or a line break comes back
+`The $filter expression " " is not valid`.
+
+So the expression has to produce a valid filter in all four cases, including
+the one where it has nothing to filter on. `Id gt 0` matches every item in any
+list, so it stands in for "no filter".
+
+In the **$filter** box, switch to the expression editor, delete whatever is in
+there, and paste this **as one line**:
 
 ```
-if(
-  and(empty(outputs('Payload')?['state']), empty(outputs('Payload')?['projectId'])),
-  '',
-  if(
-    empty(outputs('Payload')?['projectId']),
-    concat('State eq ''', outputs('Payload')?['state'], ''''),
-    if(
-      empty(outputs('Payload')?['state']),
-      concat('ProjectId eq ', outputs('Payload')?['projectId']),
-      concat('State eq ''', outputs('Payload')?['state'], ''' and ProjectId eq ', outputs('Payload')?['projectId'])
-    )
-  )
-)
+if(and(empty(outputs('Payload')?['state']),empty(outputs('Payload')?['projectId'])),'Id gt 0',if(empty(outputs('Payload')?['projectId']),concat('State eq ''',outputs('Payload')?['state'],''''),if(empty(outputs('Payload')?['state']),concat('ProjectId eq ',outputs('Payload')?['projectId']),concat('State eq ''',outputs('Payload')?['state'],''' and ProjectId eq ',outputs('Payload')?['projectId']))))
 ```
+
+**Paste it as a single line.** Pasting it across several lines is what produced
+the `"\n"` filter: the editor keeps the line breaks, and the result is
+whitespace rather than a filter.
+
+What it produces:
+
+| state | projectId | $filter |
+|---|---|---|
+| VIC | 7 | `State eq 'VIC' and ProjectId eq 7` |
+| VIC | *(empty)* | `State eq 'VIC'` |
+| *(empty)* | 7 | `ProjectId eq 7` |
+| *(empty)* | *(empty)* | `Id gt 0` |
 
 Three things to check against your own flow before pasting:
 
@@ -757,8 +766,8 @@ Three things to check against your own flow before pasting:
   **Parse JSON**, use `body('Payload')`.
 - **`ProjectId` is assumed to be a Number column**, so its value is not quoted.
   If yours is Text, wrap it the way `State` is.
-- The quadrupled quotes are not a typo. A single quote inside a Power Automate
-  string literal is written by doubling it, so `''''` produces one `'`.
+- The tripled and quadrupled quotes are not a typo. A single quote inside a
+  Power Automate string literal is written by doubling it.
 
 Set a **Top Count** on Get items as well — 500 is plenty — so an unfiltered read
 cannot run away.
