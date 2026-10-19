@@ -1847,19 +1847,28 @@ function reportRow(name, mark, how, state){
 // flows are not called: filing a PDF would leave a file in SharePoint and the
 // log write would leave a row, and a connection test has no business doing
 // either. For those, reaching the flow is as far as a test should go.
+/* Which office to test against. Settings can be opened without picking one
+   first, and an empty state is not a harmless default: it reaches the flow as
+   State eq '' and builds a filter SharePoint rejects. Both tests use this. */
+function testState(){
+  return (currentState && currentState.code)
+    || (StateRegister.rows().find(StateRegister.isConfigured) || {}).code
+    || 'VIC';
+}
+
 async function tryFlow(key){
   if(key === 'projectsUrl'){
-    const where = (currentState && currentState.code)
-      || (StateRegister.rows().find(StateRegister.isConfigured) || {}).code || 'VIC';
+    const where = testState();
     const rows = await Flows.getProjects(where);
     return rows.length
       ? rows.length + (rows.length === 1 ? ' project' : ' projects') + ' came back for ' + where
       : 'reached it, but no ' + where + ' projects came back — check the State column in the list';
   }
   if(key === 'logReadUrl'){
-    // No project id: this asks whether the flow answers at all, not for a
-    // particular project's history.
-    const rows = await Flows.listLog((currentState && currentState.code) || '', '');
+    // A real office, the same one the projects test uses. No project id, so
+    // this asks whether the flow answers at all rather than for one project's
+    // history — the flow has to cope with that, and the guide says how.
+    const rows = await Flows.listLog(testState(), '');
     // listLog hands back the narrowed array with the raw count hung off it.
     const got = (rows && rows.received !== undefined) ? rows.received : rows.length;
     return 'reached it, ' + got + ' row' + (got === 1 ? '' : 's') + ' in the log';
@@ -2075,12 +2084,12 @@ document.getElementById('flows-test').addEventListener('click', async () => {
   if(!servedBySite){
     Flows.save({ projectsUrl: url, fileUrl: flowInputs.fileUrl.value, describeUrl: flowInputs.describeUrl.value });
   }
-  const testState = (currentState && currentState.code) || StateRegister.rows().find(StateRegister.isConfigured)?.code || 'VIC';
-  flowsStatus.textContent = 'Asking the flow for ' + testState + ' projects…';
+  const where = testState();
+  flowsStatus.textContent = 'Asking the flow for ' + where + ' projects…';
   flowsStatus.className = 'status-line';
   try {
-    const rows = await Flows.getProjects(testState);
-    flowsStatus.textContent = 'Connected. ' + rows.length + ' ' + testState +
+    const rows = await Flows.getProjects(where);
+    flowsStatus.textContent = 'Connected. ' + rows.length + ' ' + where +
       (rows.length === 1 ? ' project' : ' projects') + ' came back' +
       (rows.length ? ', first is "' + rows[0].project + '".' : '. Check the State column in the SharePoint list.');
     flowsStatus.className = 'status-line ok';

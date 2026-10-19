@@ -119,6 +119,18 @@ const Flows = (() => {
     // these run messages carry the failing action's name and are worth reading
     // whole, but not worth flooding a status line with
     if(message.length > 400) message = message.slice(0, 400) + '\u2026';
+
+    /* 502 and 504 from Power Automate are not about the request: the trigger
+       accepted it and the flow started. They mean the run ended without its
+       Response action — it failed on the way there, or took too long. The
+       message above is the gateway's, and says nothing about which action
+       broke. The run history does, so point at it rather than leaving someone
+       to guess what an upstream server is. */
+    if(res.status === 502 || res.status === 504){
+      return res.status + ': the flow started but never answered. Open it in Power Automate '
+        + '\u2192 Run history and look at the run just now: the red action is the cause. '
+        + '(' + message + ')';
+    }
     return res.status + ': ' + message;
   }
 
