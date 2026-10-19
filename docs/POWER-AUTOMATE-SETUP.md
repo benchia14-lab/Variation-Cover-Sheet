@@ -742,18 +742,45 @@ difference is the input rather than the flow, fix whatever is sending it.
 ### If you changed the $filter on earlier advice, put it back
 
 An earlier version of this guide suggested a conditional `$filter` expression
-to tolerate empty values. That was the wrong end of the problem, and pasting a
-multi-line expression into that box leaves line breaks behind, which SharePoint
-rejects as `The $filter expression " " is not valid`.
+to tolerate empty values. That was the wrong end of the problem: the app only
+ever sends a real state and a real project id, so the empty case never arises.
 
-The straightforward filter is correct:
+It also wrote the working filter as
 
 ```
 State eq '@{...state}' and ProjectId eq @{...projectId}
 ```
 
-The app only ever sends a real state and a real project id, so it never
-produces the empty case.
+where `...state` was shorthand for *your own reference to the payload*. Pasted
+literally, that is not an expression and Power Automate says so: **"This
+expression has a problem."** Written out properly it is one of these two,
+depending on which box you are typing into.
+
+**In the expression editor (the `fx` button)** — paste this, as one line:
+
+```
+concat('State eq ''', outputs('Payload')?['state'], ''' and ProjectId eq ', outputs('Payload')?['projectId'])
+```
+
+**In the plain Filter Query box**, without opening the expression editor — the
+`@{ }` wrapper is what marks an expression inside ordinary text:
+
+```
+State eq '@{outputs('Payload')?['state']}' and ProjectId eq @{outputs('Payload')?['projectId']}
+```
+
+Either produces `State eq 'VIC' and ProjectId eq 1`, which is exactly what the
+successful runs in the history sent.
+
+Two things to match to your own flow:
+
+- **`Payload`** is the name of the action that parses the incoming JSON. If it
+  is a **Compose**, `outputs('Payload')` is right; if it is a **Parse JSON**, use
+  `body('Payload')`.
+- **`ProjectId` is a Number column** here, so its value is not quoted, while
+  `State` is text and is. The tripled quotes around the text value are not a
+  typo — a single quote inside a Power Automate string literal is written by
+  doubling it.
 
 ### Every branch needs its own Response
 
