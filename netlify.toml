@@ -1,9 +1,14 @@
 # Netlify settings for the Variation Cover Sheet app.
 #
-# THIS FILE IS NOT USED TODAY. The site is deployed by hand — Netlify is not
-# linked to this repository — and netlify.toml is not consulted for a manual
-# deploy. It is here so that linking the repository later does the right thing
-# on its own. See docs/DEPLOY-NETLIFY.md.
+# The repository IS linked to Netlify, so every push rebuilds and redeploys the
+# site using the command below. A folder dragged onto the drop zone is replaced
+# by the next push, so hand deploys are no longer the way in.
+#
+# The trigger URLs and the administrator password are NOT in this repository.
+# The build reads them from this site's environment variables — which is what
+# makes a linked repository workable: a build can see them, a drag-and-drop
+# deploy never could. Set them under Site configuration -> Environment
+# variables. See docs/DEPLOY-NETLIFY.md.
 #
 # Why it does not just publish the repository root: everything published is at a
 # public web address, and the root also holds the setup guides, the fill-in

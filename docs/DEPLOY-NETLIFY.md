@@ -42,15 +42,52 @@ old one once you are happy. It costs nothing and keeps the old register readable
 
 ## 1 · Deploy
 
-The app is plain static files — no build step, no functions, no server. There
-are two shapes it can be deployed in, and the choice matters later, because it
-decides what you replace when the password or the office register changes.
+**The repository is linked to Netlify.** Every push to `main` rebuilds and
+redeploys the site. That has one consequence worth understanding before
+anything else:
 
-Build both shapes at once:
+> **A folder dragged onto the drop zone lasts until the next push.** The push
+> rebuilds from the repository and replaces it. If the site keeps "reverting",
+> this is why.
 
-```
-python3 tools/make-deploy-folder.py
-```
+### The URLs and the password come from the environment
+
+They are not in the repository — a repository is the wrong place for a
+credential, and this one was public until recently. The build reads them from
+the site's own settings instead.
+
+**Site configuration → Environment variables**, and set these seven:
+
+| Variable | What goes in it |
+|---|---|
+| `GET_PROJECT_URL` | the Get projects trigger URL |
+| `FILE_PDF_URL` | the File the PDF trigger URL |
+| `VARIATION_LOG_READ_URL` | the Variation log read trigger URL |
+| `VARIATION_LOG_WRITE_URL` | the Variation log write trigger URL |
+| `WRITE_PROFESSIONALLY_URL` | the Write professionally trigger URL |
+| `SETTINGS_PASSWORD_SALT` | the `salt` from your `settings-password.js` |
+| `SETTINGS_PASSWORD_HASH` | the `hash` from the same file |
+
+Tick **Contains secret values** on all seven. Then **Deploys → Trigger deploy →
+Clear cache and deploy site**.
+
+The build refuses to ship a URL that is not `https://` or that contains a quote
+or a line break, rather than writing something broken into the page. A missing
+variable is not an error — that flow is simply absent, and the build stamp on
+the Settings screen says how many of the five made it in.
+
+### Checking it worked
+
+Open the site in a private window and go to **Settings**. The line at the top
+reads either *"All 5 Power Automate flows are built into this copy"* with the
+build time, or how many are missing. If it says 0, the variables are not set on
+the site or the deploy ran before they were.
+
+### Deploying by hand instead
+
+Still possible, and still what `tools/make-deploy-folder.py` builds — but
+remember the next push overwrites it. Use it for testing a build locally, not
+for putting one live.
 
 ### As one file — this is how this site is deployed
 

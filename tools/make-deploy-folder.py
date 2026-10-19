@@ -113,22 +113,29 @@ def build_multi(out_dir, flow_config=None, settings_password=None):
         if not src.is_dir():
             sys.exit('missing: %s/' % rel)
         shutil.copytree(src, folder / rel)
-    for given, name, needle in [(flow_config, 'flow-config.js', 'const FLOW_URLS'),
-                                (settings_password, 'settings-password.js', 'const SETTINGS_LOCK')]:
-        if not given:
-            continue
-        src = Path(given)
-        if not src.exists():
-            sys.exit('missing: %s' % given)
-        if needle not in src.read_text(encoding='utf-8'):
-            sys.exit('%s does not declare %s — wrong file?' % (given, needle.split()[1]))
-        shutil.copy2(src, folder / 'assets' / name)
-    # The same stamp the bundled build carries, so either shape answers "is the
-    # right build deployed?" the same way.
+    # An explicit file wins; otherwise the environment, which is how a Netlify
+    # build gets the values without them being in the repository.
     import importlib.util
     spec = importlib.util.spec_from_file_location('bsf', ROOT / 'build-single-file.py')
     bsf = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(bsf)
+
+    for given, name, needle, from_env in [
+            (flow_config, 'flow-config.js', 'const FLOW_URLS', bsf.flow_config_from_env),
+            (settings_password, 'settings-password.js', 'const SETTINGS_LOCK', bsf.settings_password_from_env)]:
+        if given:
+            src = Path(given)
+            if not src.exists():
+                sys.exit('missing: %s' % given)
+            if needle not in src.read_text(encoding='utf-8'):
+                sys.exit('%s does not declare %s — wrong file?' % (given, needle.split()[1]))
+            shutil.copy2(src, folder / 'assets' / name)
+            continue
+        generated = from_env()
+        if generated:
+            (folder / 'assets' / name).write_text(generated, encoding='utf-8')
+    # The same stamp the bundled build carries, so either shape answers "is the
+    # right build deployed?" the same way.
     (folder / 'assets' / 'build-info.js').write_text(bsf.build_info(flow_config), encoding='utf-8')
 
     note = ROOT / 'tools' / 'deploy-readme.txt'

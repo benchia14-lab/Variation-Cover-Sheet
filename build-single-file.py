@@ -51,14 +51,86 @@ FLOW_LABELS = [('projectsUrl', 'projects'), ('fileUrl', 'file'),
                ('describeUrl', 'describe')]
 
 
+# The five Netlify environment variables, as they are named in the site's
+# settings. With the repository linked to Netlify there IS a build, so these
+# reach it — which is the whole reason they could not work back when the site
+# was dragged by hand.
+ENV_FLOWS = [
+    ('projectsUrl', 'GET_PROJECT_URL'),
+    ('fileUrl', 'FILE_PDF_URL'),
+    ('logReadUrl', 'VARIATION_LOG_READ_URL'),
+    ('logWriteUrl', 'VARIATION_LOG_WRITE_URL'),
+    ('describeUrl', 'WRITE_PROFESSIONALLY_URL'),
+]
+ENV_SALT = 'SETTINGS_PASSWORD_SALT'
+ENV_HASH = 'SETTINGS_PASSWORD_HASH'
+ENV_ITERATIONS = 'SETTINGS_PASSWORD_ITERATIONS'
+
+
+def _safe_url(value, name):
+    """Anything here is written into a single-quoted JavaScript string in a
+    deployed file. A quote or a newline would end that string early and break
+    the whole app, so a value that cannot be written safely stops the build
+    rather than shipping."""
+    text = (value or '').strip()
+    if not text:
+        return ''
+    import re
+    if re.search(r"""['"\\\r\n<>]""", text):
+        sys.exit('%s contains a quote, line break or tag — refusing to build' % name)
+    if not text.lower().startswith('https://'):
+        sys.exit('%s does not start with https:// — refusing to build' % name)
+    return text
+
+
+def flow_config_from_env():
+    """flow-config.js built from the environment, or None if none is set."""
+    import os
+    found = {key: _safe_url(os.environ.get(name), name) for key, name in ENV_FLOWS}
+    if not any(found.values()):
+        return None
+    lines = []
+    for i, (key, _) in enumerate(ENV_FLOWS):
+        comma = ',' if i < len(ENV_FLOWS) - 1 else ''
+        lines.append("  %s: '%s'%s" % (key, found[key], comma))
+    return ('/* Generated at build time from this site\'s environment variables.\n'
+            ' * Nothing here is in the repository: the values come from Netlify.\n'
+            ' */\n'
+            'const FLOW_URLS = {\n' + '\n'.join(lines) + '\n};\n')
+
+
+def settings_password_from_env():
+    """settings-password.js built from the environment, or None."""
+    import os, re
+    salt = (os.environ.get(ENV_SALT) or '').strip()
+    hashed = (os.environ.get(ENV_HASH) or '').strip()
+    if not salt and not hashed:
+        return None
+    if not (salt and hashed):
+        sys.exit('%s and %s must both be set, or neither' % (ENV_SALT, ENV_HASH))
+    if not re.fullmatch(r'[0-9a-f]+', salt) or not re.fullmatch(r'[0-9a-f]{64}', hashed):
+        sys.exit('%s/%s do not look like a salt and a sha-256 hash' % (ENV_SALT, ENV_HASH))
+    iterations = (os.environ.get(ENV_ITERATIONS) or '60000').strip()
+    if not iterations.isdigit():
+        sys.exit('%s must be a number' % ENV_ITERATIONS)
+    return ('/* Generated at build time from this site\'s environment variables. */\n'
+            'const SETTINGS_LOCK = {\n'
+            "  salt: '%s',\n  hash: '%s',\n  iterations: %s\n};\n" % (salt, hashed, iterations))
+
+
 def flows_in(flow_config):
     """Which of the five URLs this build will carry. Reads the file that is
     actually going into the build, not the one in the repository."""
     import re
-    path = Path(flow_config) if flow_config else ROOT / 'assets' / 'flow-config.js'
-    if not path.exists():
-        return []
-    text = path.read_text(encoding='utf-8')
+    if flow_config:
+        text = Path(flow_config).read_text(encoding='utf-8')
+    else:
+        text = flow_config_from_env()
+        if text is None:
+            path = ROOT / 'assets' / 'flow-config.js'
+            if not path.exists():
+                return []
+            text = path.read_text(encoding='utf-8')
     found = []
     for key, label in FLOW_LABELS:
         m = re.search(key + r":\s*'([^']*)'", text)
@@ -113,10 +185,16 @@ def build(flow_config=None, settings_password=None):
         # The URLs and the administrator password hash can both come from files
         # kept outside the repository, so a build carrying them never needs a
         # secret committed to get there.
-        if rel == 'assets/flow-config.js' and flow_config:
-            source = read_private(flow_config, 'const FLOW_URLS', 'FLOW_URLS')
-        if rel == 'assets/settings-password.js' and settings_password:
-            source = read_private(settings_password, 'const SETTINGS_LOCK', 'SETTINGS_LOCK')
+        if rel == 'assets/flow-config.js':
+            if flow_config:
+                source = read_private(flow_config, 'const FLOW_URLS', 'FLOW_URLS')
+            else:
+                source = flow_config_from_env() or source
+        if rel == 'assets/settings-password.js':
+            if settings_password:
+                source = read_private(settings_password, 'const SETTINGS_LOCK', 'SETTINGS_LOCK')
+            else:
+                source = settings_password_from_env() or source
         if rel == 'assets/build-info.js':
             source = build_info(flow_config)
         html = html.replace(tag, '<script>\n' + guard(source, rel) + '\n</script>')
