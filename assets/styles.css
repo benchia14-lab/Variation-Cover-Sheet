@@ -526,6 +526,14 @@ input[type=file]{ display:none; }
   font-size:11.5px; color:#355C41; line-height:1.6; margin-bottom:22px;
 }
 .good-note strong{ color:#24402C; }
+.build-stamp{
+  font-size:11.5px; line-height:1.6; border-radius:4px;
+  padding:11px 14px; margin-bottom:14px; border:1px solid;
+}
+.build-stamp.good{ border-color:#BFD3C4; background:#F2F6F3; color:#355C41; }
+.build-stamp.bad{ border-color:#E0A89F; background:#FBEFEC; color:#8A3524; }
+.build-stamp strong{ font-weight:600; }
+.build-stamp code{ font-family:'IBM Plex Mono', monospace; }
 .admin-bar{
   display:flex; gap:14px; align-items:center; flex-wrap:wrap;
   border:1px solid var(--line); border-radius:4px; background:var(--panel);

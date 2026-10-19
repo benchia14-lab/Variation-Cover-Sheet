@@ -46,6 +46,41 @@ def guard(text, rel):
     return text
 
 
+FLOW_LABELS = [('projectsUrl', 'projects'), ('fileUrl', 'file'),
+               ('logReadUrl', 'log read'), ('logWriteUrl', 'log write'),
+               ('describeUrl', 'describe')]
+
+
+def flows_in(flow_config):
+    """Which of the five URLs this build will carry. Reads the file that is
+    actually going into the build, not the one in the repository."""
+    import re
+    path = Path(flow_config) if flow_config else ROOT / 'assets' / 'flow-config.js'
+    if not path.exists():
+        return []
+    text = path.read_text(encoding='utf-8')
+    found = []
+    for key, label in FLOW_LABELS:
+        m = re.search(key + r":\s*'([^']*)'", text)
+        if m and m.group(1).strip():
+            found.append(label)
+    return found
+
+
+def build_info(flow_config):
+    """A stamp anyone can read, naming nothing secret: when this copy was built
+    and which flows are in it. Enough to tell a stale deploy from a fresh one."""
+    import datetime, json
+    found = flows_in(flow_config)
+    stamp = datetime.datetime.now().astimezone().strftime('%Y-%m-%d %H:%M %Z')
+    return ('/* Generated at build time — see assets/build-info.js. */\n'
+            'const BUILD_INFO = {\n'
+            "  builtAt: %s,\n"
+            '  flows: %d,\n'
+            '  flowNames: %s\n'
+            '};\n') % (json.dumps(stamp), len(found), json.dumps(found))
+
+
 def read_private(path_text, needle, what):
     """A generated file kept outside the repository. Checked rather than
     trusted: pointing at the wrong one should fail here, not produce a site
@@ -70,7 +105,7 @@ def build(flow_config=None, settings_password=None):
     for rel in ['vendor/html2pdf.bundle.min.js', 'assets/settings-password.js',
                 'assets/settings-lock.js', 'assets/logo.js',
                 'assets/state-register.js', 'assets/flow-config.js', 'assets/flow-urls.js',
-                'assets/flows.js', 'assets/app.js']:
+                'assets/build-info.js', 'assets/flows.js', 'assets/app.js']:
         tag = '<script src="%s"></script>' % rel
         if tag not in html:
             sys.exit('index.html no longer loads %s — the builder is out of date' % rel)
@@ -82,6 +117,8 @@ def build(flow_config=None, settings_password=None):
             source = read_private(flow_config, 'const FLOW_URLS', 'FLOW_URLS')
         if rel == 'assets/settings-password.js' and settings_password:
             source = read_private(settings_password, 'const SETTINGS_LOCK', 'SETTINGS_LOCK')
+        if rel == 'assets/build-info.js':
+            source = build_info(flow_config)
         html = html.replace(tag, '<script>\n' + guard(source, rel) + '\n</script>')
 
     if 'src="assets/' in html or 'src="vendor/' in html or 'href="assets/' in html:

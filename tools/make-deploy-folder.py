@@ -123,6 +123,14 @@ def build_multi(out_dir, flow_config=None, settings_password=None):
         if needle not in src.read_text(encoding='utf-8'):
             sys.exit('%s does not declare %s — wrong file?' % (given, needle.split()[1]))
         shutil.copy2(src, folder / 'assets' / name)
+    # The same stamp the bundled build carries, so either shape answers "is the
+    # right build deployed?" the same way.
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('bsf', ROOT / 'build-single-file.py')
+    bsf = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(bsf)
+    (folder / 'assets' / 'build-info.js').write_text(bsf.build_info(flow_config), encoding='utf-8')
+
     note = ROOT / 'tools' / 'deploy-readme.txt'
     if note.exists():
         shutil.copy2(note, folder / README)

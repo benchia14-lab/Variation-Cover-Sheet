@@ -2280,8 +2280,35 @@ function markUnlocked(){
    Everything that decides how the app talks to Power Automate lives one door
    further in, because it is shared by everyone using the app and nobody but the
    administrator should be able to change it. */
+/* The one line that answers "is the right build deployed, and does it carry
+   the flows?" — readable by anyone, in a private window, with no password and
+   without naming a single URL. Guessing from whether a dropdown happens to
+   fill is how an hour disappears. */
+function describeBuild(){
+  const el = document.getElementById('build-stamp');
+  const info = (typeof BUILD_INFO !== 'undefined' && BUILD_INFO) ? BUILD_INFO : null;
+  const built = info && info.builtAt ? info.builtAt : '';
+  const names = (info && info.flowNames) || [];
+  const total = 5;
+
+  if(names.length === total){
+    el.className = 'build-stamp good';
+    el.innerHTML = '<strong>All ' + total + ' Power Automate flows are built into this copy.</strong> '
+      + 'Nobody has to paste anything — everyone opening this site uses the same flows.'
+      + (built ? ' <span style="opacity:.75">Built ' + escapeHtml(built) + '.</span>' : '');
+    return;
+  }
+  el.className = 'build-stamp bad';
+  el.innerHTML = '<strong>' + names.length + ' of ' + total + ' flows are built into this copy.</strong> '
+    + (names.length ? 'Present: ' + escapeHtml(names.join(', ')) + '. ' : '')
+    + 'Whoever deployed this needs to build the missing ones in and deploy again — '
+    + 'they cannot be added from here.'
+    + (built ? ' <span style="opacity:.75">Built ' + escapeHtml(built) + '.</span>' : '');
+}
+
 function showSettings(){
   loadRegisterForm();
+  describeBuild();
   showOnly(viewSettings);
 }
 
