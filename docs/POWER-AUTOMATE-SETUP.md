@@ -715,65 +715,49 @@ it failed on the way there or took longer than the ~120 second limit.
 
 The gateway’s own words ("did not receive a response from an upstream
 server") name nothing useful. **Power Automate → the flow → Run history → the
-run from that moment** does: the red action is the cause.
+run from that moment** does: the red action is the cause, and its inputs show
+exactly what it was handed.
 
-### The filter that breaks on an empty value
+### Read the whole run history before changing anything
 
-The one that bites the variation log read. Its **Get items** filter is built by
-pasting values into a string:
+Export it (**Run history → Download**, or the … menu) and look at the spread
+of outcomes, not just the run that failed. On this app’s log-read flow the
+export read:
+
+```
+51 x Succeeded    State eq 'VIC' and ProjectId eq 1
+ 4 x Failed       State eq '' and ProjectId eq
+ 2 x Failed       (a stray newline)
+```
+
+A flow that succeeds fifty-one times and fails on one shape of input does not
+have a bug in it. Something is **sending** it input it never gets in normal
+use. That was the case here: the app’s own connection check was asking the log
+flow about an empty project, which built an invalid filter. The flow was never
+the problem, and changing it only broke what was working.
+
+So: **compare the failing run’s inputs with a successful one’s.** If the
+difference is the input rather than the flow, fix whatever is sending it.
+
+### If you changed the $filter on earlier advice, put it back
+
+An earlier version of this guide suggested a conditional `$filter` expression
+to tolerate empty values. That was the wrong end of the problem, and pasting a
+multi-line expression into that box leaves line breaks behind, which SharePoint
+rejects as `The $filter expression " " is not valid`.
+
+The straightforward filter is correct:
 
 ```
 State eq '@{...state}' and ProjectId eq @{...projectId}
 ```
 
-Give it an empty project and it produces `ProjectId eq ` — an `eq` with nothing
-after it, which is not valid OData. SharePoint answers 400, the flow fails, and
-the caller sees 502.
-
-It matters because the app asks this flow *“are you there?”* with no project in
-mind, and SharePoint rejects a **blank** filter as firmly as a malformed one —
-even a filter containing just a space or a line break comes back
-`The $filter expression " " is not valid`.
-
-So the expression has to produce a valid filter in all four cases, including
-the one where it has nothing to filter on. `Id gt 0` matches every item in any
-list, so it stands in for "no filter".
-
-In the **$filter** box, switch to the expression editor, delete whatever is in
-there, and paste this **as one line**:
-
-```
-if(and(empty(outputs('Payload')?['state']),empty(outputs('Payload')?['projectId'])),'Id gt 0',if(empty(outputs('Payload')?['projectId']),concat('State eq ''',outputs('Payload')?['state'],''''),if(empty(outputs('Payload')?['state']),concat('ProjectId eq ',outputs('Payload')?['projectId']),concat('State eq ''',outputs('Payload')?['state'],''' and ProjectId eq ',outputs('Payload')?['projectId']))))
-```
-
-**Paste it as a single line.** Pasting it across several lines is what produced
-the `"\n"` filter: the editor keeps the line breaks, and the result is
-whitespace rather than a filter.
-
-What it produces:
-
-| state | projectId | $filter |
-|---|---|---|
-| VIC | 7 | `State eq 'VIC' and ProjectId eq 7` |
-| VIC | *(empty)* | `State eq 'VIC'` |
-| *(empty)* | 7 | `ProjectId eq 7` |
-| *(empty)* | *(empty)* | `Id gt 0` |
-
-Three things to check against your own flow before pasting:
-
-- **`Payload`** is the name of the action that parses the incoming JSON. Use
-  your own. If it is a **Compose**, `outputs('Payload')` is right; if it is a
-  **Parse JSON**, use `body('Payload')`.
-- **`ProjectId` is assumed to be a Number column**, so its value is not quoted.
-  If yours is Text, wrap it the way `State` is.
-- The tripled and quadrupled quotes are not a typo. A single quote inside a
-  Power Automate string literal is written by doubling it.
-
-Set a **Top Count** on Get items as well — 500 is plenty — so an unfiltered read
-cannot run away.
+The app only ever sends a real state and a real project id, so it never
+produces the empty case.
 
 ### Every branch needs its own Response
 
-The other common cause. A flow that branches (a reference supplied → return that
-variation; none → return the list) needs a **Response** action in *both* halves.
-A branch that ends without one returns nothing, and nothing is a 502.
+The other common cause of a 502. A flow that branches (a reference supplied →
+return that variation; none → return the list) needs a **Response** action in
+*both* halves. A branch that ends without one returns nothing, and nothing is
+a 502.

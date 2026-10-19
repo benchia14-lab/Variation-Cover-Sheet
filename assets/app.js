@@ -1856,22 +1856,36 @@ function testState(){
     || 'VIC';
 }
 
-async function tryFlow(key){
+/* A connection check must send what the app itself sends. Asking a flow to
+   handle an input the app never produces is not a test of anything — it fails
+   on perfectly good flows, and the failure looks exactly like a real one.
+
+   This one cost real hours: the log-read test sent an empty state and an empty
+   project, which built "State eq '' and ProjectId eq " and was rejected by
+   SharePoint, while every genuine call the app made that day succeeded. So the
+   log read is tested with a project that actually exists — the first one the
+   projects flow just returned — and skipped honestly when there is none. */
+async function tryFlow(key, found){
   if(key === 'projectsUrl'){
     const where = testState();
     const rows = await Flows.getProjects(where);
+    found.state = where;
+    found.projects = rows;
     return rows.length
       ? rows.length + (rows.length === 1 ? ' project' : ' projects') + ' came back for ' + where
       : 'reached it, but no ' + where + ' projects came back — check the State column in the list';
   }
   if(key === 'logReadUrl'){
-    // A real office, the same one the projects test uses. No project id, so
-    // this asks whether the flow answers at all rather than for one project's
-    // history — the flow has to cope with that, and the guide says how.
-    const rows = await Flows.listLog(testState(), '');
+    const project = (found.projects || [])[0];
+    if(!project || project.id === undefined || project.id === ''){
+      // Nothing to ask about. Saying so is better than inventing an empty
+      // project id and calling whatever comes back a verdict on the flow.
+      return 'configured — not called, because no project came back to ask about';
+    }
+    const rows = await Flows.listLog(found.state || testState(), project.id);
     // listLog hands back the narrowed array with the raw count hung off it.
     const got = (rows && rows.received !== undefined) ? rows.received : rows.length;
-    return 'reached it, ' + got + ' row' + (got === 1 ? '' : 's') + ' in the log';
+    return 'reached it for "' + project.project + '" — ' + got + ' row' + (got === 1 ? '' : 's') + ' in the log';
   }
   return '';
 }
@@ -1889,6 +1903,9 @@ async function connectFlows(){
   describeProxy();
 
   const rows = [];
+  // What the projects test learned, so the log-read test can ask about a real
+  // project rather than an imaginary one.
+  const found = {};
   let worked = 0, failed = 0;
 
   for(const key of ['projectsUrl', 'fileUrl', 'logReadUrl', 'logWriteUrl', 'describeUrl']){
@@ -1905,7 +1922,7 @@ async function connectFlows(){
       : source === 'builtin' ? 'built into the app'
       : 'from the URL saved in this browser';
     try {
-      const detail = await tryFlow(key);
+      const detail = await tryFlow(key, found);
       worked++;
       rows.push(reportRow(name, '\u2713', detail ? how + ' — ' + detail : how + ' — configured', 'ok'));
     } catch(err){
