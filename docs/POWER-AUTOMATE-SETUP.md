@@ -704,3 +704,67 @@ Neither is as good. They need no licence.
 | Two copies of the very first variation, seconds apart | The same missing header. The app sent it twice to find out the reply was unreadable, and won't do it again on that URL. Delete one, add the header |
 | Filing is slow or times out on long letters | The PDF travels as base64, a third larger than the file. A 10-page letter is a few MB. The app warns past 20 MB |
 | Everything worked yesterday, nothing works today | Someone regenerated the key, the flow was turned off after failures, or the flow owner's licence lapsed |
+
+---
+
+## When a flow answers 502
+
+A 502 (or 504) from a flow is not about the request. The trigger accepted it
+and the flow started — it just never reached its **Response** action, because
+it failed on the way there or took longer than the ~120 second limit.
+
+The gateway’s own words ("did not receive a response from an upstream
+server") name nothing useful. **Power Automate → the flow → Run history → the
+run from that moment** does: the red action is the cause.
+
+### The filter that breaks on an empty value
+
+The one that bites the variation log read. Its **Get items** filter is built by
+pasting values into a string:
+
+```
+State eq '@{...state}' and ProjectId eq @{...projectId}
+```
+
+Give it an empty project and it produces `ProjectId eq ` — an `eq` with nothing
+after it, which is not valid OData. SharePoint answers 400, the flow fails, and
+the caller sees 502.
+
+It matters because the app asks this flow *“are you there?”* with no project in
+mind. Build the filter so it leaves out the clauses it has no value for. In the
+**$filter** box, switch to the expression editor and paste:
+
+```
+if(
+  and(empty(outputs('Payload')?['state']), empty(outputs('Payload')?['projectId'])),
+  '',
+  if(
+    empty(outputs('Payload')?['projectId']),
+    concat('State eq ''', outputs('Payload')?['state'], ''''),
+    if(
+      empty(outputs('Payload')?['state']),
+      concat('ProjectId eq ', outputs('Payload')?['projectId']),
+      concat('State eq ''', outputs('Payload')?['state'], ''' and ProjectId eq ', outputs('Payload')?['projectId'])
+    )
+  )
+)
+```
+
+Three things to check against your own flow before pasting:
+
+- **`Payload`** is the name of the action that parses the incoming JSON. Use
+  your own. If it is a **Compose**, `outputs('Payload')` is right; if it is a
+  **Parse JSON**, use `body('Payload')`.
+- **`ProjectId` is assumed to be a Number column**, so its value is not quoted.
+  If yours is Text, wrap it the way `State` is.
+- The quadrupled quotes are not a typo. A single quote inside a Power Automate
+  string literal is written by doubling it, so `''''` produces one `'`.
+
+Set a **Top Count** on Get items as well — 500 is plenty — so an unfiltered read
+cannot run away.
+
+### Every branch needs its own Response
+
+The other common cause. A flow that branches (a reference supplied → return that
+variation; none → return the list) needs a **Response** action in *both* halves.
+A branch that ends without one returns nothing, and nothing is a 502.
