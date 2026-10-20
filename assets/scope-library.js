@@ -7,9 +7,10 @@
    that variation, or left off. A line can be printed on either side, whichever
    list it is written under here.
 
-   The fourth group in the app, Exclusions / Qualifications, is not here: it is
-   the schedule of rates' own notes (assets/schedule-of-rates.js), so it stays
-   in step with the rates workbook.
+   In the app these lines and the schedule of rates' own exclusions and
+   qualifications (assets/schedule-of-rates.js, so they stay in step with the
+   rates workbook) are one dropdown, Inclusions & Exclusions; the general
+   notes are a second.
 
    TO EDIT: add, remove or reword lines below. Keep each line one sentence —
    it prints as one bullet. Lines typed in the app for a single variation are

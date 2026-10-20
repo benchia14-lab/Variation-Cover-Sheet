@@ -114,17 +114,32 @@ const Stages = (function(){
      STAGE 2 · INCLUSIONS & EXCLUSIONS
   ======================================================================== */
 
-  // Inclusions and exclusions can be moved to either side; the last two
-  // groups are notes, which are either on the variation or not (`single`).
-  // The qualifications are the schedule of rates' own, so they stay in step
-  // with the workbook they came from.
+  // Where each line comes from. The qualifications are the schedule of rates'
+  // own, so they stay in step with the workbook they came from. General notes
+  // are either on the variation or not (`single`); every other line can be
+  // included or excluded.
   const GROUPS = [
-    { key: 'inclusions', title: 'Inclusions', print: 'in' },
-    { key: 'exclusions', title: 'Exclusions', print: 'out' },
-    { key: 'general', title: 'General', print: 'gen', single: 'gen' },
-    { key: 'qualifications', title: 'Exclusions / Qualifications', print: 'qual', single: 'qual' }
+    { key: 'inclusions' },
+    { key: 'exclusions' },
+    { key: 'qualifications' },
+    { key: 'general', single: 'gen' }
   ];
   const groupOf = key => GROUPS.find(g => g.key === key) || GROUPS[0];
+
+  // How the list is shown: one dropdown for everything that can be included
+  // or excluded, whichever list it came from, and one for the general notes.
+  const LIST_GROUPS = [
+    { key: 'scope', title: 'Inclusions & Exclusions', members: ['inclusions', 'exclusions', 'qualifications'] },
+    { key: 'general', title: 'General', members: ['general'] }
+  ];
+  const listGroupOf = group => LIST_GROUPS.find(g => g.members.indexOf(group) !== -1) || LIST_GROUPS[0];
+
+  // How it prints: under the heading its state puts it, not its origin
+  const PRINT_HEADINGS = [
+    { print: 'in', title: 'Inclusions' },
+    { print: 'out', title: 'Exclusions' },
+    { print: 'gen', title: 'General' }
+  ];
 
   let scopeItems = [];
   let scopeFilter = 'all';
@@ -154,7 +169,7 @@ const Stages = (function(){
       in: scopeItems.filter(i => i.state === 'in'),
       out: scopeItems.filter(i => i.state === 'out'),
       gen: scopeItems.filter(i => i.state === 'gen'),
-      qual: scopeItems.filter(i => i.state === 'qual')
+      qual: []
     };
   }
 
@@ -193,8 +208,8 @@ const Stages = (function(){
     };
     const scrollAt = scopeList.closest('.form-side').scrollTop;
     scopeList.innerHTML = '';
-    GROUPS.forEach(g => {
-      const items = scopeItems.filter(i => i.group === g.key);
+    LIST_GROUPS.forEach(g => {
+      const items = scopeItems.filter(i => g.members.indexOf(i.group) !== -1);
       const shown = items.filter(matches);
       if(!shown.length) return;
       // a search or a filter opens every group it finds something in
@@ -261,7 +276,7 @@ const Stages = (function(){
   function scopeBlocks(){
     const p = scopePrinted();
     const blocks = [];
-    GROUPS.forEach(g => {
+    PRINT_HEADINGS.forEach(g => {
       const list = p[g.print];
       if(!list.length) return;
       const items = list.map(i => {
@@ -310,7 +325,7 @@ const Stages = (function(){
       if(!text){ scopeNew.focus(); return; }
       const state = b.getAttribute('data-add');
       const group = state === 'in' ? 'inclusions' : state === 'out' ? 'exclusions' : 'general';
-      openGroups[group] = true;
+      openGroups[listGroupOf(group).key] = true;
       // added at the end of its group, where it will print
       const lastOfGroup = scopeItems.map(i => i.group).lastIndexOf(group);
       scopeItems.splice(lastOfGroup + 1, 0, { id: newId(), text: text, group: group, state: state, custom: true });
@@ -325,8 +340,8 @@ const Stages = (function(){
     renderScope();
   });
   document.getElementById('scope-expand').addEventListener('click', () => {
-    const anyClosed = GROUPS.some(g => !openGroups[g.key]);
-    GROUPS.forEach(g => { openGroups[g.key] = anyClosed; });
+    const anyClosed = LIST_GROUPS.some(g => !openGroups[g.key]);
+    LIST_GROUPS.forEach(g => { openGroups[g.key] = anyClosed; });
     renderScopeList();
   });
   document.getElementById('scope-clear').addEventListener('click', () => {
@@ -1530,7 +1545,10 @@ const Stages = (function(){
   // a variation saved before these stages existed comes back with the defaults
   function apply(saved){
     scopeItems = (saved && Array.isArray(saved.scope))
-      ? saved.scope.map(i => ({ id: newId(), text: i.text, group: i.group, state: i.state, custom: !!i.custom }))
+      ? saved.scope.map(i => ({ id: newId(), text: i.text, group: i.group,
+          // a qualification "added" before they could be included or excluded
+          // printed as an exclusion note, so that is what it becomes
+          state: i.state === 'qual' ? 'out' : i.state, custom: !!i.custom }))
       : defaultScope();
     // lines the library has gained since it was saved are offered, unselected
     defaultScope().forEach(d => {
