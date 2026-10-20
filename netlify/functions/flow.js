@@ -28,6 +28,7 @@
        VARIATION_LOG_READ_URL     reads the variation log
        VARIATION_LOG_WRITE_URL    creates or updates a log row
        WRITE_PROFESSIONALLY_URL   optional; tidies the description
+       OPEN_VARIATION_FILE_URL    optional; reads a saved variation file back
 
    Any that are missing simply report themselves as unconfigured, and the app
    falls back to the URL box in Settings for that one flow.
@@ -38,7 +39,8 @@ const TARGETS = {
   file: 'FILE_PDF_URL',
   logRead: 'VARIATION_LOG_READ_URL',
   logWrite: 'VARIATION_LOG_WRITE_URL',
-  describe: 'WRITE_PROFESSIONALLY_URL'
+  describe: 'WRITE_PROFESSIONALLY_URL',
+  openFile: 'OPEN_VARIATION_FILE_URL'
 };
 
 const JSON_HEADERS = {

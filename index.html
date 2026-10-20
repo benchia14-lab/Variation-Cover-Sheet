@@ -89,6 +89,11 @@
 
     <div class="state-grid" id="state-grid"></div>
 
+    <div class="picker-open">
+      <button class="refresh-btn" id="picker-open-file" type="button">Open a saved variation file…</button>
+      <span>A <code>.json</code> variation file from this computer — it opens under its own office and project.</span>
+    </div>
+
     <div class="status-line" id="picker-status"></div>
   </main>
 </div>
@@ -112,6 +117,13 @@
     <button class="back-link" id="back-to-picker" type="button">&larr; Change office</button>
     <div class="brand"><span class="brand-mark"></span><h1>Variation Cover Sheet</h1></div>
     <div class="subhead">Fill in the fields — the letter on the right updates as you go</div>
+
+    <div class="vf-open-bar">
+      <span class="vf-open-label">Carry on with a saved variation:</span>
+      <button class="link-btn" id="vf-open-disk" type="button">open a file from this computer</button>
+      <button class="link-btn" id="vf-open-sp" type="button" hidden>open one from SharePoint</button>
+    </div>
+    <div class="status-line" id="vf-open-status"></div>
 
     <div class="prefilled-bar" id="prefilled-bar" hidden>
       <div class="prefilled-summary" id="prefilled-summary"></div>
@@ -541,6 +553,18 @@
     <div class="status-line err" id="print-status" style="text-align:center;"></div>
     <div class="save-state" id="file-state"></div>
 
+    <div class="vf-box">
+      <p class="form-section-title">Variation file</p>
+      <p class="vf-help">Everything on all five tabs, attachments included, in one <code>.json</code> file —
+        so the variation can be opened again exactly as it is now.</p>
+      <label class="vf-check"><input type="checkbox" id="vf-with-pdf" checked> Save it to the project's SharePoint folder with the PDF</label>
+      <div class="vf-actions">
+        <button type="button" class="refresh-btn" id="vf-save">Save to SharePoint now</button>
+        <button type="button" class="refresh-btn" id="vf-download">Download the file</button>
+      </div>
+      <div class="status-line" id="vf-status"></div>
+    </div>
+
     <div class="stage-nav">
       <button type="button" class="refresh-btn" data-go="docs">&larr; Documentation</button>
       <button type="button" class="refresh-btn" id="review-rebuild">Rebuild preview</button>
@@ -682,6 +706,14 @@
     <p class="settings-help">Optional. Left blank, the "Write professionally" button falls back to a local
       tidy-up — real sentences and punctuation, but no rewriting.</p>
 
+    <div class="field">
+      <label for="flow-open-file">Open a variation file — HTTP POST URL <span style="text-transform:none;font-weight:400;">(optional)</span></label>
+      <textarea id="flow-open-file" placeholder="Leave blank to open variation files from this computer only"></textarea>
+    </div>
+    <p class="settings-help">Receives <code>{"projectId","folderPath","fileName"}</code> and answers with that file from the
+      project's folder. Saving a variation file needs no flow of its own — it goes through
+      <strong>File the PDF</strong>. See <code>docs/VARIATION-FILES.md</code>.</p>
+
     <div class="settings-actions">
       <button class="print-btn" id="flows-save" type="button">Save endpoints</button>
       <button class="refresh-btn" id="flows-test" type="button">Test projects flow</button>
@@ -717,13 +749,13 @@
   <div class="form-section">
     <div class="form-section-head"><span class="form-section-num">B</span><p class="form-section-title">Build the flow URLs into the app</p></div>
     <p class="settings-help" id="urls-current">&nbsp;</p>
-    <p class="settings-help">Takes whatever is in the five boxes above and gives you back a copy of the
+    <p class="settings-help">Takes whatever is in the six boxes above and gives you back a copy of the
       app with them inside it. Deploy that, and nobody has to paste anything — it works on every
       laptop that opens the site.</p>
 
     <div class="warn-note">
       <strong>Only do this behind a sign-in.</strong> A trigger URL's <code>sig=</code> value is the
-      whole authentication, so a copy with them in it hands all five flows to anyone served the page.
+      whole authentication, so a copy with them in it hands all six flows to anyone served the page.
       That is fine once the site is behind Microsoft sign-in and being served the page already means
       being in your organisation. It is not fine on an open site, and a filled-in copy should never
       be committed to a public repository.
@@ -795,6 +827,8 @@
   </div><!-- /#admin-body -->
 </div>
 
+<input type="file" id="vf-file" accept=".json,application/json" hidden>
+
 <script src="vendor/html2pdf.bundle.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
 <!-- pdf.js draws the review preview and the drawing thumbnails. The worker is
@@ -814,5 +848,6 @@
 <script src="assets/schedule-of-rates.js"></script>
 <script src="assets/app.js"></script>
 <script src="assets/stages.js"></script>
+<script src="assets/variation-file.js"></script>
 </body>
 </html>

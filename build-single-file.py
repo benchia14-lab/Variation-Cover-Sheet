@@ -48,7 +48,7 @@ def guard(text, rel):
 
 FLOW_LABELS = [('projectsUrl', 'projects'), ('fileUrl', 'file'),
                ('logReadUrl', 'log read'), ('logWriteUrl', 'log write'),
-               ('describeUrl', 'describe')]
+               ('describeUrl', 'describe'), ('openFileUrl', 'open file')]
 
 
 # The five Netlify environment variables, as they are named in the site's
@@ -61,6 +61,7 @@ ENV_FLOWS = [
     ('logReadUrl', 'VARIATION_LOG_READ_URL'),
     ('logWriteUrl', 'VARIATION_LOG_WRITE_URL'),
     ('describeUrl', 'WRITE_PROFESSIONALLY_URL'),
+    ('openFileUrl', 'OPEN_VARIATION_FILE_URL'),
 ]
 ENV_SALT = 'SETTINGS_PASSWORD_SALT'
 ENV_HASH = 'SETTINGS_PASSWORD_HASH'
@@ -181,7 +182,7 @@ def build(flow_config=None, settings_password=None):
                 'assets/state-register.js', 'assets/flow-config.js', 'assets/flow-urls.js',
                 'assets/build-info.js', 'assets/flows.js',
                 'assets/scope-library.js', 'assets/schedule-of-rates.js',
-                'assets/app.js', 'assets/stages.js']:
+                'assets/app.js', 'assets/stages.js', 'assets/variation-file.js']:
         tag = '<script src="%s"></script>' % rel
         if tag not in html:
             sys.exit('index.html no longer loads %s — the builder is out of date' % rel)

@@ -1515,11 +1515,57 @@ const Stages = (function(){
     scopeItems = (saved && Array.isArray(saved.scope))
       ? saved.scope.map(i => ({ id: newId(), text: i.text, group: i.group, state: i.state, custom: !!i.custom }))
       : defaultScope();
+    // lines the library has gained since it was saved are offered, unselected
+    defaultScope().forEach(d => {
+      if(!scopeItems.some(i => i.group === d.group && i.text === d.text)){
+        const last = scopeItems.map(i => i.group).lastIndexOf(d.group);
+        scopeItems.splice(last === -1 ? scopeItems.length : last + 1, 0, d);
+      }
+    });
     applyRates(saved && saved.rates);
     docs.drawings = [];
     docs.approvals = [];
     if(stage === 'scope') renderScope();
     if(stage === 'rates') renderRates();
+    if(stage === 'docs') renderDocs();
+  }
+
+  /* ---- attachments, for the variation file ---------------------------------
+     The log cannot hold files, so they travel only in the variation file: a
+     PDF as base64, an image as the data URL it already is, an email as text. */
+  function collectDocs(){
+    const out = [];
+    BUCKETS.forEach(b => docs[b.key].forEach(d => {
+      const item = { bucket: b.key, kind: d.kind, name: d.name, caption: d.caption };
+      if(d.kind === 'pdf'){ item.pageCount = d.pageCount; item.base64 = bytesToBase64(d.bytes); }
+      else if(d.kind === 'image'){ item.dataUrl = d.dataUrl; }
+      else { item.email = d.email; }
+      out.push(item);
+    }));
+    return out;
+  }
+
+  function applyDocs(list){
+    docs.drawings = [];
+    docs.approvals = [];
+    (list || []).forEach(item => {
+      const bucket = docs[item.bucket] ? item.bucket : 'drawings';
+      const d = { id: newId(), kind: item.kind, name: item.name || 'Attachment', caption: item.caption || '' };
+      if(item.kind === 'pdf'){
+        const bin = atob(item.base64 || '');
+        d.bytes = new Uint8Array(bin.length);
+        for(let i = 0; i < bin.length; i++) d.bytes[i] = bin.charCodeAt(i);
+        d.pageCount = item.pageCount || 1;
+        d.thumb = '';
+        // thumbnails are not saved; draw them again in the background
+        pdfThumb(d.bytes).then(t => { d.thumb = t; if(stage === 'docs') renderDocs(); });
+      } else if(item.kind === 'image'){
+        d.dataUrl = item.dataUrl;
+      } else {
+        d.email = item.email || { body: '' };
+      }
+      docs[bucket].push(d);
+    });
     if(stage === 'docs') renderDocs();
   }
 
@@ -1536,6 +1582,8 @@ const Stages = (function(){
     currentBuild: () => built,
     collect: collect,
     apply: apply,
+    collectDocs: collectDocs,
+    applyDocs: applyDocs,
     appendToPdf: appendToPdf,
     valueLine: valueLine
   };

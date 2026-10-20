@@ -186,6 +186,7 @@ const filingNote = document.getElementById('filing-note');
 
 let projects = [];
 let selectedProject = null;
+let projectsLoading = Promise.resolve();   // the register read in flight, if any
 
 // register field -> the form field it fills. The order is the order the form
 // asks for them, so a complaint about what is missing reads top to bottom.
@@ -507,6 +508,13 @@ REQUIRED_FIELDS.forEach(f => {
     projectSelect.classList.remove('field-invalid');
   });
 });
+
+// The variation file sits beside the PDF and is named after it.
+function variationFileName(){
+  const varref = (typeof effectiveRef === 'function') ? effectiveRef() : els['varref'].value.trim();
+  const desc = els['variationdesc'].value.trim();
+  return ([varref, desc].filter(Boolean).join(' - ') || 'Variation') + ' - Variation File.json';
+}
 
 function buildPrintFilename(){
   const varref = effectiveRef();
@@ -1025,9 +1033,12 @@ async function renderPages(doc, opt){
 // downloaded, so the worst case is filing it by hand.
 const FILE_SIZE_WARN_BYTES = 20 * 1024 * 1024;
 
-function buildFilingPayload(pdfBase64, fileName){
+function buildFilingPayload(pdfBase64, fileName, fileKind){
   return {
     fileName: fileName,
+    // 'pdf', or 'variation-file' for the JSON that holds the whole variation.
+    // Both go into the project's folder by the same flow.
+    fileKind: fileKind || 'pdf',
     pdfBase64: pdfBase64,
     state: currentState ? currentState.code : '',
     stateEntity: els['co-name'].value.trim(),
@@ -1196,6 +1207,8 @@ async function downloadPdf(built){
       await saveToLog({ downloadedAt: new Date().toISOString(), fileName: result.fileName });
     }
     await fileToSharePoint(result.bytes, result.fileName);
+    // and everything behind it, so the variation can be opened again in full
+    if(typeof VariationFile !== 'undefined' && VariationFile.withPdf()) await VariationFile.saveToSharePoint();
   } catch(err){
     console.error(err);
     printStatus.textContent = 'Could not build the PDF — opening the print dialog instead, choose "Save as PDF" there. ' +
@@ -1268,8 +1281,11 @@ function collectFormState(){
     projectId: selectedProject ? selectedProject.id : '',
     fields: fields,
     drawings: collectDrawings(),
-    // stages 2 and 3; attachments are not logged -- they are files, not fields
-    stages: (typeof Stages !== 'undefined') ? Stages.collect() : null
+    // stages 2 and 3; attachments are not logged -- they are files, not fields.
+    // They are in the variation file, and this names it, so reopening from the
+    // log can fetch the whole thing back.
+    stages: (typeof Stages !== 'undefined') ? Stages.collect() : null,
+    variationFile: variationFileName()
   };
 }
 
@@ -1585,7 +1601,17 @@ async function openFromLog(ref){
                    'the Compose action of the same name. Nothing has been changed.', 'err');
       return;
     }
-    applyFormState(full.state_);
+    // The log holds the form; the variation file holds the form AND the
+    // attachments. Fetch the file when there is one and a flow to read it,
+    // and fall back to the log's copy if that fails.
+    let fromFile = null;
+    if(full.state_.variationFile && Flows.has('openFileUrl') && typeof VariationFile !== 'undefined'){
+      setLogStatus('Opening ' + ref + ' \u2014 fetching its variation file\u2026');
+      try { fromFile = await VariationFile.fetch(full.state_.variationFile); }
+      catch(e){ fromFile = null; }
+    }
+    applyFormState(fromFile ? fromFile.form : full.state_);
+    if(fromFile) Stages.applyDocs(fromFile.documents);
     reopenedRef = full.variationRef;
     reopenedFromLog = true;
     // the form now holds a variation that exists, so the reference is its base
@@ -1595,13 +1621,57 @@ async function openFromLog(ref){
     setMode('revise', { keepRef: true });
     varrev.value = '';
     showReopened();
-    setLogStatus('Opened ' + full.variationRef + ' from the log. Add a revision to issue it as a new ' +
-                 'entry, or save to update it.', 'ok');
+    setLogStatus('Opened ' + full.variationRef + (fromFile ? ' with its attachments' : ' from the log') +
+                 '. Add a revision to issue it as a new entry, or save to update it.' +
+                 (!fromFile && full.state_.variationFile ? ' Its attachments are in "' + full.state_.variationFile +
+                   '" in the project folder' + (Flows.has('openFileUrl') ? ', which could not be fetched.' : '.') : ''), 'ok');
     updateEffectiveRef();
     render();
   } catch(err){
     setLogStatus('Could not open ' + ref + ' — ' + (err.message || 'the flow failed'), 'err');
   }
+}
+
+/* A variation file opened from this computer or from SharePoint. It carries
+   the office and project it was made under, so those are put back first -- the
+   letterhead, the register row, the log -- and then the form exactly as saved,
+   then the attachments. Like reopening from the log, a numbered variation comes
+   back as itself: saving updates it, a revision issues it anew. */
+async function restoreVariation(file){
+  const saved = file.form || {};
+  const office = saved.office && StateRegister.get(saved.office);
+  if(office && (!currentState || currentState.code !== office.code)){
+    currentState = office;
+    applyLetterhead(office);
+    document.getElementById('chip-state').textContent = office.code;
+    projectsLoading = loadProjects();
+  }
+  if(!currentState) throw new Error('The file does not say which office it is from, and none is open.');
+  await projectsLoading;
+
+  const project = saved.projectId !== undefined && saved.projectId !== ''
+    ? projects.find(p => String(p.id) === String(saved.projectId)) : null;
+  if(project){
+    projectSelect.value = project.id;
+    applyProject(project);
+  }
+  const ref = (saved.fields && saved.fields.varref) || '';
+  // claimed before the log comes back, so the number is not reallocated over it
+  reopenedRef = ref;
+  applyFormState(saved);
+  Stages.applyDocs(file.documents);
+  if(ref){
+    reopenedFromLog = false;
+    const parsed = parseRef(ref);
+    els['varref'].value = parsed ? parsed.base : ref;
+    setMode('revise', { keepRef: true });
+    // the form keeps the base; the revision travels in the file's summary
+    varrev.value = (file.summary && file.summary.revision) || '';
+    showReopened();
+  }
+  updateEffectiveRef();
+  render();
+  return { project: project, unmatchedProject: !project && !!saved.projectId };
 }
 
 function currentHasContent(){
@@ -1683,6 +1753,7 @@ function buildLogPayload(extra){
       .map(d => [d.number, d.name, d.oldRev && d.newRev ? d.oldRev + ' \u2192 ' + d.newRev : '']
       .filter(Boolean).join('  ')).join('\n'),
     folderPath: selectedProject ? (selectedProject.folderPath || '') : '',
+    variationFile: variationFileName(),
 
     // the whole form, so reopening restores it exactly whatever the columns do
     payload: JSON.stringify(saved),
@@ -1778,7 +1849,8 @@ const flowInputs = {
   fileUrl: document.getElementById('flow-file'),
   logReadUrl: document.getElementById('flow-log-read'),
   logWriteUrl: document.getElementById('flow-log-write'),
-  describeUrl: document.getElementById('flow-describe')
+  describeUrl: document.getElementById('flow-describe'),
+  openFileUrl: document.getElementById('flow-open-file')
 };
 Object.values(flowInputs).forEach(el => { el.dataset.placeholder = el.placeholder; });
 const flowsStatus = document.getElementById('flows-status');
@@ -1792,7 +1864,8 @@ const FLOW_LABELS = {
   fileUrl: 'File the PDF',
   logReadUrl: 'Variation log — read',
   logWriteUrl: 'Variation log — write',
-  describeUrl: 'Write professionally'
+  describeUrl: 'Write professionally',
+  openFileUrl: 'Open a variation file'
 };
 
 /* A deployment can hold the trigger URLs server-side (netlify/functions/flow.js).
@@ -2019,7 +2092,7 @@ async function connectFlows(){
   const found = {};
   let worked = 0, failed = 0;
 
-  for(const key of ['projectsUrl', 'fileUrl', 'logReadUrl', 'logWriteUrl', 'describeUrl']){
+  for(const key of ['projectsUrl', 'fileUrl', 'logReadUrl', 'logWriteUrl', 'describeUrl', 'openFileUrl']){
     const name = FLOW_LABELS[key];
     const source = Flows.sourceOf(key);
 
@@ -2123,6 +2196,7 @@ document.getElementById('flows-save').addEventListener('click', () => {
     next[k] = (typed && typed === Flows.builtIn(k)) ? '' : typed;
   });
   const ok = Flows.save(next);
+  if(typeof VariationFile !== 'undefined') VariationFile.sync();
   flowsStatus.textContent = ok
     ? 'Saved to this browser.'
     : 'Could not save — this browser is blocking local storage, so the URLs will be forgotten when the tab closes.';
@@ -2520,7 +2594,7 @@ function download(text, name, type){
 const LOCK_DECLARATION =
   /const SETTINGS_LOCK = \{\s*salt: '[0-9a-f]*',\s*hash: '[0-9a-f]*',\s*iterations: \d+,?\s*\};/g;
 const URLS_DECLARATION =
-  /const FLOW_URLS = \{\s*projectsUrl: '[^']*',\s*fileUrl: '[^']*',\s*logReadUrl: '[^']*',\s*logWriteUrl: '[^']*',\s*describeUrl: '[^']*',?\s*\};/g;
+  /const FLOW_URLS = \{\s*projectsUrl: '[^']*',\s*fileUrl: '[^']*',\s*logReadUrl: '[^']*',\s*logWriteUrl: '[^']*',\s*describeUrl: '[^']*'(?:,\s*openFileUrl: '[^']*')?,?\s*\};/g;
 
 // The declaration on its own, without the comment header the file also carries.
 function declarationOnly(source, keyword){
@@ -2669,7 +2743,7 @@ function openState(code, stage){
   // phone number someone deliberately typed over for this one letter.
   if(switching){
     applyLetterhead(row);
-    loadProjects();
+    projectsLoading = loadProjects();
   }
   document.getElementById('chip-state').textContent = row.code;
   // Without a projects flow no project is ever selected, so nothing else calls
@@ -2731,6 +2805,7 @@ function whenLoaded(fn){
 Flows.probeProxy().then(() => whenLoaded(start), () => whenLoaded(start));
 
 function start(){
+  if(typeof VariationFile !== 'undefined') VariationFile.sync();
   routeFromHash();
   syncPrefilled();
 }
