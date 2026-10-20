@@ -46,13 +46,13 @@
 const FLOW_SETTINGS_KEY = 'variationCoverSheet:flows';
 
 const Flows = (() => {
-  const KEYS = ['projectsUrl', 'fileUrl', 'describeUrl', 'logReadUrl', 'logWriteUrl'];
+  const KEYS = ['projectsUrl', 'fileUrl', 'describeUrl', 'logReadUrl', 'logWriteUrl', 'openFileUrl'];
   const MAP_KEY = 'columnMap';   // saved alongside the URLs, same shape rules
   let settings = load();
 
   function load(){
     const blank = { projectsUrl: '', fileUrl: '', describeUrl: '',
-                    logReadUrl: '', logWriteUrl: '', columnMap: {} };
+                    logReadUrl: '', logWriteUrl: '', openFileUrl: '', columnMap: {} };
     try {
       const raw = localStorage.getItem(FLOW_SETTINGS_KEY);
       if(!raw) return blank;
@@ -167,7 +167,8 @@ const Flows = (() => {
     fileUrl: 'file',
     logReadUrl: 'logRead',
     logWriteUrl: 'logWrite',
-    describeUrl: 'describe'
+    describeUrl: 'describe',
+    openFileUrl: 'openFile'
   };
 
   async function probeProxy(){
@@ -707,6 +708,68 @@ const Flows = (() => {
   }
 
   /* ---------------------------------------------------------------------
+     The variation file
+
+     Saving one needs no flow of its own: it is just another file for the
+     project's folder, so it goes through the filing flow like the PDF.
+     Reading one back does: this flow is handed the folder and the file name
+     and answers with what is in the file.
+
+     SharePoint's "Get file content" can answer in several shapes depending on
+     how it is set up -- the JSON itself, a {$content-type, $content} wrapper
+     holding base64, or a string -- so all of them are accepted here rather
+     than making the flow get one exactly right.
+     --------------------------------------------------------------------- */
+
+  function base64Text(b64){
+    const bin = atob(String(b64).replace(/\s+/g, ''));
+    const bytes = new Uint8Array(bin.length);
+    for(let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder('utf-8').decode(bytes);
+  }
+
+  function unwrapFile(data, depth){
+    if(depth > 4 || data === null || data === undefined) return null;
+    if(typeof data === 'string'){
+      const text = data.trim();
+      if(!text) return null;
+      if(text[0] === '{'){
+        try { return unwrapFile(JSON.parse(text), depth + 1); } catch(e){ return null; }
+      }
+      try { return unwrapFile(base64Text(text), depth + 1); } catch(e){ return null; }
+    }
+    if(typeof data !== 'object') return null;
+    if(data.kind === 'variation' && data.form) return data;
+    const inner = data.$content !== undefined ? data.$content
+      : data.contentBase64 !== undefined ? data.contentBase64
+      : data.content !== undefined ? data.content
+      : data.body !== undefined ? data.body
+      : data.file !== undefined ? data.file : undefined;
+    return inner === undefined ? null : unwrapFile(inner, depth + 1);
+  }
+
+  async function openVariationFile(payload){
+    if(!configured('openFileUrl')){
+      const err = new Error('This app has no flow for opening variation files from SharePoint — tell whoever set it up.');
+      err.unconfigured = true;
+      throw err;
+    }
+    let data;
+    try {
+      data = await postJson(endpointFor('openFileUrl'), payload);
+    } catch(err){
+      if(err.status === 404) err.message = 'There is no variation file called ' + payload.fileName + ' in that folder.';
+      throw err;
+    }
+    const file = unwrapFile(data, 0);
+    if(!file){
+      throw new Error('The flow answered, but not with a variation file. Its Response body should be ' +
+                      "the Get file content output (see the setup guide, flow 6).");
+    }
+    return file;
+  }
+
+  /* ---------------------------------------------------------------------
      Description wording (optional)
      --------------------------------------------------------------------- */
 
@@ -723,7 +786,7 @@ const Flows = (() => {
   }
 
   return { get, save, has, plainMessage, probeProxy, proxyState, viaProxy, sourceOf, builtIn: FlowUrls.get,
-           getProjects, fileVariation, describe,
+           getProjects, fileVariation, describe, openVariationFile, unwrapFile,
            listLog, getLog, writeLog, sameRef, LOG_ALIASES,
            normaliseProject, extractRows, describeRow, describeRows, normKey,
            MAPPABLE, ALIASES, decodePath, splitSitePath };

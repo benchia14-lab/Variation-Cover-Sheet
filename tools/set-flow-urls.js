@@ -39,7 +39,8 @@ const FLAGS = {
   '--file': 'fileUrl',
   '--log-read': 'logReadUrl',
   '--log-write': 'logWriteUrl',
-  '--describe': 'describeUrl'
+  '--describe': 'describeUrl',
+  '--open-file': 'openFileUrl'
 };
 
 function load(){

@@ -602,6 +602,14 @@ notes for a rewrite.
 
 ---
 
+## Flow 6 · Open a variation file (optional)
+
+Reads a saved variation file back out of the project folder, so a variation
+reopens with its attachments. Saving one needs no flow of its own. The whole
+recipe is in [VARIATION-FILES.md](VARIATION-FILES.md).
+
+---
+
 ## What the app sends <a name="what-the-app-sends"></a>
 
 **To flow 1:**
@@ -638,6 +646,7 @@ notes for a rewrite.
 | `descriptionOfWorks` | the final description |
 | `drawings` | `[{ "number": "H-201", "name": "…", "oldRev": "C", "newRev": "D" }]` |
 | `issuedDate` | ISO 8601, UTC |
+| `fileKind` | `pdf`, or `variation-file` when it is the variation file (see [VARIATION-FILES.md](VARIATION-FILES.md)) |
 
 ---
 
@@ -659,8 +668,10 @@ So:
 - **Regenerate on leak.** Trigger card → **Regenerate key**. Every saved copy of
   the old URL stops working immediately, and everyone re-pastes.
 - **Validate in flow 2.** Add a Condition after Compose: if `fileName` is empty,
-  or doesn't end `.pdf`, or `pdfBase64` is empty, respond `400` and stop. It
-  costs one action and closes off writing arbitrary files into the library.
+  or doesn't end `.pdf` or `Variation File.json`, or `pdfBase64` is empty,
+  respond `400` and stop. It costs one action and closes off writing arbitrary
+  files into the library. (The variation file goes through flow 2 too — see
+  [VARIATION-FILES.md](VARIATION-FILES.md).)
 
 ## If you can't use premium <a name="if-you-cant-use-premium"></a>
 

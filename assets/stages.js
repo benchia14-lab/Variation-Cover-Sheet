@@ -338,68 +338,94 @@ const Stages = (function(){
      STAGE 3 · SCHEDULE OF RATES
      ------------------------------------------------------------------------
      Measured the way the master schedule is: for each line, a quantity added
-     and a quantity deducted, the difference times the contract rate. Only the
-     lines measured on this variation print. Lines that are not in the
-     schedule go under "Additional items" with a rate typed for this one job.
+     and a quantity deducted, the difference times the rate. Only measured
+     lines print. Lines that are not in the schedule go under "Additional
+     items" with a rate typed for this one job.
+
+     A variation can carry several schedules -- one per zone, level or area --
+     kept as tabs. Each prints on its own pages under its own name, and with
+     more than one, a summary of them all comes first. GST is charged once,
+     on the total of every schedule.
+
+     Any line can carry a comment, and its rate can be adjusted for this
+     variation; the contract rate stays alongside it so the change shows.
   ======================================================================== */
 
   const SOR = (typeof SCHEDULE_OF_RATES !== 'undefined') ? SCHEDULE_OF_RATES
     : { title: 'Schedule of Rates', sections: [], notes: [], preamble: [], gstPercent: 10 };
   const keyOf = (section, desc) => section + '\u0000' + desc;
 
-  // what this variation has measured, keyed by section and description; the
-  // rate and unit are copied in when a line is first measured, so a variation
-  // reopened after the schedule changes keeps the rates it was issued at
-  let rates = null;
-
-  function defaultRates(){
+  // Per schedule, what has been measured, keyed by section and description.
+  // The rate and unit are copied in when a line is first touched, so a
+  // variation reopened after the workbook changes keeps the rates it was
+  // issued at; `r0` is the contract rate, `r` what is charged.
+  function newSchedule(name){
     return {
-      measured: {},          // key -> { section, d, u, r, add, ded }
+      id: newId(),
+      name: name,
+      measured: {},          // key -> { section, d, u, r, r0, c, add, ded }
       percents: {},          // key -> { section, d, percent }
-      extras: [],            // { id, d, u, r, add, ded }
-      gstPercent: SOR.gstPercent === undefined ? 10 : SOR.gstPercent,
+      extras: [],            // { id, d, c, u, r, add, ded }
       notes: ''
     };
   }
-  rates = defaultRates();
+
+  let book = null;           // { schedules: [...], active, gstPercent }
+  let rates = null;          // the schedule on the open tab
+
+  function defaultBook(){
+    const first = newSchedule('Schedule 1');
+    return { schedules: [first], active: 0, gstPercent: SOR.gstPercent === undefined ? 10 : SOR.gstPercent };
+  }
+  book = defaultBook();
+  rates = book.schedules[0];
 
   const diffOf = e => num(e.add) - Math.abs(num(e.ded));
+  const isMeasured = e => !!e && !!(num(e.add) || num(e.ded));
 
-  function computeRates(){
+  function computeSchedule(sch){
     const sections = [];
     SOR.sections.forEach(s => {
       const lines = [];
       s.lines.forEach(l => {
         if(l.percent !== undefined) return;
-        const e = rates.measured[keyOf(s.title, l.d)];
-        if(e && (num(e.add) || num(e.ded))) lines.push(lineCalc(e));
+        const e = sch.measured[keyOf(s.title, l.d)];
+        if(isMeasured(e)) lines.push(lineCalc(e));
       });
       if(lines.length) sections.push({ title: s.title, lines: lines, total: lines.reduce((n, l) => n + l.amount, 0) });
     });
     // measured lines no longer in the schedule are kept under their old section
-    Object.keys(rates.measured).forEach(k => {
-      const e = rates.measured[k];
-      if(!(num(e.add) || num(e.ded)) || findLine(e.section, e.d)) return;
+    Object.keys(sch.measured).forEach(k => {
+      const e = sch.measured[k];
+      if(!isMeasured(e) || findLine(e.section, e.d)) return;
       let sec = sections.find(s => s.title === e.section);
       if(!sec){ sec = { title: e.section, lines: [], total: 0 }; sections.push(sec); }
       const l = lineCalc(e);
       sec.lines.push(l);
       sec.total += l.amount;
     });
-    const extras = rates.extras.filter(e => e.d.trim() && (num(e.add) || num(e.ded))).map(lineCalc);
+    const extras = sch.extras.filter(e => e.d.trim() && isMeasured(e)).map(lineCalc);
     if(extras.length) sections.push({ title: 'Additional Items', lines: extras, total: extras.reduce((n, l) => n + l.amount, 0) });
 
     const works = sections.reduce((n, s) => n + s.total, 0);
-    const percents = Object.keys(rates.percents).map(k => rates.percents[k])
+    const percents = Object.keys(sch.percents).map(k => sch.percents[k])
       .map(p => ({ d: p.d, percent: p.percent, amount: works * p.percent / 100 }));
     const exGst = works + percents.reduce((n, p) => n + p.amount, 0);
-    const gst = exGst * num(rates.gstPercent) / 100;
-    return { sections: sections, works: works, percents: percents, exGst: exGst, gst: gst, incGst: exGst + gst };
+    return { schedule: sch, sections: sections, works: works, percents: percents, exGst: exGst };
+  }
+
+  // every schedule, and the variation's totals across them
+  function computeRates(){
+    const list = book.schedules.map(computeSchedule);
+    const exGst = list.reduce((n, c) => n + c.exGst, 0);
+    const gst = exGst * num(book.gstPercent) / 100;
+    return { list: list, exGst: exGst, gst: gst, incGst: exGst + gst };
   }
 
   function lineCalc(e){
     const diff = diffOf(e);
-    return { d: e.d, u: e.u, r: num(e.r), add: num(e.add), ded: Math.abs(num(e.ded)), diff: diff, amount: diff * num(e.r) };
+    return { d: e.d, c: (e.c || '').trim(), u: e.u, r: num(e.r), add: num(e.add), ded: Math.abs(num(e.ded)),
+             diff: diff, amount: diff * num(e.r) };
   }
 
   function findLine(section, desc){
@@ -407,7 +433,71 @@ const Stages = (function(){
     return s ? s.lines.find(l => l.d === desc) : null;
   }
 
-  function hasPricing(c){ return c.sections.length > 0; }
+  const priced = c => c.sections.length > 0;
+  function hasPricing(g){ return g.list.some(priced); }
+
+  /* ---- the tabs -------------------------------------------------------------- */
+
+  const sorTabs = document.getElementById('sor-tabs');
+  const sorName = document.getElementById('sor-name');
+
+  function openTab(i){
+    book.active = Math.max(0, Math.min(i, book.schedules.length - 1));
+    rates = book.schedules[book.active];
+    renderRates();
+  }
+
+  function renderTabs(){
+    const g = computeRates();
+    sorTabs.innerHTML = '';
+    book.schedules.forEach((sch, i) => {
+      const t = el('button', 'sor-tab' + (i === book.active ? ' on' : ''));
+      t.type = 'button';
+      t.innerHTML = '<span class="sor-tab-name">' + escapeHtml(sch.name || 'Untitled') + '</span>' +
+        '<span class="sor-tab-total">' + (g.list[i].exGst ? money(g.list[i].exGst) : '—') + '</span>';
+      t.title = 'Double-click to rename';
+      t.addEventListener('click', () => { if(i !== book.active) openTab(i); });
+      t.addEventListener('dblclick', () => { sorName.focus(); sorName.select(); });
+      sorTabs.appendChild(t);
+    });
+    const add = el('button', 'sor-tab sor-tab-add', '+ New schedule');
+    add.type = 'button';
+    add.title = 'Add a schedule for another zone or area';
+    add.addEventListener('click', () => {
+      book.schedules.push(newSchedule('Schedule ' + (book.schedules.length + 1)));
+      openTab(book.schedules.length - 1);
+      sorName.focus();
+      sorName.select();
+    });
+    sorTabs.appendChild(add);
+    sorName.value = rates.name;
+    document.getElementById('sor-delete').disabled = book.schedules.length < 2;
+  }
+
+  sorName.addEventListener('input', () => {
+    rates.name = sorName.value;
+    const t = sorTabs.querySelector('.sor-tab.on .sor-tab-name');
+    if(t) t.textContent = rates.name || 'Untitled';
+    updateRates();
+  });
+
+  document.getElementById('sor-duplicate').addEventListener('click', () => {
+    const copy = JSON.parse(JSON.stringify(rates));
+    copy.id = newId();
+    copy.name = (rates.name || 'Schedule') + ' (copy)';
+    copy.extras.forEach(e => { e.id = newId(); });
+    book.schedules.splice(book.active + 1, 0, copy);
+    openTab(book.active + 1);
+    sorName.focus();
+    sorName.select();
+  });
+
+  document.getElementById('sor-delete').addEventListener('click', () => {
+    if(book.schedules.length < 2) return;
+    if(!confirm('Delete the schedule "' + (rates.name || 'Untitled') + '" and everything measured on it?')) return;
+    book.schedules.splice(book.active, 1);
+    openTab(book.active);
+  });
 
   /* ---- the editor ---------------------------------------------------------- */
 
@@ -422,24 +512,31 @@ const Stages = (function(){
   document.getElementById('sor-preamble').hidden = !(SOR.preamble || []).length;
   const openSections = {};
 
+  // touched: measured, commented on, or re-rated
+  const touched = e => !!e && (isMeasured(e) || (e.c || '').trim() || num(e.r) !== num(e.r0));
+
   function measuredIn(s){
     return s.lines.filter(l => {
       if(l.percent !== undefined) return !!rates.percents[keyOf(s.title, l.d)];
-      const e = rates.measured[keyOf(s.title, l.d)];
-      return e && (num(e.add) || num(e.ded));
+      return isMeasured(rates.measured[keyOf(s.title, l.d)]);
     }).length;
   }
 
-  function qtyInput(value, ph, onInput){
+  function textInput(value, ph, cls, onInput){
     const i = el('input');
     i.type = 'text';
-    i.inputMode = 'decimal';
-    i.className = 'dwg-input mono-input sor-q';
-    i.value = value || '';
+    i.className = 'dwg-input ' + (cls || '');
+    i.value = value === undefined || value === null ? '' : value;
     i.placeholder = ph;
-    i.addEventListener('input', () => onInput(i.value));
+    i.addEventListener('input', () => onInput(i.value, i));
     return i;
   }
+
+  const qtyInput = (value, ph, onInput) => {
+    const i = textInput(value, ph, 'mono-input sor-q', onInput);
+    i.inputMode = 'decimal';
+    return i;
+  };
 
   function scheduleRow(s, l){
     const k = keyOf(s.title, l.d);
@@ -449,7 +546,7 @@ const Stages = (function(){
 
     if(l.percent !== undefined){
       row.classList.add('sor-row-pct');
-      desc.appendChild(el('span', 'sor-meta', qtyText(l.percent) + '% of the measured works'));
+      desc.appendChild(el('span', 'sor-meta', qtyText(l.percent) + '% of the measured works on this schedule'));
       row.appendChild(desc);
       const lab = el('label', 'sor-apply');
       const cb = el('input');
@@ -469,23 +566,54 @@ const Stages = (function(){
       return row;
     }
 
-    desc.appendChild(el('span', 'sor-meta', escapeHtml(l.u) + ' · ' + money(l.r)));
+    const meta = desc.appendChild(el('span', 'sor-meta', escapeHtml(l.u)));
+    // shown only once the rate has been typed over
+    const adj = meta.appendChild(el('span', 'sor-adj', ' · contract ' + money(l.r) + ' '));
+    const reset = adj.appendChild(el('button', 'sor-reset', 'reset'));
+    reset.type = 'button';
+    reset.title = 'Back to the contract rate';
     row.appendChild(desc);
-    const entry = () => rates.measured[k] || (rates.measured[k] = { section: s.title, d: l.d, u: l.u, r: l.r, add: '', ded: '' });
     const cur = rates.measured[k] || {};
-    const set = (field, v) => {
-      const e = entry();
-      e[field] = v;
-      if(!num(e.add) && !num(e.ded)) delete rates.measured[k];
-      row.classList.toggle('on', !!rates.measured[k]);
+    const entry = () => rates.measured[k] ||
+      (rates.measured[k] = { section: s.title, d: l.d, u: l.u, r: l.r, r0: l.r, c: '', add: '', ded: '' });
+    const sync = () => {
+      const e = rates.measured[k];
+      if(e && !touched(e)) delete rates.measured[k];
+      row.classList.toggle('on', isMeasured(rates.measured[k]));
+      const adjusted = !!rates.measured[k] && num(rates.measured[k].r) !== num(rates.measured[k].r0);
+      rateBox.classList.toggle('adjusted', adjusted);
+      adj.hidden = !adjusted;
       updateRates();
     };
+    const set = (field, v) => { entry()[field] = v; sync(); };
+
+    row.appendChild(textInput(cur.c, 'Comment…', 'sor-c', v => set('c', v)));
+
+    const rateBox = el('div', 'sor-rate-box');
+    const rate = textInput(cur.r !== undefined ? cur.r : l.r, String(l.r), 'mono-input sor-r', v => set('r', v));
+    rate.inputMode = 'decimal';
+    rate.title = 'Contract rate ' + money(l.r) + ' — type over it to adjust for this variation';
+    reset.addEventListener('click', () => {
+      const e = rates.measured[k];
+      if(!e) return;
+      e.r = e.r0;
+      rate.value = e.r0;
+      sync();
+    });
+    rateBox.appendChild(rate);
+    row.appendChild(rateBox);
+
     row.appendChild(qtyInput(cur.add, 'Add', v => set('add', v)));
     row.appendChild(qtyInput(cur.ded, 'Ded', v => set('ded', v)));
     row.appendChild(el('div', 'sor-amount')).setAttribute('data-key', k);
-    row.classList.toggle('on', !!rates.measured[k]);
+    row.classList.toggle('on', isMeasured(cur.d ? cur : null));
+    const adjusted = cur.d !== undefined && num(cur.r) !== num(cur.r0);
+    rateBox.classList.toggle('adjusted', adjusted);
+    adj.hidden = !adjusted;
     return row;
   }
+
+  const ROW_HEAD = '<div>Description</div><div>Comment</div><div class="r">Rate</div><div>Add</div><div>Ded</div><div class="r">Total</div>';
 
   function buildRatesEditor(){
     const q = sorSearch.value.trim().toLowerCase();
@@ -499,7 +627,7 @@ const Stages = (function(){
         if(q && l.d.toLowerCase().indexOf(q) === -1 && s.title.toLowerCase().indexOf(q) === -1) return false;
         if(only){
           if(l.percent !== undefined) return !!rates.percents[keyOf(s.title, l.d)];
-          return !!rates.measured[keyOf(s.title, l.d)];
+          return touched(rates.measured[keyOf(s.title, l.d)]);
         }
         return true;
       });
@@ -526,14 +654,14 @@ const Stages = (function(){
       if(open){
         if(s.note) box.appendChild(el('div', 'sor-note')).textContent = s.note;
         const grid = el('div', 'sor-grid');
-        grid.appendChild(el('div', 'sor-row sor-row-head', '<div>Description</div><div>Add</div><div>Ded</div><div class="r">Total</div>'));
+        grid.appendChild(el('div', 'sor-row sor-row-head', ROW_HEAD));
         lines.forEach(l => grid.appendChild(scheduleRow(s, l)));
         box.appendChild(grid);
       }
       sorSections.appendChild(box);
     });
     if(!shownAny){
-      sorSections.appendChild(el('div', 'scope-empty', only ? 'Nothing measured yet.' : 'Nothing in the schedule matches.'));
+      sorSections.appendChild(el('div', 'scope-empty', only ? 'Nothing measured on this schedule yet.' : 'Nothing in the schedule matches.'));
     }
     sorSections.closest('.form-side').scrollTop = scrollAt;
   }
@@ -542,25 +670,22 @@ const Stages = (function(){
     sorExtras.innerHTML = '';
     if(rates.extras.length){
       sorExtras.appendChild(el('div', 'sor-xrow sor-row-head',
-        '<div>Description</div><div>Unit</div><div>Rate</div><div>Add</div><div>Ded</div><div class="r">Total</div><div></div>'));
+        '<div>Description</div><div>Comment</div><div>Unit</div><div class="r">Rate</div><div>Add</div><div>Ded</div><div class="r">Total</div><div></div>'));
     }
     rates.extras.forEach(e => {
       const row = el('div', 'sor-xrow');
-      const field = (key, cls, ph) => {
-        const i = el('input');
-        i.type = 'text';
-        i.className = 'dwg-input ' + cls;
-        i.value = e[key] || '';
-        i.placeholder = ph;
-        i.addEventListener('input', () => { e[key] = i.value; updateRates(); });
+      const field = (key, cls, ph, decimal) => {
+        const i = textInput(e[key], ph, cls, v => { e[key] = v; updateRates(); });
+        if(decimal) i.inputMode = 'decimal';
         row.appendChild(i);
         return i;
       };
       field('d', '', 'Description');
+      field('c', 'sor-c', 'Comment…');
       field('u', '', 'each');
-      field('r', 'mono-input', '0.00').inputMode = 'decimal';
-      field('add', 'mono-input', 'Add').inputMode = 'decimal';
-      field('ded', 'mono-input', 'Ded').inputMode = 'decimal';
+      field('r', 'mono-input sor-r', '0.00', true);
+      field('add', 'mono-input sor-q', 'Add', true);
+      field('ded', 'mono-input sor-q', 'Ded', true);
       row.appendChild(el('div', 'sor-amount')).setAttribute('data-extra', e.id);
       const rm = el('button', 'dwg-remove', '&times;');
       rm.type = 'button';
@@ -576,7 +701,7 @@ const Stages = (function(){
   }
 
   document.getElementById('sor-extra-add').addEventListener('click', () => {
-    rates.extras.push({ id: newId(), d: '', u: '', r: '', add: '', ded: '' });
+    rates.extras.push({ id: newId(), d: '', c: '', u: '', r: '', add: '', ded: '' });
     buildExtras();
     updateRates();
     const inputs = sorExtras.querySelectorAll('.sor-xrow:last-child input');
@@ -585,21 +710,33 @@ const Stages = (function(){
 
   sorSearch.addEventListener('input', () => { buildRatesEditor(); updateRates(); });
   sorOnly.addEventListener('change', () => { buildRatesEditor(); updateRates(); });
-  sorGst.addEventListener('input', () => { rates.gstPercent = sorGst.value; updateRates(); });
+  sorGst.addEventListener('input', () => { book.gstPercent = sorGst.value; updateRates(); });
   sorNotes.addEventListener('input', () => { rates.notes = sorNotes.value; updateRates(); });
 
-  function summaryRows(c){
+  // the totals of one schedule
+  function scheduleRows(c){
     const rows = [['Measured works', c.works]];
     c.percents.forEach(p => rows.push([p.d, p.amount]));
-    rows.push(['Total (ex GST)', c.exGst, 'strong']);
-    rows.push(['GST (' + qtyText(num(rates.gstPercent)) + '%)', c.gst]);
-    rows.push(['Total (inc GST)', c.incGst, 'grand']);
+    rows.push([(c.schedule.name || 'Schedule') + ' total (ex GST)', c.exGst, 'strong']);
     return rows;
   }
 
+  // the variation's totals, across every schedule
+  function grandRows(g){
+    return [
+      ['Total (ex GST)', g.exGst, 'strong'],
+      ['GST (' + qtyText(num(book.gstPercent)) + '%)', g.gst],
+      ['Total (inc GST)', g.incGst, 'grand']
+    ];
+  }
+
+  const sumRowsHtml = rows => rows.map(r =>
+    '<div class="sor-sum-row ' + (r[2] || '') + '"><span>' + escapeHtml(r[0]) + '</span><span>' + money(r[1]) + '</span></div>').join('');
+
   // the numbers only -- the inputs are left alone so the caret stays put
   function updateRates(){
-    const c = computeRates();
+    const g = computeRates();
+    const c = g.list[book.active];
     sorSections.querySelectorAll('[data-key]').forEach(cell => {
       const e = rates.measured[cell.getAttribute('data-key')];
       const amount = e ? diffOf(e) * num(e.r) : 0;
@@ -620,15 +757,22 @@ const Stages = (function(){
       cell.textContent = amount ? money(amount) : '—';
       cell.classList.toggle('neg', amount < 0);
     });
-    sorSummary.innerHTML = summaryRows(c).map(r =>
-      '<div class="sor-sum-row ' + (r[2] || '') + '"><span>' + escapeHtml(r[0]) + '</span><span>' + money(r[1]) + '</span></div>').join('');
-    renderRatesPreview(c);
+    sorTabs.querySelectorAll('.sor-tab-total').forEach((cell, i) => {
+      cell.textContent = g.list[i] && g.list[i].exGst ? money(g.list[i].exGst) : '—';
+    });
+    let html = sumRowsHtml(scheduleRows(c));
+    if(g.list.length > 1){
+      html += '<div class="sor-sum-sep">All ' + g.list.length + ' schedules</div>';
+    }
+    sorSummary.innerHTML = html + sumRowsHtml(grandRows(g));
+    renderRatesPreview(g);
     render();   // the cover sheet carries the value
   }
 
   function renderRates(){
-    sorGst.value = rates.gstPercent;
+    sorGst.value = book.gstPercent;
     sorNotes.value = rates.notes || '';
+    renderTabs();
     buildRatesEditor();
     buildExtras();
     updateRates();
@@ -636,16 +780,23 @@ const Stages = (function(){
 
   /* ---- what prints ----------------------------------------------------------- */
 
-  const RATE_HEAD = '<thead><tr><th>Description</th><th class="n">Add</th><th class="n">Ded</th><th class="n">Diff</th>' +
-    '<th>Unit</th><th class="n">Rate</th><th class="n">Total</th></tr></thead>';
+  // The comment column only prints on a schedule where something was said.
+  function rateHead(withComment){
+    return '<thead><tr><th>Description</th>' + (withComment ? '<th>Comment</th>' : '') +
+      '<th class="n">Add</th><th class="n">Ded</th><th class="n">Diff</th>' +
+      '<th>Unit</th><th class="n">Rate</th><th class="n">Total</th></tr></thead>';
+  }
+  const hasComments = c => c.sections.some(s => s.lines.some(l => l.c));
 
   // One table per section, built as real nodes so the PDF can flow its rows.
   function rateTables(c){
+    const withComment = hasComments(c);
     return c.sections.map(s => {
       const rows = s.lines.map(l => {
         const tr = el('tr');
         tr.innerHTML =
           '<td>' + escapeHtml(l.d) + '</td>' +
+          (withComment ? '<td class="sor-cmt">' + escapeHtml(l.c) + '</td>' : '') +
           '<td class="n">' + (l.add ? qtyText(l.add) : '') + '</td>' +
           '<td class="n">' + (l.ded ? '-' + qtyText(l.ded) : '') + '</td>' +
           '<td class="n">' + qtyText(l.diff) + '</td>' +
@@ -655,37 +806,55 @@ const Stages = (function(){
         return tr;
       });
       const tot = el('tr', 'sor-total-row');
-      tot.innerHTML = '<td colspan="6">' + escapeHtml(s.title) + ' total</td><td class="n">' + money(s.total) + '</td>';
+      tot.innerHTML = '<td colspan="' + (withComment ? 7 : 6) + '">' + escapeHtml(s.title) + ' total</td><td class="n">' + money(s.total) + '</td>';
       rows.push(tot);
-      return { title: s.title, rows: rows };
+      return { title: s.title, rows: rows, head: rateHead(withComment), cls: withComment ? ' with-cmt' : '' };
     });
   }
 
-  function totalsNode(c){
+  function totalsTable(rows){
     const t = el('table', 'sor-totals');
-    t.innerHTML = summaryRows(c).map(r =>
+    t.innerHTML = rows.map(r =>
       '<tr class="' + (r[2] || '') + '"><td>' + escapeHtml(r[0]) + '</td><td class="n">' + money(r[1]) + '</td></tr>').join('');
     return t;
   }
 
-  // the schedule's own note, then whatever was typed for this variation (its
+  // with one schedule its own totals run straight on into GST; with several,
+  // each shows its subtotal and GST comes once, on the summary
+  function scheduleTotalsNode(c, g){
+    return totalsTable(g.list.length > 1 ? scheduleRows(c) : scheduleRows(c).concat(grandRows(g)));
+  }
+
+  function summaryNodes(g){
+    const t = el('table', 'dwg-preview-table sor-table sor-summary-table');
+    t.innerHTML = '<thead><tr><th>Schedule</th><th class="n">Total (ex GST)</th></tr></thead><tbody>' +
+      g.list.filter(priced).map(c => '<tr><td>' + escapeHtml(c.schedule.name || 'Untitled') + '</td><td class="n">' + money(c.exGst) + '</td></tr>').join('') +
+      '</tbody>';
+    return [t, totalsTable(grandRows(g))];
+  }
+
+  // the schedule's own note, then whatever was typed for this schedule (its
   // exclusions and qualifications are chosen in stage 2 with the others)
-  function notesNodes(){
+  function notesNodes(c){
     const out = [];
     const pre = (SOR.preamble || []).join(' ');
     if(pre){ const p = el('p', 'sor-notes'); p.textContent = pre; out.push(p); }
-    const text = (rates.notes || '').trim();
+    const text = (c.schedule.notes || '').trim();
     if(text){ const p = el('p', 'sor-notes'); p.textContent = text; out.push(p); }
     return out;
   }
 
-  function renderRatesPreview(c){
-    const nodes = [sectionTitle(SOR.title || 'Schedule of Rates')];
+  const scheduleTitle = (c, g) => (SOR.title || 'Schedule of Rates') +
+    (g.list.length > 1 || (c.schedule.name && c.schedule.name !== 'Schedule 1') ? ' — ' + (c.schedule.name || 'Untitled') : '');
+
+  function renderRatesPreview(g){
+    const c = g.list[book.active];
+    const nodes = [sectionTitle(scheduleTitle(c, g))];
     const tables = rateTables(c);
     tables.forEach(t => {
       const panel = el('div', 'dwg-panel');
       panel.appendChild(el('p', 'dwg-panel-title', escapeHtml(t.title)));
-      const table = el('table', 'dwg-preview-table sor-table', RATE_HEAD);
+      const table = el('table', 'dwg-preview-table sor-table' + t.cls, t.head);
       const body = el('tbody');
       t.rows.forEach(r => body.appendChild(r));
       table.appendChild(body);
@@ -693,34 +862,78 @@ const Stages = (function(){
       nodes.push(panel);
     });
     if(!tables.length){
-      nodes.push(el('p', 'scope-empty', 'Nothing measured yet — enter an Add or Ded quantity against a line and it appears here.'));
+      nodes.push(el('p', 'scope-empty', 'Nothing measured on this schedule yet — enter an Add or Ded quantity against a line and it appears here.'));
     } else {
-      nodes.push(totalsNode(c));
-      notesNodes().forEach(n => nodes.push(n));
+      nodes.push(scheduleTotalsNode(c, g));
+      notesNodes(c).forEach(n => nodes.push(n));
+    }
+    if(g.list.length > 1 && hasPricing(g)){
+      nodes.push(el('p', 'dwg-panel-title scope-pdf-head', 'Summary of schedules'));
+      summaryNodes(g).forEach(n => nodes.push(n));
     }
     fillSheet(document.getElementById('rates-sheet'), nodes);
+  }
+
+  // the PDF: a summary first when there is more than one, then each schedule
+  function appendRatesToPdf(builder){
+    const g = computeRates();
+    if(!hasPricing(g)) return;
+    const priced_ = g.list.filter(priced);
+    if(g.list.length > 1){
+      builder.startSection();
+      builder.place(sectionTitle((SOR.title || 'Schedule of Rates') + ' — Summary'));
+      summaryNodes(g).forEach(n => builder.place(n));
+    }
+    priced_.forEach(c => {
+      builder.startSection();
+      builder.place(sectionTitle(scheduleTitle(c, g)));
+      rateTables(c).forEach(t => placeTable(builder, t.title, t.head, t.rows, 'dwg-preview-table sor-table' + t.cls));
+      builder.place(scheduleTotalsNode(c, g));
+      notesNodes(c).forEach(n => builder.place(n));
+    });
   }
 
   /* ---- saving with the variation ------------------------------------------- */
 
   function collectRates(){
     return {
-      measured: Object.keys(rates.measured).map(k => rates.measured[k]),
-      percents: Object.keys(rates.percents).map(k => rates.percents[k]),
-      extras: rates.extras.map(e => ({ d: e.d, u: e.u, r: e.r, add: e.add, ded: e.ded })),
-      gstPercent: rates.gstPercent,
-      notes: rates.notes
+      version: 2,
+      gstPercent: book.gstPercent,
+      schedules: book.schedules.map(sch => ({
+        name: sch.name,
+        measured: Object.keys(sch.measured).map(k => sch.measured[k]),
+        percents: Object.keys(sch.percents).map(k => sch.percents[k]),
+        extras: sch.extras.map(e => ({ d: e.d, c: e.c, u: e.u, r: e.r, add: e.add, ded: e.ded })),
+        notes: sch.notes
+      }))
     };
   }
 
+  function loadSchedule(saved, fallbackName){
+    const sch = newSchedule(saved.name || fallbackName);
+    (saved.measured || []).forEach(e => {
+      // saved before rates could be adjusted: what was charged was the contract rate
+      const m = Object.assign({}, e);
+      if(m.r0 === undefined) m.r0 = m.r;
+      if(m.c === undefined) m.c = '';
+      sch.measured[keyOf(e.section, e.d)] = m;
+    });
+    (saved.percents || []).forEach(p => { sch.percents[keyOf(p.section, p.d)] = Object.assign({}, p); });
+    sch.extras = (saved.extras || []).map(e => Object.assign({ id: newId() }, e, { c: e.c || '' }));
+    sch.notes = saved.notes || '';
+    return sch;
+  }
+
   function applyRates(saved){
-    rates = defaultRates();
-    if(!saved || !Array.isArray(saved.measured)) return;
-    saved.measured.forEach(e => { rates.measured[keyOf(e.section, e.d)] = Object.assign({}, e); });
-    (saved.percents || []).forEach(p => { rates.percents[keyOf(p.section, p.d)] = Object.assign({}, p); });
-    rates.extras = (saved.extras || []).map(e => Object.assign({ id: newId() }, e));
-    if(saved.gstPercent !== undefined) rates.gstPercent = saved.gstPercent;
-    rates.notes = saved.notes || '';
+    book = defaultBook();
+    if(saved && Array.isArray(saved.schedules) && saved.schedules.length){
+      book.schedules = saved.schedules.map((s, i) => loadSchedule(s, 'Schedule ' + (i + 1)));
+    } else if(saved && Array.isArray(saved.measured)){
+      // one schedule, as saved before there could be several
+      book.schedules = [loadSchedule(saved, 'Schedule 1')];
+    }
+    if(saved && saved.gstPercent !== undefined) book.gstPercent = saved.gstPercent;
+    rates = book.schedules[0];
   }
 
   /* ========================================================================
@@ -1103,15 +1316,8 @@ const Stages = (function(){
       });
     }
 
-    // ---- schedule of rates
-    const c = computeRates();
-    if(hasPricing(c)){
-      builder.startSection();
-      builder.place(sectionTitle(SOR.title || 'Schedule of Rates'));
-      rateTables(c).forEach(t => placeTable(builder, t.title, RATE_HEAD, t.rows, 'dwg-preview-table sor-table'));
-      builder.place(totalsNode(c));
-      notesNodes().forEach(n => builder.place(n));
-    }
+    // ---- schedule(s) of rates
+    appendRatesToPdf(builder);
 
     // ---- attachments: an index page per bucket, then each document
     BUCKETS.forEach(b => {
@@ -1236,7 +1442,8 @@ const Stages = (function(){
       { stage: 'scope', title: 'Inclusions & exclusions', ok: true, warn: !(p.in.length + p.out.length),
         text: p.in.length + ' included · ' + p.out.length + ' excluded · ' + (p.gen.length + p.qual.length) + ' notes' },
       { stage: 'rates', title: 'Schedule of rates', ok: true, warn: !hasPricing(c),
-        text: hasPricing(c) ? money(c.exGst) + ' ex GST · ' + money(c.incGst) + ' inc GST' : 'Nothing measured — no schedule page will print' },
+        text: hasPricing(c) ? money(c.exGst) + ' ex GST · ' + money(c.incGst) + ' inc GST' +
+          (c.list.length > 1 ? ' · ' + c.list.length + ' schedules' : '') : 'Nothing measured — no schedule page will print' },
       { stage: 'docs', title: 'Drawings & markups', ok: true, warn: !drawings.length,
         text: drawings.length ? drawings.length + ' attached' : 'None attached' },
       { stage: 'docs', title: 'Approval & correspondence', ok: true, warn: !approvals.length,
@@ -1308,11 +1515,57 @@ const Stages = (function(){
     scopeItems = (saved && Array.isArray(saved.scope))
       ? saved.scope.map(i => ({ id: newId(), text: i.text, group: i.group, state: i.state, custom: !!i.custom }))
       : defaultScope();
+    // lines the library has gained since it was saved are offered, unselected
+    defaultScope().forEach(d => {
+      if(!scopeItems.some(i => i.group === d.group && i.text === d.text)){
+        const last = scopeItems.map(i => i.group).lastIndexOf(d.group);
+        scopeItems.splice(last === -1 ? scopeItems.length : last + 1, 0, d);
+      }
+    });
     applyRates(saved && saved.rates);
     docs.drawings = [];
     docs.approvals = [];
     if(stage === 'scope') renderScope();
     if(stage === 'rates') renderRates();
+    if(stage === 'docs') renderDocs();
+  }
+
+  /* ---- attachments, for the variation file ---------------------------------
+     The log cannot hold files, so they travel only in the variation file: a
+     PDF as base64, an image as the data URL it already is, an email as text. */
+  function collectDocs(){
+    const out = [];
+    BUCKETS.forEach(b => docs[b.key].forEach(d => {
+      const item = { bucket: b.key, kind: d.kind, name: d.name, caption: d.caption };
+      if(d.kind === 'pdf'){ item.pageCount = d.pageCount; item.base64 = bytesToBase64(d.bytes); }
+      else if(d.kind === 'image'){ item.dataUrl = d.dataUrl; }
+      else { item.email = d.email; }
+      out.push(item);
+    }));
+    return out;
+  }
+
+  function applyDocs(list){
+    docs.drawings = [];
+    docs.approvals = [];
+    (list || []).forEach(item => {
+      const bucket = docs[item.bucket] ? item.bucket : 'drawings';
+      const d = { id: newId(), kind: item.kind, name: item.name || 'Attachment', caption: item.caption || '' };
+      if(item.kind === 'pdf'){
+        const bin = atob(item.base64 || '');
+        d.bytes = new Uint8Array(bin.length);
+        for(let i = 0; i < bin.length; i++) d.bytes[i] = bin.charCodeAt(i);
+        d.pageCount = item.pageCount || 1;
+        d.thumb = '';
+        // thumbnails are not saved; draw them again in the background
+        pdfThumb(d.bytes).then(t => { d.thumb = t; if(stage === 'docs') renderDocs(); });
+      } else if(item.kind === 'image'){
+        d.dataUrl = item.dataUrl;
+      } else {
+        d.email = item.email || { body: '' };
+      }
+      docs[bucket].push(d);
+    });
     if(stage === 'docs') renderDocs();
   }
 
@@ -1329,6 +1582,8 @@ const Stages = (function(){
     currentBuild: () => built,
     collect: collect,
     apply: apply,
+    collectDocs: collectDocs,
+    applyDocs: applyDocs,
     appendToPdf: appendToPdf,
     valueLine: valueLine
   };
