@@ -174,10 +174,13 @@ def build(flow_config=None, settings_password=None):
         '<link rel="stylesheet" href="assets/styles.css">',
         '<style>\n' + css + '\n</style>')
 
-    for rel in ['vendor/html2pdf.bundle.min.js', 'assets/settings-password.js',
+    for rel in ['vendor/html2pdf.bundle.min.js', 'vendor/pdf-lib.min.js',
+                'assets/settings-password.js',
                 'assets/settings-lock.js', 'assets/logo.js',
                 'assets/state-register.js', 'assets/flow-config.js', 'assets/flow-urls.js',
-                'assets/build-info.js', 'assets/flows.js', 'assets/app.js']:
+                'assets/build-info.js', 'assets/flows.js',
+                'assets/scope-library.js', 'assets/schedule-of-rates.js',
+                'assets/app.js', 'assets/stages.js']:
         tag = '<script src="%s"></script>' % rel
         if tag not in html:
             sys.exit('index.html no longer loads %s — the builder is out of date' % rel)

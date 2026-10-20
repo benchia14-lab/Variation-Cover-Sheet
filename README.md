@@ -42,7 +42,38 @@ them in full.
 reference, drawings, description of works. These are per-variation and nothing
 can pre-fill them.
 
-**4 · Download PDF.** The file saves to your machine *and* goes to the filing
+**4 · Next: inclusions & exclusions.** The cover sheet no longer downloads on its
+own; it is stage 1 of five, shown in the step bar along the top:
+
+| Stage | What happens |
+|---|---|
+| 1 · Cover sheet | The letter, as above |
+| 2 · Inclusions & exclusions | The standard list (`assets/scope-library.js`) down the left. Click **Include** or **Exclude** on each line, or click it again to leave it off; lines can be added for one variation. The preview prints them under Inclusions, Exclusions and General |
+| 3 · Schedule of rates | The master schedule (`assets/schedule-of-rates.js`, generated from `registers/Schedule of Rates.xlsx`). Search it, enter **Add** and **Ded** quantities, and Diff × Rate is totalled per section, plus the 5% design item when applied, then GST. Only measured lines print. Items not in the schedule go under *Additional items* with their own rate. The total also prints on the cover sheet as *Variation Value* |
+| 4 · Documentation | **A · Drawings & markups** and **B · Approval & correspondence**: PDFs, images, and emails saved as `.eml`. A screenshot can be pasted straight in with Ctrl+V. Each gets a title and can be reordered |
+| 5 · Review & download | The finished PDF in full, with a checklist of each stage. **Download PDF** saves exactly what is shown and files it, as before |
+
+The PDF is one document: the letter, then the inclusions and exclusions, the
+schedule of rates, and an index page per attachment section followed by the
+attachments themselves. Every generated page carries the letterhead, and the
+page numbers count the uploaded PDF pages too. Uploaded PDFs are bound in whole
+(with pdf-lib), so a drawing keeps its vectors and its sheet size.
+
+Stages 2 and 3 are saved to the variation log with the rest of the form, so
+reopening a variation restores them. Attachments are not logged — they are
+files — and have to be added again when re-issuing.
+
+**To update the rates**, replace `registers/Schedule of Rates.xlsx` and run
+
+```
+python3 tools/sor-to-js.py "registers/Schedule of Rates.xlsx"
+```
+
+then commit `assets/schedule-of-rates.js`. A rate is copied into a variation
+when it is measured, so variations already logged keep the rates they were
+issued at.
+
+**5 · Download PDF.** The file saves to your machine *and* goes to the filing
 flow, which writes it into that project's SharePoint folder. The line under the
 button says which of those happened.
 

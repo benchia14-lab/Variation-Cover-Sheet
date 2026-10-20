@@ -87,6 +87,8 @@ function render(){
   toggleTableRow('tr-contractordirection', 'p-contractordirection', v('contractordirection'));
   toggleTableRow('tr-emailref', 'p-emailref', v('emailref'));
   toggleTableRow('tr-desc', 'p-desc', v('desc-final'));
+  // priced in stage 3; the row appears once there is something to show
+  toggleTableRow('tr-value', 'p-value', (typeof Stages !== 'undefined') ? Stages.valueLine() : '');
 
   const coName = v('co-name');
   document.getElementById('p-co-name').textContent = coName || 'Company name';
@@ -776,8 +778,11 @@ function isShown(el){
   return !!el && getComputedStyle(el).display !== 'none';
 }
 
-function buildPdfDocument(){
-  const sheet = document.querySelector('.sheet');
+// `extend`, when given, adds pages after the letter (stages 2-4). It is handed
+// the same page machinery the letter uses, so every page of the variation
+// carries the letterhead and is numbered as one document.
+function buildPdfDocument(extend){
+  const sheet = document.querySelector('#view-editor .sheet');
   const holder = document.createElement('div');
   holder.className = 'pdf-holder';
   const doc = document.createElement('div');
@@ -787,6 +792,9 @@ function buildPdfDocument(){
 
   let wrapEl = null;   // the fixed-height area a page's content has to fit in
   let bodyEl = null;   // where blocks actually go
+  let pageBreakPending = false;
+  // uploaded PDFs, spliced in after this many generated pages once rendered
+  const externals = [];
 
   function addPage(){
     const page = document.createElement('div');
@@ -816,6 +824,7 @@ function buildPdfDocument(){
 
   // append a block, moving it to a fresh page if it does not fit on this one
   function place(node){
+    if(pageBreakPending){ pageBreakPending = false; addPage(); }
     bodyEl.appendChild(node);
     if(overflows() && bodyEl.childNodes.length > 1){
       bodyEl.removeChild(node);
@@ -949,12 +958,35 @@ function buildPdfDocument(){
   signOff.appendChild(stripIds(pick('.sig-block').cloneNode(true)));
   place(signOff);
 
+  if(extend){
+    extend({
+      place: place,
+      overflows: overflows,
+      body: () => bodyEl,
+      // the next block starts a fresh page
+      newPage: () => { pageBreakPending = true; },
+      // a section that has to start on a page of its own, and the leftover
+      // space of the last one is not worth a page: only break when something
+      // is already on this page
+      startSection: () => { if(bodyEl.childNodes.length) pageBreakPending = true; },
+      // an uploaded PDF goes in whole after the pages laid out so far
+      external: (pageCount, payload) => {
+        externals.push({ afterPage: doc.querySelectorAll('.pdf-page').length, pageCount: pageCount, payload: payload });
+        pageBreakPending = true;
+      }
+    });
+  }
+
+  // numbered as the PDF will read, uploaded pages included
   const pages = Array.prototype.slice.call(doc.querySelectorAll('.pdf-page'));
+  const total = pages.length + externals.reduce((n, x) => n + x.pageCount, 0);
   pages.forEach((page, i) => {
+    const before = externals.filter(x => x.afterPage <= i).reduce((n, x) => n + x.pageCount, 0);
     const num = page.querySelector('.pdf-page-num');
-    if(num) num.textContent = 'Page ' + (i + 1) + ' of ' + pages.length;
+    if(num) num.textContent = 'Page ' + (i + 1 + before) + ' of ' + total;
   });
 
+  doc.externals = externals;
   return doc;
 }
 
@@ -1026,7 +1058,16 @@ function buildFilingPayload(pdfBase64, fileName){
   };
 }
 
-async function fileToSharePoint(pdf, fileName){
+function bytesToBase64(bytes){
+  let binary = '';
+  const chunk = 0x8000;
+  for(let i = 0; i < bytes.length; i += chunk){
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+async function fileToSharePoint(pdfBytes, fileName){
   if(!Flows.has('fileUrl')){
     fileState.textContent = 'Downloaded. Not filed — no filing flow configured.';
     fileState.className = 'save-state';
@@ -1036,9 +1077,7 @@ async function fileToSharePoint(pdf, fileName){
   fileState.textContent = 'Filing to SharePoint…';
   fileState.className = 'save-state';
 
-  // jsPDF hands back "data:application/pdf;filename=…;base64,XXXX"
-  const dataUri = pdf.output('datauristring');
-  const base64 = dataUri.slice(dataUri.indexOf('base64,') + 7);
+  const base64 = bytesToBase64(pdfBytes);
   const approxBytes = Math.floor(base64.length * 3 / 4);
 
   if(approxBytes > FILE_SIZE_WARN_BYTES){
@@ -1066,7 +1105,79 @@ async function fileToSharePoint(pdf, fileName){
   }
 }
 
-async function downloadPdf(){
+const PDF_OPTIONS = {
+  margin: 0,
+  image: { type: 'jpeg', quality: 0.98 },
+  html2canvas: {
+    scale: 2,
+    useCORS: true,
+    backgroundColor: '#ffffff',
+    // html2canvas offsets its capture window by the page's scroll position by
+    // default. html2pdf renders what it is given into a fixed-position holder,
+    // which does not scroll with the page, so on a scrolled page the two
+    // disagree and it captures empty space -- a blank PDF. Pinning the capture
+    // window to the origin is what makes the letter come out at all.
+    scrollX: 0,
+    scrollY: 0
+  },
+  jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+  pagebreak: { mode: [] }
+};
+
+// Lays out and renders the whole variation -- letter, scope, schedule and the
+// attachments -- and returns the finished file. Uploaded PDFs are spliced in
+// whole with pdf-lib, so a drawing keeps its vectors and its own sheet size.
+async function buildVariationPdf(){
+  if(typeof html2pdf === 'undefined'){ throw new Error('html2pdf not loaded'); }
+  const fileName = buildPrintFilename() + '.pdf';
+  const extend = (typeof Stages !== 'undefined') ? Stages.appendToPdf : null;
+  const pdfDoc = buildPdfDocument(extend);
+  try {
+    const pdf = await renderPages(pdfDoc, Object.assign({ filename: fileName }, PDF_OPTIONS));
+    pdf.setProperties({ title: buildPrintFilename() });
+    let bytes = new Uint8Array(pdf.output('arraybuffer'));
+    const externals = pdfDoc.externals || [];
+    if(externals.length){
+      if(typeof PDFLib === 'undefined') throw new Error('pdf-lib not loaded');
+      const generated = await PDFLib.PDFDocument.load(bytes);
+      const out = await PDFLib.PDFDocument.create();
+      const ownPages = await out.copyPages(generated, generated.getPageIndices());
+      let next = 0;
+      for(let i = 0; i <= ownPages.length; i++){
+        for(const x of externals.filter(e => e.afterPage === i)){
+          const src = await PDFLib.PDFDocument.load(x.payload, { ignoreEncryption: true });
+          const copied = await out.copyPages(src, src.getPageIndices());
+          copied.forEach(pg => out.addPage(pg));
+        }
+        if(i < ownPages.length) out.addPage(ownPages[next++]);
+      }
+      out.setTitle(buildPrintFilename());
+      bytes = await out.save();
+    }
+    return { bytes: bytes, fileName: fileName };
+  } catch(err){
+    err.pdfDoc = pdfDoc;   // kept for the print-dialog fallback
+    throw err;
+  } finally {
+    // the print-dialog fallback puts it back if it needs it
+    if(pdfDoc.parentNode) pdfDoc.parentNode.remove();
+  }
+}
+
+function saveBytes(bytes, fileName){
+  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+// `built` is the file the review screen already rendered, when it is still
+// current: the download is then exactly what was previewed, with no wait.
+async function downloadPdf(built){
   printBtn.disabled = true;
   printBtn.textContent = 'Generating PDF…';
   printStatus.textContent = '';
@@ -1074,73 +1185,64 @@ async function downloadPdf(){
   fileState.textContent = '';
   fileState.className = 'save-state';
 
-  let pdfDoc = null;
-  const fileName = buildPrintFilename() + '.pdf';
-
-  const opt = {
-    margin: 0,
-    filename: fileName,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: '#ffffff',
-      // html2canvas offsets its capture window by the page's scroll position by
-      // default. html2pdf renders what it is given into a fixed-position holder,
-      // which does not scroll with the page, so on a scrolled page the two
-      // disagree and it captures empty space -- a blank PDF. The button sits at
-      // the bottom of a long form, so the page is always scrolled by the time it
-      // is clicked. Pinning the capture window to the origin is what makes the
-      // letter come out at all.
-      scrollX: 0,
-      scrollY: 0
-    },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak: { mode: [] }
-  };
-
   try {
-    if(typeof html2pdf === 'undefined'){ throw new Error('html2pdf not loaded'); }
-    pdfDoc = buildPdfDocument();
-    const pdf = await renderPages(pdfDoc, opt);
+    const result = built || await buildVariationPdf();
     // Save the local copy first. Filing can fail; the download should not be
     // held hostage to SharePoint being reachable.
-    pdf.save(fileName);
+    saveBytes(result.bytes, result.fileName);
     // The log records what was issued, so it is written only once the PDF
     // exists -- not when the button was pressed.
     if(Flows.has('logWriteUrl') && els['varref'].value.trim()){
-      await saveToLog({ downloadedAt: new Date().toISOString(), fileName: fileName });
+      await saveToLog({ downloadedAt: new Date().toISOString(), fileName: result.fileName });
     }
-    await fileToSharePoint(pdf, fileName);
+    await fileToSharePoint(result.bytes, result.fileName);
   } catch(err){
     console.error(err);
-    printStatus.textContent = 'Could not build the PDF — opening the print dialog instead, choose "Save as PDF" there.';
+    printStatus.textContent = 'Could not build the PDF — opening the print dialog instead, choose "Save as PDF" there. ' +
+      'Uploaded PDFs are not included that way; attach them separately.';
     printStatus.className = 'status-line err';
-    if(pdfDoc) document.body.classList.add('pdf-fallback');
+    const pdfDoc = err.pdfDoc;
+    if(pdfDoc){
+      document.body.appendChild(pdfDoc.parentNode || pdfDoc);
+      document.body.classList.add('pdf-fallback');
+    }
     window.print();
     document.body.classList.remove('pdf-fallback');
-  } finally {
     if(pdfDoc && pdfDoc.parentNode) pdfDoc.parentNode.remove();
+  } finally {
     printBtn.disabled = false;
     printBtn.textContent = printBtnOriginalLabel;
   }
 }
 
-printBtn.addEventListener('click', () => {
+// The cover sheet's own required fields. Returns true when they are all there;
+// otherwise marks them, opens the cover sheet and puts the cursor in the first.
+function checkCoverSheet(statusEl){
   clearInvalid();
   const missing = REQUIRED_FIELDS.filter(f => !els[f.id].value.trim());
-  if(missing.length){
-    // it may be sitting in a collapsed group; open it before pointing at it
-    revealPrefilled();
-    missing.forEach(f => f.getEl().classList.add('field-invalid'));
-    printStatus.textContent = 'Fill in: ' + missing.map(f => f.label).join(', ') + ' before downloading.';
-    printStatus.className = 'status-line err';
+  if(!missing.length){ statusEl.textContent = ''; return true; }
+  if(typeof Stages !== 'undefined' && Stages.current() !== 'cover') Stages.go('cover');
+  // it may be sitting in a collapsed group; open it before pointing at it
+  revealPrefilled();
+  missing.forEach(f => f.getEl().classList.add('field-invalid'));
+  coverStatus.textContent = 'Fill in: ' + missing.map(f => f.label).join(', ') + '.';
+  coverStatus.className = 'status-line err';
+  setTimeout(() => {
     missing[0].getEl().scrollIntoView({ behavior: 'smooth', block: 'center' });
     missing[0].getEl().focus();
-    return;
-  }
-  printStatus.textContent = '';
-  downloadPdf();
+  }, 0);
+  return false;
+}
+
+const coverStatus = document.getElementById('cover-status');
+
+document.getElementById('to-scope-btn').addEventListener('click', () => {
+  if(checkCoverSheet(coverStatus)) Stages.go('scope');
+});
+
+printBtn.addEventListener('click', () => {
+  if(!checkCoverSheet(printStatus)) return;
+  downloadPdf(Stages.currentBuild());
 });
 
 /* ==========================================================================
@@ -1165,7 +1267,9 @@ function collectFormState(){
     office: currentState ? currentState.code : '',
     projectId: selectedProject ? selectedProject.id : '',
     fields: fields,
-    drawings: collectDrawings()
+    drawings: collectDrawings(),
+    // stages 2 and 3; attachments are not logged -- they are files, not fields
+    stages: (typeof Stages !== 'undefined') ? Stages.collect() : null
   };
 }
 
@@ -1187,6 +1291,8 @@ function applyFormState(saved){
     row.querySelector('.dwg-new').value = d.newRev || '';
   });
   if(!dwgRowsContainer.children.length) addDwgRow();
+
+  if(typeof Stages !== 'undefined') Stages.apply(saved && saved.stages);
 
   clearInvalid();
   render();
@@ -2156,8 +2262,12 @@ document.getElementById('states-reset').addEventListener('click', () => {
    ROUTING
    ========================================================================== */
 
+const stepper = document.getElementById('stepper');
+const stageViews = ['view-scope', 'view-rates', 'view-docs', 'view-review'].map(id => document.getElementById(id));
+
 function showOnly(view){
-  [viewPicker, viewEditor, viewSettings, viewAdmin].forEach(v => { v.hidden = v !== view; });
+  [viewPicker, viewEditor, viewSettings, viewAdmin].concat(stageViews).forEach(v => { v.hidden = v !== view; });
+  stepper.hidden = !(view === viewEditor || stageViews.indexOf(view) !== -1);
   window.scrollTo(0, 0);
 }
 
@@ -2550,7 +2660,7 @@ document.getElementById('admin-gate-form').addEventListener('submit', e => {
   }, 0));
 });
 
-function openState(code){
+function openState(code, stage){
   const row = StateRegister.get(code);
   if(!row){ location.hash = ''; return; }
   const switching = !currentState || currentState.code !== row.code;
@@ -2565,16 +2675,15 @@ function openState(code){
   // Without a projects flow no project is ever selected, so nothing else calls
   // this and the field would sit locked with nothing able to fill it.
   syncRefLock();
-  showOnly(viewEditor);
-  document.querySelector('.form-side').scrollTop = 0;
+  Stages.show(stage || 'cover');
 }
 
 function routeFromHash(){
   const hash = location.hash;
   if(hash === '#/settings/admin'){ showAdmin(); return; }
   if(hash === '#/settings'){ showSettings(); return; }
-  const match = /^#\/state\/(.+)$/.exec(hash);
-  if(match){ openState(decodeURIComponent(match[1])); return; }
+  const match = /^#\/state\/([^/]+)(?:\/([a-z]+))?$/.exec(hash);
+  if(match){ openState(decodeURIComponent(match[1]), match[2]); return; }
   showPicker();
 }
 
@@ -2613,7 +2722,13 @@ render();
 // that depends on the answer — picking a state fires the projects flow, and it
 // has to know by then which way to call it. probeProxy resolves either way and
 // gives up after a moment, so this cannot leave the app unstarted.
-Flows.probeProxy().then(start, start);
+// The stages (stages.js) load after this file, and a probe that answers at once
+// would otherwise route before they exist -- so wait for every script too.
+function whenLoaded(fn){
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn, { once: true });
+  else fn();
+}
+Flows.probeProxy().then(() => whenLoaded(start), () => whenLoaded(start));
 
 function start(){
   routeFromHash();
