@@ -93,6 +93,17 @@
   </main>
 </div>
 
+<!-- ============ STEP BAR — the five stages of one variation ============ -->
+<nav class="stepper" id="stepper" hidden aria-label="Variation stages">
+  <div class="stepper-inner">
+    <button type="button" class="step" data-stage="cover"><span class="step-num">1</span><span class="step-label">Cover sheet</span></button>
+    <button type="button" class="step" data-stage="scope"><span class="step-num">2</span><span class="step-label">Inclusions &amp; exclusions</span></button>
+    <button type="button" class="step" data-stage="rates"><span class="step-num">3</span><span class="step-label">Schedule of rates</span></button>
+    <button type="button" class="step" data-stage="docs"><span class="step-num">4</span><span class="step-label">Documentation</span></button>
+    <button type="button" class="step" data-stage="review"><span class="step-num">5</span><span class="step-label">Review &amp; download</span></button>
+  </div>
+</nav>
+
 <!-- ============ 2 · EDITOR ============ -->
 <div class="app" id="view-editor" hidden>
 
@@ -312,9 +323,8 @@
       <button class="refresh-btn" id="log-save" type="button">Save to log</button>
       <span class="status-line" id="log-status"></span>
     </div>
-    <button class="print-btn" id="print-btn" type="button">Download PDF</button>
-    <div class="status-line err" id="print-status" style="text-align:center;"></div>
-    <div class="save-state" id="file-state"></div>
+    <button class="print-btn" id="to-scope-btn" type="button">Next: inclusions &amp; exclusions &rarr;</button>
+    <div class="status-line err" id="cover-status" style="text-align:center;"></div>
   </div>
 
   <!-- ============ PREVIEW SIDE ============ -->
@@ -355,6 +365,7 @@
             <tr id="tr-contractordirection" style="display:none;"><td class="k">Contractors Direction</td><td class="v" id="p-contractordirection"></td></tr>
             <tr id="tr-emailref" style="display:none;"><td class="k">Email Reference</td><td class="v" id="p-emailref"></td></tr>
             <tr id="tr-desc" style="display:none;"><td class="k">Description of Works</td><td class="v" id="p-desc"></td></tr>
+            <tr id="tr-value" style="display:none;"><td class="k">Variation Value</td><td class="v" id="p-value"></td></tr>
           </table>
 
           <div class="dwg-panel" id="dwg-panel" style="display:none;">
@@ -387,6 +398,149 @@
     </div>
   </div>
 
+</div>
+
+<!-- ============ STAGE 2 · INCLUSIONS & EXCLUSIONS ============ -->
+<div class="app stage" id="view-scope" hidden>
+  <div class="form-side stage-side">
+    <div class="brand"><span class="brand-mark"></span><h1>Inclusions &amp; exclusions</h1></div>
+    <div class="subhead">Nothing is selected to start with — open a group and include or exclude the lines this variation needs</div>
+
+    <div class="scope-tools">
+      <input type="text" id="scope-search" placeholder="Search the list…" autocomplete="off">
+      <div class="scope-filter" id="scope-filter">
+        <button type="button" class="chip on" data-filter="all">All</button>
+        <button type="button" class="chip" data-filter="on">Selected</button>
+        <button type="button" class="chip" data-filter="in">Included</button>
+        <button type="button" class="chip" data-filter="out">Excluded</button>
+      </div>
+      <div class="scope-counts-row">
+        <span class="scope-counts" id="scope-counts"></span>
+        <button type="button" class="link-btn" id="scope-expand">Expand / collapse all</button>
+      </div>
+    </div>
+
+    <div class="scope-list" id="scope-list"></div>
+
+    <div class="scope-add">
+      <label for="scope-new">Add a line for this variation</label>
+      <textarea id="scope-new" placeholder="e.g. Relocation of RPZ valve to new wall position"></textarea>
+      <div class="scope-add-actions">
+        <button type="button" class="refresh-btn" data-add="in">+ Add as inclusion</button>
+        <button type="button" class="refresh-btn" data-add="out">+ Add as exclusion</button>
+        <button type="button" class="refresh-btn" data-add="gen">+ Add as a general note</button>
+      </div>
+    </div>
+    <div class="scope-bulk">
+      <button type="button" class="link-btn" id="scope-reset">Start the list again</button>
+      <button type="button" class="link-btn" id="scope-clear">Clear everything</button>
+    </div>
+
+    <div class="stage-nav">
+      <button type="button" class="refresh-btn" data-go="cover">&larr; Cover sheet</button>
+      <button type="button" class="print-btn" data-go="rates">Next: schedule of rates &rarr;</button>
+    </div>
+  </div>
+  <div class="preview-side"><div class="sheet stage-sheet" id="scope-sheet"></div></div>
+</div>
+
+<!-- ============ STAGE 3 · SCHEDULE OF RATES ============ -->
+<div class="app stage app-wide" id="view-rates" hidden>
+  <div class="form-side stage-side">
+    <div class="brand"><span class="brand-mark"></span><h1>Schedule of rates</h1></div>
+    <div class="subhead">Enter what is added and what is deducted against each rate — only measured lines print</div>
+    <div class="sor-preamble" id="sor-preamble" hidden></div>
+
+    <div class="scope-tools">
+      <input type="text" id="sor-search" placeholder="Search the schedule — e.g. 100 PVC, fire collar, foreman…" autocomplete="off">
+      <label class="sor-only"><input type="checkbox" id="sor-only"> Show only what is measured</label>
+    </div>
+
+    <div id="sor-sections"></div>
+
+    <div class="sor-extras-wrap">
+      <p class="form-section-title">Additional items <span class="sor-extras-sub">not in the schedule</span></p>
+      <div id="sor-extras"></div>
+      <button class="add-row-btn" id="sor-extra-add" type="button">+ Add an item with its own rate</button>
+    </div>
+
+    <div class="sor-totals-edit">
+      <div class="field-row">
+        <div class="field"><label for="sor-gst">GST %</label><input type="text" id="sor-gst" class="mono-input" inputmode="decimal"></div>
+        <div class="field"></div>
+      </div>
+      <div class="field"><label for="sor-notes">Pricing notes <span style="text-transform:none;font-weight:400;">(optional, prints under the totals)</span></label>
+        <textarea id="sor-notes" placeholder="e.g. Quantities measured on site 14 Aug."></textarea></div>
+      <div class="sor-summary" id="sor-summary"></div>
+    </div>
+
+    <div class="stage-nav">
+      <button type="button" class="refresh-btn" data-go="scope">&larr; Inclusions &amp; exclusions</button>
+      <button type="button" class="print-btn" data-go="docs">Next: documentation &rarr;</button>
+    </div>
+  </div>
+  <div class="preview-side"><div class="sheet stage-sheet" id="rates-sheet"></div></div>
+</div>
+
+<!-- ============ STAGE 4 · DOCUMENTATION ============ -->
+<div class="app stage" id="view-docs" hidden>
+  <div class="form-side stage-side">
+    <div class="brand"><span class="brand-mark"></span><h1>Documentation</h1></div>
+    <div class="subhead">Attach what supports the variation — it is bound into the PDF behind the schedule</div>
+
+    <div class="form-section">
+      <div class="form-section-head"><span class="form-section-num">A</span><p class="form-section-title">Drawings &amp; markups</p></div>
+      <label class="drop-zone" data-bucket="drawings">
+        <input type="file" multiple accept="application/pdf,image/*" data-bucket="drawings">
+        <span class="dz-main">Drop drawings or markups here, or <u>browse</u></span>
+        <span class="dz-sub">PDF, PNG or JPG</span>
+      </label>
+      <div class="doc-list" id="doc-list-drawings"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="form-section">
+      <div class="form-section-head"><span class="form-section-num">B</span><p class="form-section-title">Approval &amp; correspondence</p></div>
+      <label class="drop-zone" data-bucket="approvals">
+        <input type="file" multiple accept="application/pdf,image/*,.eml,.txt,message/rfc822,text/plain,.msg" data-bucket="approvals">
+        <span class="dz-main">Drop emails, screenshots or approvals here, or <u>browse</u></span>
+        <span class="dz-sub">PDF, PNG, JPG, or an email saved as .eml — a screenshot can also be pasted with Ctrl+V</span>
+      </label>
+      <div class="doc-list" id="doc-list-approvals"></div>
+    </div>
+    <div class="status-line" id="docs-status"></div>
+
+    <div class="stage-nav">
+      <button type="button" class="refresh-btn" data-go="rates">&larr; Schedule of rates</button>
+      <button type="button" class="print-btn" data-go="review">Next: review &rarr;</button>
+    </div>
+  </div>
+  <div class="preview-side docs-preview" id="docs-preview"></div>
+</div>
+
+<!-- ============ STAGE 5 · REVIEW & DOWNLOAD ============ -->
+<div class="app stage" id="view-review" hidden>
+  <div class="form-side stage-side">
+    <div class="brand"><span class="brand-mark"></span><h1>Review &amp; download</h1></div>
+    <div class="subhead">The whole variation, exactly as the PDF will be</div>
+
+    <ul class="review-list" id="review-list"></ul>
+
+    <div class="divider"></div>
+    <button class="print-btn" id="print-btn" type="button">Download PDF</button>
+    <div class="status-line err" id="print-status" style="text-align:center;"></div>
+    <div class="save-state" id="file-state"></div>
+
+    <div class="stage-nav">
+      <button type="button" class="refresh-btn" data-go="docs">&larr; Documentation</button>
+      <button type="button" class="refresh-btn" id="review-rebuild">Rebuild preview</button>
+    </div>
+  </div>
+  <div class="preview-side review-preview">
+    <div class="review-building" id="review-building">Building the preview…</div>
+    <div class="review-pages" id="review-pages" aria-label="Variation preview"></div>
+  </div>
 </div>
 
 <!-- ============ 3 · SETTINGS ============ -->
@@ -633,6 +787,12 @@
 </div>
 
 <script src="vendor/html2pdf.bundle.min.js"></script>
+<script src="vendor/pdf-lib.min.js"></script>
+<!-- pdf.js draws the review preview and the drawing thumbnails. The worker is
+     loaded as a plain script so it runs on the page itself: the single-file
+     copy has no separate worker file to start, and a preview is small work. -->
+<script src="vendor/pdf.min.js"></script>
+<script src="vendor/pdf.worker.min.js"></script>
 <script src="assets/settings-password.js"></script>
 <script src="assets/settings-lock.js"></script>
 <script src="assets/logo.js"></script>
@@ -641,6 +801,9 @@
 <script src="assets/flow-urls.js"></script>
 <script src="assets/build-info.js"></script>
 <script src="assets/flows.js"></script>
+<script src="assets/scope-library.js"></script>
+<script src="assets/schedule-of-rates.js"></script>
 <script src="assets/app.js"></script>
+<script src="assets/stages.js"></script>
 </body>
 </html>
