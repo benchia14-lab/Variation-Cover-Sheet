@@ -34,7 +34,8 @@ revisions grouped under the variation they revise, **Open** to carry on with
 one and **+ New variation** to start another. Status is set on the dashboard;
 a variation becomes *Submitted* when its PDF is downloaded. **Builder
 commentary** on each row opens a window with the variation's timestamped
-thread of what the builder has said, and the approved value and date, typed in
+thread of what the builder has said (each entry can be edited or deleted), and
+the approved value and date, typed in
 by hand rather than taken from the schedule. Each is saved to the log as it is
 entered. Setup:
 [docs/PROJECT-DASHBOARD.md](docs/PROJECT-DASHBOARD.md).

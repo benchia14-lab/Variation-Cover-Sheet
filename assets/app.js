@@ -1512,26 +1512,39 @@ function normaliseStatus(s){
 }
 
 /* Builder commentary: what the head contractor has said about a variation,
-   entered on the project dashboard, one timestamped entry at a time. Entries
-   are only ever added, each with its own id, so two copies of the thread --
-   the one on screen and the one in the log -- are merged rather than one
-   overwriting the other. */
+   entered on the project dashboard, one timestamped entry at a time. Each entry
+   has its own id, so two copies of the thread -- the one on screen and the one
+   in the log -- are merged entry by entry rather than one overwriting the other.
+
+   An entry can be edited or deleted. Each change is stamped, and where the two
+   copies disagree about an entry the more recent change wins. A deleted entry
+   is kept, marked deleted: dropped outright, the other copy would bring it
+   back at the next merge. */
+const commentStamp = c => [c.at, c.editedAt, c.deletedAt].filter(Boolean).sort().pop() || '';
+
 function mergeCommentary(){
   const byId = {};
   Array.prototype.forEach.call(arguments, list => {
-    (Array.isArray(list) ? list : []).forEach(c => { if(c && c.id && c.text) byId[c.id] = c; });
+    (Array.isArray(list) ? list : []).forEach(c => {
+      if(!c || !c.id) return;
+      const had = byId[c.id];
+      if(!had || commentStamp(c) >= commentStamp(had)) byId[c.id] = c;
+    });
   });
   return Object.keys(byId).map(k => byId[k]).sort((a, b) => String(a.at).localeCompare(String(b.at)));
 }
 
+const liveCommentary = list => mergeCommentary(list).filter(c => !c.deleted);
+
 // The thread as plain text for the log's BuilderCommentary column, so it reads
 // in SharePoint and in an export without the app.
 function commentaryText(list){
-  return mergeCommentary(list).map(c => {
-    const when = new Date(c.at).toLocaleString('en-AU', { day: '2-digit', month: 'short', year: 'numeric',
-                                                          hour: '2-digit', minute: '2-digit' });
+  const stamp = iso => new Date(iso).toLocaleString('en-AU', { day: '2-digit', month: 'short', year: 'numeric',
+                                                              hour: '2-digit', minute: '2-digit' });
+  return liveCommentary(list).map(c => {
     const who = [c.from, c.by && c.by !== c.from ? '(entered by ' + c.by + ')' : ''].filter(Boolean).join(' ');
-    return when + (who ? ' — ' + who : '') + ':\n' + c.text;
+    const edited = c.editedAt ? ' [edited ' + stamp(c.editedAt) + (c.editedBy ? ' by ' + c.editedBy : '') + ']' : '';
+    return stamp(c.at) + (who ? ' — ' + who : '') + edited + ':\n' + c.text;
   }).join('\n\n');
 }
 let issueMode = 'new';     // 'new' or 'revise'
@@ -2001,6 +2014,12 @@ async function saveToLog(reason){
                        'has moved up. Nothing of yours was lost.', 'err');
         }
       } catch(e){ /* the save itself is what matters; a failed re-check must not block it */ }
+    } else if(reopenedRef && Flows.has('logReadUrl')){
+      // An existing variation: its builder commentary may have been added to,
+      // edited or deleted on the dashboard since it was opened. Read the row
+      // as it is now, so the merge in buildLogPayload keeps those changes.
+      try { logRows = await Flows.listLog(currentState.code, selectedProject.id); }
+      catch(e){ /* the copy already held will do */ }
     }
 
     const wasReopened = Flows.sameRef(reopenedRef, ref) && reopenedFromLog;
