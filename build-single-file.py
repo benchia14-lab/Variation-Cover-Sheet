@@ -71,16 +71,21 @@ ENV_ITERATIONS = 'SETTINGS_PASSWORD_ITERATIONS'
 def _safe_url(value, name):
     """Anything here is written into a single-quoted JavaScript string in a
     deployed file. A quote or a newline would end that string early and break
-    the whole app, so a value that cannot be written safely stops the build
-    rather than shipping."""
-    text = (value or '').strip()
+    the whole app, so a value that cannot be written safely is never written.
+
+    It used to stop the build instead -- which on Netlify leaves the previous
+    deploy live, and if that one predates the URLs, every flow is blank with
+    nothing on screen to say why. Now the commonest slip, a value pasted with
+    quotes or spaces around it, is tidied, and anything still unusable is
+    reported in the build log and left out, so the embedded URL is used."""
+    text = (value or '').strip().strip('"\'').strip()
     if not text:
         return ''
     import re
-    if re.search(r"""['"\\\r\n<>]""", text):
-        sys.exit('%s contains a quote, line break or tag — refusing to build' % name)
-    if not text.lower().startswith('https://'):
-        sys.exit('%s does not start with https:// — refusing to build' % name)
+    if re.search(r"""['"\\\r\n<>\s]""", text) or not text.lower().startswith('https://'):
+        print('WARNING: %s is not a usable https:// URL — ignoring it and using the URL '
+              'embedded in assets/flow-config.js instead' % name, file=sys.stderr)
+        return ''
     return text
 
 

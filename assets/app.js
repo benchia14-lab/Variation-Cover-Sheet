@@ -2107,14 +2107,15 @@ const FLOW_LABELS = {
    lasts until Settings is left. */
 let urlsUnlocked = false;
 
-/* Whether the real URLs are on screen at all. They are masked by default, so a
-   shoulder, a screenshot or a shared screen does not give a trigger URL away.
+/* Whether the real URLs are on screen at all. Shown by default, as the
+   administrator asked; "Hide URLs" masks them for a shared screen.
 
    WHAT THIS IS. It hides them in the interface. It does not hide them from the
    page: they are in the deployed file, and anyone who can open the site can
    read them in view-source. Stopping that is the server's job, not this
    screen's — see docs/SIGN-IN.md. */
-let urlsRevealed = false;
+// Shown in full by default: the administrator wants to see what is built in.
+let urlsRevealed = true;
 
 // Enough to tell which flow a URL belongs to and that something is set, with
 // nothing anyone could use.
@@ -3021,13 +3022,13 @@ document.getElementById('open-admin').addEventListener('click', () => {
 
 document.getElementById('admin-back').addEventListener('click', () => {
   urlsUnlocked = false;
-  urlsRevealed = false;
+  urlsRevealed = true;
   location.hash = '#/settings';
 });
 
 document.getElementById('settings-back').addEventListener('click', () => {
   urlsUnlocked = false;
-  urlsRevealed = false;
+  urlsRevealed = true;
   location.hash = lastWorkHash || '';
 });
 
