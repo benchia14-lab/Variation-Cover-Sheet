@@ -213,6 +213,10 @@ input[type=file]{ display:none; }
 .co-detail-row .k{ flex:0 0 auto; color:var(--muted); font-weight:600; text-align:left; }
 .co-detail-row .v{ flex:0 0 auto; max-width:100%; margin-left:auto; color:var(--ink); text-align:right; overflow-wrap:anywhere; }
 .co-detail-more{ color:var(--ink); text-align:right; white-space:pre-line; margin:-2px 0 2px; }
+/* The email always takes the line under its label, flush right: most
+   addresses are wider than the company name allows beside it, and every
+   letterhead should look the same whichever email it carries. */
+.co-detail-row.email-row .v{ flex-basis:100%; }
 .co-detail-row.email-row{ border-top:1px solid var(--line-soft); padding-top:4px; margin-top:4px; }
 
 /* body */
