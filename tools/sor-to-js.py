@@ -54,7 +54,7 @@ HEADER = '''/* =================================================================
 # Prelims the workbook does not carry, each one line applied as a percentage
 # of the measured works, chosen per variation. Worded like the workbook's own
 # design allowance: one line naming everything it covers. Edit and re-run.
-PRELIM_LINES = ['Overheads, Equipment Hire, Labour Hire, Fire Rating, Fire Treatment, '
+PRELIM_LINES = ['Overheads - Equipment Hire, Labour Hire, Fire Rating and Treatment, '
                 'Siphonic Design, Seismic Etc']
 
 

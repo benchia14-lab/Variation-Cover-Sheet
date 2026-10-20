@@ -30,7 +30,7 @@ const SCHEDULE_OF_RATES = {
      "percent": 5.0
     },
     {
-     "d": "Overheads, Equipment Hire, Labour Hire, Fire Rating, Fire Treatment, Siphonic Design, Seismic Etc",
+     "d": "Overheads - Equipment Hire, Labour Hire, Fire Rating and Treatment, Siphonic Design, Seismic Etc",
      "u": "%",
      "percent": null
     }
