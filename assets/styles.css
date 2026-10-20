@@ -199,16 +199,20 @@ input[type=file]{ display:none; }
    already, and 96 stays under even the shortest of them. */
 .letterhead-logo{ width:170px; height:96px; display:flex; align-items:center; justify-content:flex-start; flex:0 0 auto; }
 .letterhead-logo img{ max-width:100%; max-height:100%; object-fit:contain; }
-.letterhead-co{ text-align:right; }
-.letterhead-co .name{ font-family:'Space Grotesk', sans-serif; font-size:14.5px; font-weight:700; color:var(--ink); margin-bottom:6px; }
-/* Two fixed columns, so every label starts on one line and every value on
-   another, whatever their lengths. Each row used to size itself and sit
-   against the right edge, which left the values starting wherever their own
-   length put them. The block as a whole still sits right, under the name. */
-.co-detail-table{ font-size:11px; display:inline-block; text-align:left; }
-.co-detail-row{ display:flex; gap:10px; margin-bottom:2px; }
-.co-detail-row .k{ flex:0 0 52px; color:var(--muted); font-weight:600; text-align:left; }
-.co-detail-row .v{ flex:0 0 215px; color:var(--ink); text-align:left; white-space:pre-line; overflow-wrap:anywhere; }
+/* The company name sets the block's edges: the labels start under its first
+   letter and the values finish under its last. The details take the name's
+   width and never add to it (width 0, stretched to 100%), so a value too long
+   for it wraps rather than pushing the block out of line with the name. */
+.letterhead-co{ display:inline-block; text-align:left; }
+.letterhead-co .name{ font-family:'Space Grotesk', sans-serif; font-size:14.5px; font-weight:700; color:var(--ink);
+  margin-bottom:6px; white-space:nowrap; }
+.co-detail-table{ font-size:11px; width:0; min-width:100%; }
+/* A value that will not fit beside its label drops to the line below it,
+   still flush right, rather than squeezing into a column too narrow for it. */
+.co-detail-row{ display:flex; flex-wrap:wrap; justify-content:space-between; column-gap:12px; margin-bottom:2px; }
+.co-detail-row .k{ flex:0 0 auto; color:var(--muted); font-weight:600; text-align:left; }
+.co-detail-row .v{ flex:0 0 auto; max-width:100%; margin-left:auto; color:var(--ink); text-align:right; overflow-wrap:anywhere; }
+.co-detail-more{ color:var(--ink); text-align:right; white-space:pre-line; margin:-2px 0 2px; }
 .co-detail-row.email-row{ border-top:1px solid var(--line-soft); padding-top:4px; margin-top:4px; }
 
 /* body */
