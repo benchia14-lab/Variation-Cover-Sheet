@@ -1002,25 +1002,121 @@ function buildPdfDocument(extend){
 // stacked document instead makes it slice one tall image at its own page
 // intervals, which drifts out of step with the page divs and emits spurious
 // pages -- a five-page letter came out as nine.
-async function renderPages(doc, opt){
+//
+// Captured once, sharp, and kept as canvases: how hard they are compressed
+// is decided afterwards, against the size budget, without capturing again.
+async function capturePages(doc, opt){
   const pages = Array.prototype.slice.call(doc.querySelectorAll('.pdf-page'));
   if(!pages.length) throw new Error('nothing to render');
+  const canvases = [];
+  for(const page of pages){
+    canvases.push(await html2pdf().set(opt).from(page).toCanvas().get('canvas'));
+  }
+  return canvases;
+}
 
-  // the first page also yields the jsPDF document the rest are added to
-  const pdf = await html2pdf().set(opt).from(pages[0]).toPdf().get('pdf');
-  while(pdf.internal.getNumberOfPages() > 1) pdf.deletePage(pdf.internal.getNumberOfPages());
+/* --------------------------------------------------------------------------
+   The size budget
 
-  const width = pdf.internal.pageSize.getWidth();
-  const height = pdf.internal.pageSize.getHeight();
+   The PDF goes out by email, and most mail systems refuse or strip anything
+   much over a few megabytes. Every generated page is a picture, so its size
+   is a choice: each step below trades a little sharpness for a smaller file,
+   and the first one that fits the budget is used. Uploaded drawings are left
+   exactly as they are -- vectors, sheet size and all -- unless they are what
+   breaks the budget, and then they are redrawn as pictures too.
+-------------------------------------------------------------------------- */
+const PDF_MAX_BYTES = 3 * 1024 * 1024;
+const PDF_TARGET_BYTES = 2.8 * 1024 * 1024;   // a margin under the limit
 
-  for(let i = 1; i < pages.length; i++){
-    const canvas = await html2pdf().set(opt).from(pages[i]).toCanvas().get('canvas');
-    pdf.addPage();
-    pdf.addImage(canvas.toDataURL(opt.image.type === 'jpeg' ? 'image/jpeg' : 'image/png', opt.image.quality),
-                 opt.image.type === 'jpeg' ? 'JPEG' : 'PNG', 0, 0, width, height);
+const PDF_LEVELS = [
+  { scale: 1,    quality: 0.86, drawings: 'keep' },
+  { scale: 0.8,  quality: 0.78, drawings: 'keep' },
+  { scale: 0.8,  quality: 0.74, drawings: { dpi: 150, quality: 0.72 } },
+  { scale: 0.68, quality: 0.66, drawings: { dpi: 120, quality: 0.62 } },
+  { scale: 0.56, quality: 0.58, drawings: { dpi: 96, quality: 0.55 } }
+];
+
+function canvasToJpeg(canvas, scale, quality){
+  let src = canvas;
+  if(scale < 1){
+    src = document.createElement('canvas');
+    src.width = Math.round(canvas.width * scale);
+    src.height = Math.round(canvas.height * scale);
+    const ctx = src.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(canvas, 0, 0, src.width, src.height);
+  }
+  return new Promise((resolve, reject) => src.toBlob(b => {
+    if(!b) return reject(new Error('could not compress a page'));
+    b.arrayBuffer().then(buf => resolve(new Uint8Array(buf)), reject);
+  }, 'image/jpeg', quality));
+}
+
+// An uploaded PDF redrawn as one picture per sheet, at its own sheet size.
+// Only ever used when keeping it as it came would not fit the budget.
+async function rasterisePdf(bytes, dpi, quality){
+  if(typeof pdfjsLib === 'undefined') throw new Error('the PDF viewer did not load');
+  const doc = await pdfjsLib.getDocument({ data: bytes.slice() }).promise;
+  const out = [];
+  for(let n = 1; n <= doc.numPages; n++){
+    const page = await doc.getPage(n);
+    const base = page.getViewport({ scale: 1 });
+    // a long edge past ~3300px is wasted on a screen or a printer at A3
+    const scale = Math.min(dpi / 72, 3300 / Math.max(base.width, base.height));
+    const vp = page.getViewport({ scale: scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.floor(vp.width);
+    canvas.height = Math.floor(vp.height);
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    out.push({ jpg: await canvasToJpeg(canvas, 1, quality), width: base.width, height: base.height });
+  }
+  doc.destroy();
+  return out;
+}
+
+async function assemblePdf(canvases, externals, level, cache){
+  const out = await PDFLib.PDFDocument.create();
+  const A4 = [595.28, 841.89];
+
+  // as uploaded: vectors and sheet size untouched
+  async function copyWhole(x){
+    let src = cache.src.get(x);
+    if(!src){ src = await PDFLib.PDFDocument.load(x.payload, { ignoreEncryption: true }); cache.src.set(x, src); }
+    const copied = await out.copyPages(src, src.getPageIndices());
+    copied.forEach(pg => out.addPage(pg));
   }
 
-  return pdf;
+  async function addExternal(x){
+    if(level.drawings === 'keep') return copyWhole(x);
+    const key = level.drawings.dpi + '/' + level.drawings.quality;
+    const kept = cache.raster.get(x) || {};
+    cache.raster.set(x, kept);
+    if(!kept[key]){
+      // a vector drawing is often smaller as it is; never swap it for a bigger picture
+      const sheets = await rasterisePdf(x.payload, level.drawings.dpi, level.drawings.quality);
+      const size = sheets.reduce((n, sh) => n + sh.jpg.length, 0);
+      kept[key] = size < x.payload.length ? sheets : 'keep';
+    }
+    if(kept[key] === 'keep') return copyWhole(x);
+    x.redrawn = true;
+    for(const sh of kept[key]){
+      const img = await out.embedJpg(sh.jpg);
+      out.addPage([sh.width, sh.height]).drawImage(img, { x: 0, y: 0, width: sh.width, height: sh.height });
+    }
+  }
+
+  for(let i = 0; i <= canvases.length; i++){
+    for(const x of externals.filter(e => e.afterPage === i)) await addExternal(x);
+    if(i === canvases.length) break;
+    const jpg = await canvasToJpeg(canvases[i], level.scale, level.quality);
+    const img = await out.embedJpg(jpg);
+    out.addPage(A4).drawImage(img, { x: 0, y: 0, width: A4[0], height: A4[1] });
+  }
+  out.setTitle(buildPrintFilename());
+  return out.save();
 }
 
 /* ==========================================================================
@@ -1118,6 +1214,7 @@ async function fileToSharePoint(pdfBytes, fileName){
 
 const PDF_OPTIONS = {
   margin: 0,
+  // only what the capture is handed; the compression is PDF_LEVELS' job
   image: { type: 'jpeg', quality: 0.98 },
   html2canvas: {
     scale: 2,
@@ -1140,32 +1237,24 @@ const PDF_OPTIONS = {
 // whole with pdf-lib, so a drawing keeps its vectors and its own sheet size.
 async function buildVariationPdf(){
   if(typeof html2pdf === 'undefined'){ throw new Error('html2pdf not loaded'); }
+  if(typeof PDFLib === 'undefined'){ throw new Error('pdf-lib not loaded'); }
   const fileName = buildPrintFilename() + '.pdf';
   const extend = (typeof Stages !== 'undefined') ? Stages.appendToPdf : null;
   const pdfDoc = buildPdfDocument(extend);
   try {
-    const pdf = await renderPages(pdfDoc, Object.assign({ filename: fileName }, PDF_OPTIONS));
-    pdf.setProperties({ title: buildPrintFilename() });
-    let bytes = new Uint8Array(pdf.output('arraybuffer'));
+    const canvases = await capturePages(pdfDoc, Object.assign({ filename: fileName }, PDF_OPTIONS));
     const externals = pdfDoc.externals || [];
-    if(externals.length){
-      if(typeof PDFLib === 'undefined') throw new Error('pdf-lib not loaded');
-      const generated = await PDFLib.PDFDocument.load(bytes);
-      const out = await PDFLib.PDFDocument.create();
-      const ownPages = await out.copyPages(generated, generated.getPageIndices());
-      let next = 0;
-      for(let i = 0; i <= ownPages.length; i++){
-        for(const x of externals.filter(e => e.afterPage === i)){
-          const src = await PDFLib.PDFDocument.load(x.payload, { ignoreEncryption: true });
-          const copied = await out.copyPages(src, src.getPageIndices());
-          copied.forEach(pg => out.addPage(pg));
-        }
-        if(i < ownPages.length) out.addPage(ownPages[next++]);
-      }
-      out.setTitle(buildPrintFilename());
-      bytes = await out.save();
+    const cache = { src: new Map(), raster: new Map() };
+    let bytes = null, used = 0;
+    // the first step that fits; the smallest one if none does
+    for(let i = 0; i < PDF_LEVELS.length; i++){
+      externals.forEach(x => { x.redrawn = false; });
+      bytes = await assemblePdf(canvases, externals, PDF_LEVELS[i], cache);
+      used = i;
+      if(bytes.length <= PDF_TARGET_BYTES) break;
     }
-    return { bytes: bytes, fileName: fileName };
+    return { bytes: bytes, fileName: fileName, level: used, overBudget: bytes.length > PDF_MAX_BYTES,
+             drawingsRedrawn: externals.some(x => x.redrawn) };
   } catch(err){
     err.pdfDoc = pdfDoc;   // kept for the print-dialog fallback
     throw err;
@@ -1173,6 +1262,17 @@ async function buildVariationPdf(){
     // the print-dialog fallback puts it back if it needs it
     if(pdfDoc.parentNode) pdfDoc.parentNode.remove();
   }
+}
+
+// Said under the Download button, so it is known before the email bounces.
+function describePdfSize(result){
+  const mb = (result.bytes.length / 1048576).toFixed(1) + ' MB';
+  if(result.overBudget){
+    return { cls: 'err', text: 'PDF is ' + mb + ' — still over the 3 MB email limit at the smallest setting. ' +
+      'The attachments are what make it big: remove or split the largest ones on the Documentation tab.' };
+  }
+  return { cls: 'ok', text: 'PDF is ' + mb + ' — small enough to email' +
+    (result.drawingsRedrawn ? ' (uploaded drawings were compressed to fit)' : '') + '.' };
 }
 
 function saveBytes(bytes, fileName){
@@ -1198,6 +1298,10 @@ async function downloadPdf(built){
 
   try {
     const result = built || await buildVariationPdf();
+    const size = describePdfSize(result);
+    const sizeLine = document.getElementById('pdf-size');
+    sizeLine.textContent = size.text;
+    sizeLine.className = 'status-line ' + size.cls;
     // Save the local copy first. Filing can fail; the download should not be
     // held hostage to SharePoint being reachable.
     saveBytes(result.bytes, result.fileName);

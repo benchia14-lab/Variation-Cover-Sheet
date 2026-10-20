@@ -53,6 +53,14 @@ own; it is stage 1 of five, shown in the step bar along the top:
 | 4 · Documentation | **A · Drawings & markups** and **B · Approval & correspondence**: PDFs, images, and emails saved as `.eml`. A screenshot can be pasted straight in with Ctrl+V. Each gets a title and can be reordered |
 | 5 · Review & download | Every page of the finished PDF, drawn in the page with pdf.js (not the browser's PDF viewer, which is blocked or blank in too many setups), with a checklist of each stage. **Download PDF** saves exactly what is shown and files it, as before |
 
+**The PDF is kept under 3 MB** so it can go by email. Every generated page is
+a picture, captured once and then compressed a step at a time until the file
+fits; uploaded drawings stay exactly as uploaded unless they are what breaks
+the budget, and then they are redrawn at 150 dpi (lower only if still needed).
+The size is shown under **Download PDF**, with a warning if even the smallest
+setting cannot get it under — which only happens when the attachments
+themselves are too big. Photos are scaled to 2400 px on upload.
+
 The PDF is one document: the letter, then the inclusions and exclusions, the
 schedule of rates, and an index page per attachment section followed by the
 attachments themselves. Every generated page carries the letterhead, and the
