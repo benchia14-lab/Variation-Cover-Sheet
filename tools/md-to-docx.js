@@ -45,6 +45,7 @@ const DOC_TITLES = {
   'FLOW-URLS-BUILT-IN.md': '7 - Building the Flow URLs into the App',
   'SIGN-IN.md': '8 - Microsoft Sign-In',
   'VARIATION-FILES.md': '9 - Saving and Reopening Variation Files',
+  'PROJECT-DASHBOARD.md': '10 - The Projects Page and Dashboard',
 };
 
 /* ---------------------------------------------------------------- inline --- */

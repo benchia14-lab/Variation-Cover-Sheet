@@ -182,7 +182,8 @@ def build(flow_config=None, settings_password=None):
                 'assets/state-register.js', 'assets/flow-config.js', 'assets/flow-urls.js',
                 'assets/build-info.js', 'assets/flows.js',
                 'assets/scope-library.js', 'assets/schedule-of-rates.js',
-                'assets/app.js', 'assets/stages.js', 'assets/variation-file.js']:
+                'assets/app.js', 'assets/stages.js', 'assets/variation-file.js',
+                'assets/dashboard.js']:
         tag = '<script src="%s"></script>' % rel
         if tag not in html:
             sys.exit('index.html no longer loads %s — the builder is out of date' % rel)

@@ -26,6 +26,15 @@ the old one keeps them.
 decides two things: which letterhead prints, and which slice of the project
 register gets pulled. Both follow immediately.
 
+**1b · The office's projects.** Every project in the register, each with its
+number of variations and their value, and the office's totals across them.
+Click one for its **dashboard**: every variation with its value ex GST and
+status (Draft, Submitted, Approved, Rejected), approved and pending totals,
+revisions grouped under the variation they revise, **Open** to carry on with
+one and **+ New variation** to start another. Status is set on the dashboard;
+a variation becomes *Submitted* when its PDF is downloaded. Setup:
+[docs/PROJECT-DASHBOARD.md](docs/PROJECT-DASHBOARD.md).
+
 **2 · Pick a project.** The dropdown is the SharePoint project register, read
 live through Power Automate: one register filtered to the state you chose, or a
 register per state that the flow picks between. Either way you only ever see
@@ -52,6 +61,14 @@ own; it is stage 1 of five, shown in the step bar along the top:
 | 3 · Schedule of rates | The master schedule (`assets/schedule-of-rates.js`, generated from `registers/Schedule of Rates.xlsx`). One **tab per zone or area**: **+ New schedule** adds one, each is named, and it can be duplicated or deleted. Search the rates, enter **Add** and **Ded**, add a **comment** to any line, and **type over a rate** to adjust it for this variation (the contract rate stays shown, with a reset). Diff × Rate is totalled per section, plus the 5% design item when applied. Only measured lines print, each schedule on its own pages, with a summary of all of them first when there is more than one; GST is charged once on the total. Items not in the schedule go under *Additional items* with their own rate. The total also prints on the cover sheet as *Variation Value* |
 | 4 · Documentation | **A · Drawings & markups** and **B · Approval & correspondence**: PDFs, images, and emails saved as `.eml`. A screenshot can be pasted straight in with Ctrl+V. Each gets a title and can be reordered |
 | 5 · Review & download | Every page of the finished PDF, drawn in the page with pdf.js (not the browser's PDF viewer, which is blocked or blank in too many setups), with a checklist of each stage. **Download PDF** saves exactly what is shown and files it, as before |
+
+**The PDF is kept under 3 MB** so it can go by email. Every generated page is
+a picture, captured once and then compressed a step at a time until the file
+fits; uploaded drawings stay exactly as uploaded unless they are what breaks
+the budget, and then they are redrawn at 150 dpi (lower only if still needed).
+The size is shown under **Download PDF**, with a warning if even the smallest
+setting cannot get it under — which only happens when the attachments
+themselves are too big. Photos are scaled to 2400 px on upload.
 
 The PDF is one document: the letter, then the inclusions and exclusions, the
 schedule of rates, and an index page per attachment section followed by the

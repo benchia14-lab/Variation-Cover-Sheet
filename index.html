@@ -98,6 +98,78 @@
   </main>
 </div>
 
+<!-- ============ 1b · PROJECTS IN AN OFFICE ============ -->
+<div class="board" id="view-projects" hidden>
+  <header class="site-banner">
+    <div class="site-banner-inner">
+      <div class="banner-logo board-logo"></div>
+      <div class="banner-title">Variation Cover Sheet</div>
+      <button class="banner-btn" type="button" data-settings>Settings</button>
+    </div>
+  </header>
+  <main class="board-main">
+    <nav class="crumbs"><a href="#">Offices</a><span>›</span><strong id="pj-crumb-office">—</strong></nav>
+    <div class="board-head">
+      <div>
+        <h1 id="pj-title">Projects</h1>
+        <p class="picker-sub" id="pj-sub">Pick a project to see its variations.</p>
+      </div>
+      <div class="board-head-actions">
+        <input type="text" id="pj-search" placeholder="Search projects…" autocomplete="off">
+        <button class="refresh-btn" id="pj-refresh" type="button">Refresh</button>
+      </div>
+    </div>
+    <div class="kpis" id="pj-kpis"></div>
+    <div class="status-line" id="pj-status"></div>
+    <div class="project-grid" id="pj-grid"></div>
+  </main>
+</div>
+
+<!-- ============ 1c · ONE PROJECT'S VARIATIONS ============ -->
+<div class="board" id="view-dashboard" hidden>
+  <header class="site-banner">
+    <div class="site-banner-inner">
+      <div class="banner-logo board-logo"></div>
+      <div class="banner-title">Variation Cover Sheet</div>
+      <button class="banner-btn" type="button" data-settings>Settings</button>
+    </div>
+  </header>
+  <main class="board-main">
+    <nav class="crumbs"><a href="#">Offices</a><span>›</span><a id="db-crumb-office" href="#">—</a><span>›</span><strong id="db-crumb-project">—</strong></nav>
+    <div class="board-head">
+      <div>
+        <h1 id="db-title">Project</h1>
+        <p class="picker-sub" id="db-sub"></p>
+      </div>
+      <div class="board-head-actions">
+        <button class="refresh-btn" id="db-refresh" type="button">Refresh</button>
+        <button class="print-btn" id="db-new" type="button">+ New variation</button>
+      </div>
+    </div>
+    <div class="kpis" id="db-kpis"></div>
+    <div class="db-tools">
+      <input type="text" id="db-search" placeholder="Search variations…" autocomplete="off">
+      <div class="scope-filter" id="db-filter">
+        <button type="button" class="chip on" data-filter="all">All</button>
+        <button type="button" class="chip" data-filter="Draft">Draft</button>
+        <button type="button" class="chip" data-filter="Submitted">Submitted</button>
+        <button type="button" class="chip" data-filter="Approved">Approved</button>
+        <button type="button" class="chip" data-filter="Rejected">Rejected</button>
+      </div>
+    </div>
+    <div class="status-line" id="db-status"></div>
+    <div class="db-table-wrap">
+      <table class="db-table">
+        <thead><tr>
+          <th>Variation</th><th>Description</th><th class="n">Value ex GST</th><th>Status</th>
+          <th class="n">Approved value</th><th>Approved</th><th>Issued by</th><th>Issued</th><th>Updated</th><th></th>
+        </tr></thead>
+        <tbody id="db-rows"></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
 <!-- ============ STEP BAR — the five stages of one variation ============ -->
 <nav class="stepper" id="stepper" hidden aria-label="Variation stages">
   <div class="stepper-inner">
@@ -114,7 +186,7 @@
 
   <!-- ============ FORM SIDE ============ -->
   <div class="form-side">
-    <button class="back-link" id="back-to-picker" type="button">&larr; Change office</button>
+    <button class="back-link" id="back-to-picker" type="button">&larr; Back to the project</button>
     <div class="brand"><span class="brand-mark"></span><h1>Variation Cover Sheet</h1></div>
     <div class="subhead">Fill in the fields — the letter on the right updates as you go</div>
 
@@ -550,6 +622,7 @@
 
     <div class="divider"></div>
     <button class="print-btn" id="print-btn" type="button">Download PDF</button>
+    <div class="status-line" id="pdf-size" style="text-align:center;"></div>
     <div class="status-line err" id="print-status" style="text-align:center;"></div>
     <div class="save-state" id="file-state"></div>
 
@@ -849,5 +922,6 @@
 <script src="assets/app.js"></script>
 <script src="assets/stages.js"></script>
 <script src="assets/variation-file.js"></script>
+<script src="assets/dashboard.js"></script>
 </body>
 </html>

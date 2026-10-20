@@ -54,7 +54,7 @@ const Stages = (function(){
 
   function go(next){
     if(!currentState) return;
-    location.hash = '#/state/' + encodeURIComponent(currentState.code) + (next === 'cover' ? '' : '/' + next);
+    location.hash = '#/state/' + encodeURIComponent(currentState.code) + '/' + next;
   }
 
   // called by the router, so the browser's back button walks the stages too
@@ -998,17 +998,29 @@ const Stages = (function(){
   }
 
   // html2canvas cannot draw every format a browser can show (webp, bmp), so
-  // anything that is not already PNG or JPEG is redrawn as PNG on the way in
+  // anything that is not already PNG or JPEG is redrawn on the way in. A photo
+  // straight off a phone is 12 megapixels; a page shows it at a fraction of
+  // that, so anything bigger than the page can use is scaled down here too --
+  // which keeps the variation file a sensible size as well as the PDF.
+  const MAX_IMAGE_EDGE = 2400;
   function asPngOrJpeg(url){
-    if(/^data:image\/(png|jpe?g)/i.test(url)) return Promise.resolve(url);
     return new Promise(resolve => {
       const img = new Image();
       img.onload = () => {
+        const w = img.naturalWidth, h = img.naturalHeight;
+        const fits = Math.max(w, h) <= MAX_IMAGE_EDGE;
+        const jpeg = /^data:image\/jpe?g/i.test(url);
+        if(fits && (jpeg || /^data:image\/png/i.test(url))){ resolve(url); return; }
+        const k = fits ? 1 : MAX_IMAGE_EDGE / Math.max(w, h);
         const c = document.createElement('canvas');
-        c.width = img.naturalWidth;
-        c.height = img.naturalHeight;
-        c.getContext('2d').drawImage(img, 0, 0);
-        resolve(c.toDataURL('image/png'));
+        c.width = Math.round(w * k);
+        c.height = Math.round(h * k);
+        const ctx = c.getContext('2d');
+        ctx.imageSmoothingQuality = 'high';
+        if(jpeg){ ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); }
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        // photos stay photos; screenshots stay crisp
+        resolve(jpeg ? c.toDataURL('image/jpeg', 0.85) : c.toDataURL('image/png'));
       };
       img.onerror = () => resolve(url);
       img.src = url;
@@ -1371,6 +1383,7 @@ const Stages = (function(){
   ======================================================================== */
 
   const reviewPages = document.getElementById('review-pages');
+  const pdfSizeLine = document.getElementById('pdf-size');
   const reviewBuilding = document.getElementById('review-building');
   const reviewList = document.getElementById('review-list');
   let built = null;      // { bytes, fileName } of what the preview shows
@@ -1469,6 +1482,7 @@ const Stages = (function(){
     dropBuild();
     const token = buildToken;
     reviewBuilding.hidden = false;
+    pdfSizeLine.textContent = '';
     VIEWS.review.querySelector('.preview-side').scrollTop = 0;
     reviewBuilding.className = 'review-building';
     reviewBuilding.textContent = 'Building the preview…';
@@ -1479,6 +1493,9 @@ const Stages = (function(){
       const result = await buildVariationPdf();
       if(token !== buildToken) return;   // left the stage while it was building
       built = result;
+      const size = describePdfSize(result);
+      pdfSizeLine.textContent = size.text;
+      pdfSizeLine.className = 'status-line ' + size.cls;
       // the download is ready as soon as the file is; the pages draw after
       printBtn.disabled = false;
       reviewBuilding.textContent = 'Drawing the pages…';
