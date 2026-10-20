@@ -94,12 +94,17 @@ function render(){
   document.getElementById('p-co-name').textContent = coName || 'Company name';
   toggleRow('p-co-abn-row', 'p-co-abn', v('co-abn'));
   toggleRow('p-co-acn-row', 'p-co-acn', v('co-acn'));
-  toggleRow('p-co-address-row', 'p-co-address', v('co-address'));
+  // The address's first line sits beside its label; the rest run the full
+  // width of the block underneath, where the label leaves nothing to share.
+  const addressLines = v('co-address').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  toggleRow('p-co-address-row', 'p-co-address', addressLines[0] || '');
+  toggleEl('p-co-address-more', addressLines.slice(1).join('\n'));
   toggleRow('p-co-phone-row', 'p-co-phone', v('co-phone'));
   // The letter's email is the PM's, from the project register (step 6). The
   // office address in the letterhead register stands in only when there is none.
   const replyTo = v('sig-email') || v('co-email');
-  toggleRow('p-co-email-row', 'p-co-email', replyTo);
+  // a long address breaks after the @ when it has to: never at a hyphen or mid-word
+  toggleRow('p-co-email-row', 'p-co-email', replyTo.replace(/-/g, '\u2011').replace('@', '@\u200B'));
 
   document.getElementById('p-footer-co').textContent = coName || 'Company name';
   toggleEl('p-footer-ref', shownRef, 'Ref ' + shownRef, 'inline');
