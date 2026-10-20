@@ -162,12 +162,59 @@
       <table class="db-table">
         <thead><tr>
           <th>Variation</th><th>Description</th><th class="n">Value ex GST</th><th>Status</th>
-          <th class="n">Approved value</th><th>Approved</th><th>Issued by</th><th>Issued</th><th>Updated</th><th></th>
+          <th class="n">Approved value</th><th>Approved</th><th>Issued by</th><th>Issued</th><th>Updated</th><th></th><th></th>
         </tr></thead>
         <tbody id="db-rows"></tbody>
       </table>
     </div>
   </main>
+
+  <!-- builder commentary and the approval, for one variation -->
+  <div class="modal-back" id="bc-modal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="bc-title">
+      <div class="modal-head">
+        <div>
+          <p class="modal-kicker">Builder commentary &amp; approval</p>
+          <h2 id="bc-title">VAR-000</h2>
+          <p class="modal-sub" id="bc-sub"></p>
+        </div>
+        <button type="button" class="modal-close" id="bc-close" aria-label="Close">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <section class="bc-approval">
+          <p class="form-section-title">Approval</p>
+          <p class="bc-help">Typed here from what the builder approved — not taken from the schedule of rates
+            (that came to <strong id="bc-sor-value">—</strong>).</p>
+          <div class="bc-approval-row">
+            <div class="field"><label for="bc-status">Status</label><select id="bc-status"></select></div>
+            <div class="field"><label for="bc-value">Approved value ex GST</label>
+              <input type="text" id="bc-value" class="mono-input" inputmode="decimal" placeholder="0.00"></div>
+            <div class="field"><label for="bc-date">Approved date</label><input type="date" id="bc-date"></div>
+          </div>
+          <button type="button" class="print-btn" id="bc-save-approval">Save approval</button>
+        </section>
+
+        <section class="bc-thread-wrap">
+          <p class="form-section-title">Commentary <span class="bc-count" id="bc-count"></span></p>
+          <ol class="bc-thread" id="bc-thread"></ol>
+          <div class="bc-new">
+            <div class="field-row">
+              <div class="field"><label for="bc-from">From</label>
+                <input type="text" id="bc-from" placeholder="Who said it — e.g. Glen O'Connor, Kapitol"></div>
+              <div class="field"><label for="bc-by">Entered by</label>
+                <input type="text" id="bc-by" placeholder="Your name"></div>
+            </div>
+            <div class="field"><label for="bc-text">New commentary</label>
+              <textarea id="bc-text" placeholder="e.g. Builder accepts the rates but wants the 5% design allowance removed. Resubmit by Friday."></textarea></div>
+            <button type="button" class="print-btn" id="bc-add">Add commentary</button>
+            <span class="bc-hint">Timestamped when added, and saved to the log straight away.</span>
+          </div>
+        </section>
+        <div class="status-line" id="bc-status-line"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ============ STEP BAR — the five stages of one variation ============ -->

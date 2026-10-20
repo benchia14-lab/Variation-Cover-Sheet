@@ -1505,7 +1505,34 @@ function currentStatus(){
 
 function normaliseStatus(s){
   const status = s && STATUSES.indexOf(s.status) !== -1 ? s.status : 'Draft';
-  return { status: status, approvedValue: (s && s.approvedValue) || '', approvedDate: (s && s.approvedDate) || '' };
+  return { status: status,
+           approvedValue: s && s.approvedValue !== undefined && s.approvedValue !== null ? s.approvedValue : '',
+           approvedDate: (s && s.approvedDate) || '',
+           commentary: mergeCommentary(s && s.commentary) };
+}
+
+/* Builder commentary: what the head contractor has said about a variation,
+   entered on the project dashboard, one timestamped entry at a time. Entries
+   are only ever added, each with its own id, so two copies of the thread --
+   the one on screen and the one in the log -- are merged rather than one
+   overwriting the other. */
+function mergeCommentary(){
+  const byId = {};
+  Array.prototype.forEach.call(arguments, list => {
+    (Array.isArray(list) ? list : []).forEach(c => { if(c && c.id && c.text) byId[c.id] = c; });
+  });
+  return Object.keys(byId).map(k => byId[k]).sort((a, b) => String(a.at).localeCompare(String(b.at)));
+}
+
+// The thread as plain text for the log's BuilderCommentary column, so it reads
+// in SharePoint and in an export without the app.
+function commentaryText(list){
+  return mergeCommentary(list).map(c => {
+    const when = new Date(c.at).toLocaleString('en-AU', { day: '2-digit', month: 'short', year: 'numeric',
+                                                          hour: '2-digit', minute: '2-digit' });
+    const who = [c.from, c.by && c.by !== c.from ? '(entered by ' + c.by + ')' : ''].filter(Boolean).join(' ');
+    return when + (who ? ' — ' + who : '') + ':\n' + c.text;
+  }).join('\n\n');
 }
 let issueMode = 'new';     // 'new' or 'revise'
 let refOverridden = false; // the number was typed by hand, so stop allocating it
@@ -1913,6 +1940,7 @@ function logPayloadFromSaved(saved, ref, extra){
     valueExGst: value,
     approvedValue: st.approvedValue === '' ? null : Number(st.approvedValue),
     approvedDate: st.approvedDate || null,
+    builderCommentary: commentaryText(st.commentary),
 
     // the whole form, so reopening restores it exactly whatever the columns do
     payload: JSON.stringify(saved),
@@ -1921,7 +1949,12 @@ function logPayloadFromSaved(saved, ref, extra){
 }
 
 function buildLogPayload(extra){
-  return logPayloadFromSaved(collectFormState(), {
+  const saved = collectFormState();
+  // commentary added on the dashboard since this was opened must not be
+  // written over by a save from the form
+  const logged = logRows.find(r => Flows.sameRef(r.variationRef, effectiveRef()));
+  if(logged) saved.status.commentary = mergeCommentary(saved.status.commentary, Flows.rowStatus(logged).commentary);
+  return logPayloadFromSaved(saved, {
     projectId: selectedProject ? String(selectedProject.id) : '',
     variationRef: effectiveRef(),
     baseRef: els['varref'].value.trim(),

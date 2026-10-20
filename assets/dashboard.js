@@ -130,14 +130,18 @@ const Dashboard = (function(){
 
   function summarise(rows){
     const groups = organise(rows || []);
-    const s = { count: groups.length, value: 0, priced: 0, approved: 0, approvedCount: 0, pending: 0,
+    const s = { count: groups.length, value: 0, priced: 0, approved: 0, approvedCount: 0, awaitingValue: 0, pending: 0,
                 pendingCount: 0, draft: 0, rejected: 0, latest: '' };
     groups.forEach(g => {
       const r = g.current;
       const v = Flows.rowValue(r);
       const st = Flows.rowStatus(r);
       if(v !== null){ s.value += v; s.priced++; }
-      if(st.status === 'Approved'){ s.approvedCount++; s.approved += st.approvedValue !== '' ? st.approvedValue : (v || 0); }
+      // what the builder approved, as entered -- never the schedule's figure
+      if(st.status === 'Approved'){
+        s.approvedCount++;
+        if(st.approvedValue !== '') s.approved += st.approvedValue; else s.awaitingValue++;
+      }
       if(st.status === 'Submitted'){ s.pendingCount++; s.pending += v || 0; }
       if(st.status === 'Draft') s.draft++;
       if(st.status === 'Rejected') s.rejected++;
@@ -324,7 +328,9 @@ const Dashboard = (function(){
       { k: 'Variations', v: String(s.count),
         sub: shownRows.length > s.count ? (shownRows.length - s.count) + ' earlier revision' + (shownRows.length - s.count === 1 ? '' : 's') : '' },
       { k: 'Total value ex GST', v: money(s.value), sub: s.priced < s.count ? (s.count - s.priced) + ' not priced' : '' },
-      { k: 'Approved', v: money(s.approved), sub: s.approvedCount + ' variation' + (s.approvedCount === 1 ? '' : 's'), cls: 'ok' },
+      { k: 'Approved', v: money(s.approved), cls: 'ok',
+        sub: s.approvedCount + ' variation' + (s.approvedCount === 1 ? '' : 's') +
+             (s.awaitingValue ? ' · ' + s.awaitingValue + ' without an approved value' : '') },
       { k: 'Pending approval', v: money(s.pending), sub: s.pendingCount + ' submitted', cls: 'warn' },
       { k: 'Drafts', v: String(s.draft), sub: s.rejected ? s.rejected + ' rejected' : '' },
       { k: 'Latest', v: s.latest ? day(s.latest) : '—' }
@@ -343,7 +349,7 @@ const Dashboard = (function(){
       });
     });
     if(!dbRows.children.length && shownRows.length){
-      dbRows.innerHTML = '<tr><td colspan="10" class="scope-empty">Nothing matches.</td></tr>';
+      dbRows.innerHTML = '<tr><td colspan="11" class="scope-empty">Nothing matches.</td></tr>';
     }
   }
 
@@ -376,39 +382,24 @@ const Dashboard = (function(){
     stCell.appendChild(sel);
     tr.appendChild(stCell);
 
-    // approved value and date, only once approved
-    const avCell = el('td', 'n');
-    const adCell = el('td');
-    if(st.status === 'Approved'){
-      const av = el('input');
-      av.type = 'text';
-      av.inputMode = 'decimal';
-      av.className = 'db-input mono-input';
-      av.value = st.approvedValue === '' ? '' : st.approvedValue;
-      av.placeholder = value !== null ? String(value) : '0.00';
-      av.disabled = !canWrite;
-      av.addEventListener('change', () => {
-        const n = av.value.trim() === '' ? '' : Number(av.value.replace(/[^0-9.\-]/g, ''));
-        updateStatus(row, { approvedValue: isNaN(n) ? '' : n });
-      });
-      avCell.appendChild(av);
-      const ad = el('input');
-      ad.type = 'date';
-      ad.className = 'db-input';
-      ad.value = st.approvedDate || '';
-      ad.disabled = !canWrite;
-      ad.addEventListener('change', () => updateStatus(row, { approvedDate: ad.value }));
-      adCell.appendChild(ad);
-    } else {
-      avCell.textContent = '—';
-      adCell.textContent = '—';
-    }
-    tr.appendChild(avCell);
-    tr.appendChild(adCell);
+    // approved value and date: entered in the commentary window, shown here
+    tr.appendChild(el('td', 'n', st.approvedValue === '' ? '—' : escapeHtml(money(st.approvedValue))));
+    tr.appendChild(el('td', 'db-date', st.approvedDate ? escapeHtml(day(st.approvedDate)) : '—'));
 
     tr.appendChild(el('td', '', escapeHtml(row.issuedBy || (row.state_ && row.state_.fields && row.state_.fields['sig-name']) || '—')));
     tr.appendChild(el('td', 'db-date', escapeHtml(day(row.downloadedAt))));
     tr.appendChild(el('td', 'db-date', escapeHtml(day(row.updatedAt))));
+
+    const cmt = el('td', 'db-act');
+    const n = st.commentary.length;
+    const talk = el('button', 'refresh-btn db-talk' + (n ? ' has' : ''),
+      'Builder commentary' + (n ? ' <span class="db-badge">' + n + '</span>' : ''));
+    talk.type = 'button';
+    talk.disabled = !row.state_ || !row.state_.fields;
+    talk.title = n ? 'Last: ' + day(st.commentary[n - 1].at) : 'No commentary yet';
+    talk.addEventListener('click', () => openCommentary(row));
+    cmt.appendChild(talk);
+    tr.appendChild(cmt);
 
     const act = el('td', 'db-act');
     const open = el('button', 'refresh-btn', 'Open');
@@ -420,17 +411,27 @@ const Dashboard = (function(){
     return tr;
   }
 
-  // A status change is a log write like any other: the whole row, as saved,
-  // with the new status in it. The Status columns take it straight away; the
-  // saved form takes it too, so it follows the variation when it is reopened.
-  async function updateStatus(row, changes){
+  /* Every change from the dashboard is a log write like any other: the whole
+     row, as saved, with the change in it. The log's own columns take it
+     straight away, and the saved form takes it too, so it follows the
+     variation when it is reopened.
+
+     The row is read again first. Someone else may have added commentary or
+     approved it since this page loaded, and the write replaces the row -- so
+     what is there now is the base, and the commentary threads are merged. */
+  async function updateRow(row, changes, statusEl){
     const project = shownProject;
-    const saved = JSON.parse(JSON.stringify(row.state_));
-    const st = Object.assign(Flows.rowStatus(row), changes);
-    if(changes.status === 'Approved'){
-      if(!st.approvedDate) st.approvedDate = todayIso();
-      if(st.approvedValue === ''){ const v = Flows.rowValue(row); if(v !== null) st.approvedValue = v; }
-    }
+    const say = (t, c) => setLine(statusEl || dbStatus, t, c);
+    say('Saving ' + row.variationRef + '…');
+    let base = row;
+    try {
+      const fresh = await Flows.listLog(currentState.code, project.id);
+      base = fresh.find(r => Flows.sameRef(r.variationRef, row.variationRef) && r.state_ && r.state_.fields) || row;
+    } catch(e){ /* the copy on screen will do */ }
+
+    const saved = JSON.parse(JSON.stringify(base.state_));
+    const st = Object.assign(Flows.rowStatus(base), changes);
+    st.commentary = mergeCommentary(Flows.rowStatus(base).commentary, Flows.rowStatus(row).commentary, changes.commentary);
     saved.status = st;
     const parsed = parseRef(row.variationRef);
     const payload = logPayloadFromSaved(saved, {
@@ -442,29 +443,172 @@ const Dashboard = (function(){
       folderPath: project.folderPath || ''
     }, {
       // the write flow sets this column from what it is sent; keep what it had
-      downloadedAt: row.downloadedAt || null
+      downloadedAt: base.downloadedAt || row.downloadedAt || null
     });
-    setLine(dbStatus, 'Saving ' + row.variationRef + ' as ' + st.status + '…');
     try {
       await Flows.writeLog(payload);
-      row.state_ = saved;
-      row.status = st.status;
-      row.approvedValue = st.approvedValue;
-      row.approvedDate = st.approvedDate;
-      row.updatedAt = payload.updatedAt;
-      // the same variation open in the form takes the new status too
+      Object.assign(row, { state_: saved, status: st.status, approvedValue: st.approvedValue,
+                           approvedDate: st.approvedDate, updatedAt: payload.updatedAt });
+      // the same variation open in the form takes the change too
       if(selectedProject && String(selectedProject.id) === String(project.id) && reopenedRef &&
          Flows.sameRef(effectiveRef(), row.variationRef)){
         variationStatus = normaliseStatus(st);
         statusRef = row.variationRef;
       }
       renderProject();
-      setLine(dbStatus, row.variationRef + ' is now ' + st.status + '.', 'ok');
+      return st;
     } catch(err){
       renderProject();
-      setLine(dbStatus, 'Could not update ' + row.variationRef + ' — ' + (err.message || 'the log write flow failed'), 'err');
+      say('Could not save ' + row.variationRef + ' — ' + (err.message || 'the log write flow failed'), 'err');
+      return null;
     }
   }
+
+  async function updateStatus(row, changes){
+    const st = await updateRow(row, changes);
+    if(st) setLine(dbStatus, row.variationRef + ' is now ' + st.status + '.', 'ok');
+  }
+
+  /* ---- the commentary window ----------------------------------------------- */
+
+  const modal = document.getElementById('bc-modal');
+  const bcStatus = document.getElementById('bc-status');
+  const bcValue = document.getElementById('bc-value');
+  const bcDate = document.getElementById('bc-date');
+  const bcThread = document.getElementById('bc-thread');
+  const bcFrom = document.getElementById('bc-from');
+  const bcBy = document.getElementById('bc-by');
+  const bcText = document.getElementById('bc-text');
+  const bcLine = document.getElementById('bc-status-line');
+  const NAME_KEY = 'variationCoverSheet:userName';
+  let modalRow = null;
+
+  Flows.STATUS_NAMES.forEach(n => {
+    const o = el('option');
+    o.value = n;
+    o.textContent = n;
+    bcStatus.appendChild(o);
+  });
+
+  // who is entering it: the signed-in Microsoft account where there is one
+  function signedInName(){
+    try {
+      if(typeof msal === 'undefined' || location.protocol === 'file:') return '';
+      const app = new msal.PublicClientApplication({
+        auth: { clientId: '7485bf02-3fbf-478b-a4d0-05ddcc3b1c1e',
+                authority: 'https://login.microsoftonline.com/e52a9a87-78f1-4048-b915-d974ad3d98ac',
+                redirectUri: window.location.origin },
+        cache: { cacheLocation: 'localStorage' }
+      });
+      const a = app.getAllAccounts()[0];
+      return (a && (a.name || a.username)) || '';
+    } catch(e){ return ''; }
+  }
+  function rememberedName(){
+    try { return localStorage.getItem(NAME_KEY) || ''; } catch(e){ return ''; }
+  }
+
+  function renderThread(list){
+    bcThread.innerHTML = '';
+    document.getElementById('bc-count').textContent = list.length ? '(' + list.length + ')' : '';
+    if(!list.length){
+      bcThread.appendChild(el('li', 'bc-empty', 'No commentary yet.'));
+      return;
+    }
+    // newest first: the latest word from the builder is what is being read for
+    list.slice().reverse().forEach(c => {
+      const li = el('li', 'bc-entry');
+      const when = new Date(c.at);
+      li.innerHTML = '<div class="bc-meta"><span class="bc-when">' +
+        escapeHtml(when.toLocaleString('en-AU', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric',
+                                                  hour: '2-digit', minute: '2-digit' })) + '</span>' +
+        (c.from ? '<span class="bc-from">' + escapeHtml(c.from) + '</span>' : '') +
+        (c.by ? '<span class="bc-by">entered by ' + escapeHtml(c.by) + '</span>' : '') + '</div>';
+      li.appendChild(el('div', 'bc-text')).textContent = c.text;
+      bcThread.appendChild(li);
+    });
+  }
+
+  function fillApproval(st){
+    bcStatus.value = st.status;
+    bcValue.value = st.approvedValue === '' ? '' : st.approvedValue;
+    bcDate.value = st.approvedDate || '';
+  }
+
+  function openCommentary(row){
+    modalRow = row;
+    const st = Flows.rowStatus(row);
+    document.getElementById('bc-title').textContent = row.variationRef;
+    document.getElementById('bc-sub').textContent = [row.description ||
+      (row.state_ && row.state_.fields && row.state_.fields.variationdesc), shownProject && shownProject.project]
+      .filter(Boolean).join(' · ');
+    document.getElementById('bc-sor-value').textContent = money(Flows.rowValue(row));
+    fillApproval(st);
+    renderThread(st.commentary);
+    bcFrom.value = (shownProject && shownProject.attention) ? shownProject.attention +
+      (shownProject.headContractor ? ', ' + shownProject.headContractor : '') : '';
+    bcBy.value = rememberedName() || signedInName() || '';
+    bcText.value = '';
+    setLine(bcLine, '');
+    const canWrite = Flows.has('logWriteUrl');
+    ['bc-save-approval', 'bc-add'].forEach(id => { document.getElementById(id).disabled = !canWrite; });
+    if(!canWrite) setLine(bcLine, 'The log write flow is not connected, so nothing here can be saved.', 'err');
+    modal.hidden = false;
+    setTimeout(() => bcText.focus(), 0);
+  }
+
+  function closeCommentary(){
+    modal.hidden = true;
+    modalRow = null;
+  }
+
+  document.getElementById('bc-close').addEventListener('click', closeCommentary);
+  modal.addEventListener('click', e => { if(e.target === modal) closeCommentary(); });
+  document.addEventListener('keydown', e => { if(e.key === 'Escape' && !modal.hidden) closeCommentary(); });
+
+  document.getElementById('bc-save-approval').addEventListener('click', async () => {
+    if(!modalRow) return;
+    const raw = bcValue.value.trim().replace(/[$,\s]/g, '');
+    if(raw && isNaN(Number(raw))){
+      setLine(bcLine, 'The approved value has to be a number — e.g. 12500 or 12,500.00.', 'err');
+      bcValue.focus();
+      return;
+    }
+    const changes = { status: bcStatus.value, approvedValue: raw === '' ? '' : Math.round(Number(raw) * 100) / 100,
+                      approvedDate: bcDate.value };
+    if(changes.status === 'Approved' && (changes.approvedValue === '' || !changes.approvedDate)){
+      if(!confirm('Mark it Approved without ' + (changes.approvedValue === '' ? 'an approved value' : 'an approved date') + '?')) return;
+    }
+    const button = document.getElementById('bc-save-approval');
+    button.disabled = true;
+    const st = await updateRow(modalRow, changes, bcLine);
+    button.disabled = false;
+    if(st){
+      fillApproval(st);
+      renderThread(st.commentary);
+      setLine(bcLine, 'Saved — ' + st.status + (st.approvedValue !== '' ? ', ' + money(st.approvedValue) : '') +
+        (st.approvedDate ? ' on ' + day(st.approvedDate) : '') + '.', 'ok');
+    }
+  });
+
+  document.getElementById('bc-add').addEventListener('click', async () => {
+    if(!modalRow) return;
+    const text = bcText.value.trim();
+    if(!text){ bcText.focus(); return; }
+    const by = bcBy.value.trim();
+    try { if(by) localStorage.setItem(NAME_KEY, by); } catch(e){}
+    const entry = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+                    at: new Date().toISOString(), from: bcFrom.value.trim(), by: by, text: text };
+    const button = document.getElementById('bc-add');
+    button.disabled = true;
+    const st = await updateRow(modalRow, { commentary: [entry] }, bcLine);
+    button.disabled = false;
+    if(st){
+      bcText.value = '';
+      renderThread(st.commentary);
+      setLine(bcLine, 'Added and saved at ' + new Date(entry.at).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' }) + '.', 'ok');
+    }
+  });
 
   function selectProject(project){
     if(selectedProject && String(selectedProject.id) === String(project.id)) return;

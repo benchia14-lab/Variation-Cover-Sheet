@@ -589,8 +589,10 @@ const Flows = (() => {
     const num = x => (x === null || x === undefined || x === '' || isNaN(Number(x))) ? '' : Number(x);
     return {
       status: status,
-      approvedValue: saved && saved.approvedValue !== undefined && saved.approvedValue !== '' ? num(saved.approvedValue) : num(row.approvedValue),
-      approvedDate: (saved && saved.approvedDate) || (row.approvedDate ? String(row.approvedDate).slice(0, 10) : '')
+      approvedValue: saved && saved.approvedValue !== undefined && saved.approvedValue !== '' && saved.approvedValue !== null
+        ? num(saved.approvedValue) : num(row.approvedValue),
+      approvedDate: (saved && saved.approvedDate) || (row.approvedDate ? String(row.approvedDate).slice(0, 10) : ''),
+      commentary: (saved && Array.isArray(saved.commentary)) ? saved.commentary.slice() : []
     };
   }
 
