@@ -1119,3 +1119,7 @@ input[type=file]{ display:none; }
 .bc-edit-acts{ display:flex; gap:8px; }
 .bc-edit-acts .refresh-btn{ padding:9px 14px; }
 .bc-gone{ padding:8px 12px; border-top:1px solid var(--line-soft); text-align:center; }
+
+/* step 6's sign-off: name and position side by side, the PM email under them */
+#pf-signoff{ grid-column:1 / -1; display:grid; grid-template-columns:1fr 1fr; gap:0 12px; }
+#pf-signoff .field:has(#sig-email){ grid-column:1 / -1; }

@@ -1440,7 +1440,7 @@ const Stages = (function(){
   }
 
   function missingCover(){
-    return REQUIRED_FIELDS.filter(f => !els[f.id].value.trim()).map(f => f.label);
+    return REQUIRED_FIELDS.filter(f => f.missing()).map(f => f.label);
   }
 
   function renderReviewList(){
