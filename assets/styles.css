@@ -829,7 +829,11 @@ input[type=file]{ display:none; }
 .sor-q{ text-align:right; }
 .sor-amount{ font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--ink); }
 .sor-amount.neg{ color:#A0402E; }
-.sor-row-pct{ grid-template-columns: minmax(0,1fr) 134px 88px; }
+.sor-row-pct{ grid-template-columns: minmax(0,1fr) 92px 84px 88px; }
+.sor-pct{ position:relative; }
+.sor-pct input{ padding-right:22px; }
+.sor-pct-sign{ position:absolute; right:8px; top:50%; transform:translateY(-50%); font-size:12px; color:var(--muted); pointer-events:none; }
+.sor-subhead{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--steel-dark); padding:10px 6px 4px; }
 .sor-c{ font-size:12px; }
 .sor-c:not(:placeholder-shown){ background:#FFFBEA; border-color:#E0C48A; }
 .sor-r{ text-align:right; }
