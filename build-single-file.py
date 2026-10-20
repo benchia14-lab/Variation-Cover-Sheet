@@ -71,31 +71,53 @@ ENV_ITERATIONS = 'SETTINGS_PASSWORD_ITERATIONS'
 def _safe_url(value, name):
     """Anything here is written into a single-quoted JavaScript string in a
     deployed file. A quote or a newline would end that string early and break
-    the whole app, so a value that cannot be written safely stops the build
-    rather than shipping."""
-    text = (value or '').strip()
+    the whole app, so a value that cannot be written safely is never written.
+
+    It used to stop the build instead -- which on Netlify leaves the previous
+    deploy live, and if that one predates the URLs, every flow is blank with
+    nothing on screen to say why. Now the commonest slip, a value pasted with
+    quotes or spaces around it, is tidied, and anything still unusable is
+    reported in the build log and left out, so the embedded URL is used."""
+    text = (value or '').strip().strip('"\'').strip()
     if not text:
         return ''
     import re
-    if re.search(r"""['"\\\r\n<>]""", text):
-        sys.exit('%s contains a quote, line break or tag — refusing to build' % name)
-    if not text.lower().startswith('https://'):
-        sys.exit('%s does not start with https:// — refusing to build' % name)
+    if re.search(r"""['"\\\r\n<>\s]""", text) or not text.lower().startswith('https://'):
+        print('WARNING: %s is not a usable https:// URL — ignoring it and using the URL '
+              'embedded in assets/flow-config.js instead' % name, file=sys.stderr)
+        return ''
     return text
 
 
+def _urls_in_repository():
+    """The URLs assets/flow-config.js in the repository carries, by key."""
+    import re
+    path = ROOT / 'assets' / 'flow-config.js'
+    if not path.exists():
+        return {}
+    return dict(re.findall(r"^\s*(\w+):\s*'([^']*)'", path.read_text(encoding='utf-8'), re.M))
+
+
 def flow_config_from_env():
-    """flow-config.js built from the environment, or None if none is set."""
+    """flow-config.js built from the environment, or None if none is set.
+
+    A flow the environment does not set keeps the URL embedded in the
+    repository's copy, so adding one variable on Netlify never blanks the
+    others, and a URL embedded in the repository is never lost to a build."""
     import os
     found = {key: _safe_url(os.environ.get(name), name) for key, name in ENV_FLOWS}
     if not any(found.values()):
         return None
+    embedded = _urls_in_repository()
+    for key, name in ENV_FLOWS:
+        if not found[key]:
+            found[key] = _safe_url(embedded.get(key), 'flow-config.js ' + key)
     lines = []
     for i, (key, _) in enumerate(ENV_FLOWS):
         comma = ',' if i < len(ENV_FLOWS) - 1 else ''
         lines.append("  %s: '%s'%s" % (key, found[key], comma))
-    return ('/* Generated at build time from this site\'s environment variables.\n'
-            ' * Nothing here is in the repository: the values come from Netlify.\n'
+    return ('/* Generated at build time from this site\'s environment variables,\n'
+            ' * with the repository\'s copy filling any flow they do not set.\n'
             ' */\n'
             'const FLOW_URLS = {\n' + '\n'.join(lines) + '\n};\n')
 
