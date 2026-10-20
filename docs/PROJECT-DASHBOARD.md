@@ -48,11 +48,18 @@ many approved variations do not have one yet.
 every entry timestamped when it is added, with who it is from (the builder's
 contact) and who entered it (your name, remembered on this computer, or the
 signed-in Microsoft account). Each entry is saved to the log as soon as it is
-added. Entries are never edited or removed, only added.
+added.
 
-Two people can add commentary to the same variation at once without losing
-each other's: the window reads the row again just before it saves and merges
-the two threads. A revision has a thread of its own; the original's stays with
+**Edit** and **Delete** sit on every entry. An edited entry keeps its original
+timestamp and shows *edited* with when and by whom. A deleted entry leaves the
+thread and the `BuilderCommentary` column, but is kept behind **Show deleted**
+with when and by whom it was deleted, so the record of what the builder said
+is never silently lost.
+
+Two people can work on the same variation's commentary at once without losing
+each other's changes: the window reads the row again just before it saves and
+merges the two threads entry by entry, and where both changed the same entry
+the later change wins. A save from the form does the same. A revision has a thread of its own; the original's stays with
 the original.
 
 A **revision** (`VAR-001.1`) is a new submission, so it starts again at Draft.

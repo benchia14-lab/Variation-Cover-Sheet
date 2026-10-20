@@ -391,12 +391,13 @@ const Dashboard = (function(){
     tr.appendChild(el('td', 'db-date', escapeHtml(day(row.updatedAt))));
 
     const cmt = el('td', 'db-act');
-    const n = st.commentary.length;
+    const live = liveCommentary(st.commentary);
+    const n = live.length;
     const talk = el('button', 'refresh-btn db-talk' + (n ? ' has' : ''),
       'Builder commentary' + (n ? ' <span class="db-badge">' + n + '</span>' : ''));
     talk.type = 'button';
     talk.disabled = !row.state_ || !row.state_.fields;
-    talk.title = n ? 'Last: ' + day(st.commentary[n - 1].at) : 'No commentary yet';
+    talk.title = n ? 'Last: ' + day(live[n - 1].at) : 'No commentary yet';
     talk.addEventListener('click', () => openCommentary(row));
     cmt.appendChild(talk);
     tr.appendChild(cmt);
@@ -508,25 +509,93 @@ const Dashboard = (function(){
     try { return localStorage.getItem(NAME_KEY) || ''; } catch(e){ return ''; }
   }
 
+  let showDeleted = false;
+  const stampText = iso => new Date(iso).toLocaleString('en-AU', { weekday: 'short', day: '2-digit', month: 'short',
+                                                                  year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const whoAmI = () => bcBy.value.trim() || rememberedName() || signedInName() || '';
+
   function renderThread(list){
+    const all = mergeCommentary(list);
+    const live = all.filter(c => !c.deleted);
+    const gone = all.length - live.length;
     bcThread.innerHTML = '';
-    document.getElementById('bc-count').textContent = list.length ? '(' + list.length + ')' : '';
-    if(!list.length){
-      bcThread.appendChild(el('li', 'bc-empty', 'No commentary yet.'));
-      return;
-    }
+    document.getElementById('bc-count').textContent = live.length ? '(' + live.length + ')' : '';
+    const shown = showDeleted ? all : live;
+    if(!shown.length) bcThread.appendChild(el('li', 'bc-empty', 'No commentary yet.'));
     // newest first: the latest word from the builder is what is being read for
-    list.slice().reverse().forEach(c => {
-      const li = el('li', 'bc-entry');
-      const when = new Date(c.at);
-      li.innerHTML = '<div class="bc-meta"><span class="bc-when">' +
-        escapeHtml(when.toLocaleString('en-AU', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric',
-                                                  hour: '2-digit', minute: '2-digit' })) + '</span>' +
-        (c.from ? '<span class="bc-from">' + escapeHtml(c.from) + '</span>' : '') +
-        (c.by ? '<span class="bc-by">entered by ' + escapeHtml(c.by) + '</span>' : '') + '</div>';
-      li.appendChild(el('div', 'bc-text')).textContent = c.text;
+    shown.slice().reverse().forEach(c => bcThread.appendChild(entryNode(c)));
+    if(gone){
+      const li = el('li', 'bc-gone');
+      const t = el('button', 'link-btn', showDeleted ? 'Hide deleted' : 'Show ' + gone + ' deleted');
+      t.type = 'button';
+      t.addEventListener('click', () => { showDeleted = !showDeleted; renderThread(all); });
+      li.appendChild(t);
       bcThread.appendChild(li);
+    }
+  }
+
+  function entryNode(c){
+    const li = el('li', 'bc-entry' + (c.deleted ? ' deleted' : ''));
+    const meta = el('div', 'bc-meta');
+    meta.innerHTML = '<span class="bc-when">' + escapeHtml(stampText(c.at)) + '</span>' +
+      (c.from ? '<span class="bc-from">' + escapeHtml(c.from) + '</span>' : '') +
+      (c.by ? '<span class="bc-by">entered by ' + escapeHtml(c.by) + '</span>' : '') +
+      (c.editedAt ? '<span class="bc-edited">edited ' + escapeHtml(stampText(c.editedAt)) +
+        (c.editedBy ? ' by ' + escapeHtml(c.editedBy) : '') + '</span>' : '') +
+      (c.deleted ? '<span class="bc-deleted">deleted ' + escapeHtml(stampText(c.deletedAt)) +
+        (c.deletedBy ? ' by ' + escapeHtml(c.deletedBy) : '') + '</span>' : '');
+    li.appendChild(meta);
+    const text = li.appendChild(el('div', 'bc-text'));
+    text.textContent = c.text;
+    if(c.deleted || !Flows.has('logWriteUrl')) return li;
+
+    const acts = meta.appendChild(el('span', 'bc-acts'));
+    const btn = (label, fn) => {
+      const b = acts.appendChild(el('button', 'link-btn', label));
+      b.type = 'button';
+      b.addEventListener('click', fn);
+      return b;
+    };
+    btn('Edit', () => {
+      // edited in place: the text and who it was from
+      li.classList.add('editing');
+      acts.hidden = true;
+      const from = el('input');
+      from.type = 'text';
+      from.value = c.from || '';
+      from.placeholder = 'From';
+      const area = el('textarea');
+      area.value = c.text;
+      const row = el('div', 'bc-edit-acts');
+      const save = row.appendChild(el('button', 'print-btn', 'Save changes'));
+      const cancel = row.appendChild(el('button', 'refresh-btn', 'Cancel'));
+      save.type = cancel.type = 'button';
+      text.replaceWith(el('div', 'bc-edit'));
+      const box = li.querySelector('.bc-edit');
+      box.appendChild(from);
+      box.appendChild(area);
+      box.appendChild(row);
+      area.focus();
+      cancel.addEventListener('click', () => renderThread(Flows.rowStatus(modalRow).commentary));
+      save.addEventListener('click', async () => {
+        const value = area.value.trim();
+        if(!value){ area.focus(); return; }
+        if(value === c.text && from.value.trim() === (c.from || '')){ renderThread(Flows.rowStatus(modalRow).commentary); return; }
+        save.disabled = true;
+        const changed = Object.assign({}, c, { text: value, from: from.value.trim(),
+                                               editedAt: new Date().toISOString(), editedBy: whoAmI() });
+        const st = await updateRow(modalRow, { commentary: [changed] }, bcLine);
+        save.disabled = false;
+        if(st){ renderThread(st.commentary); setLine(bcLine, 'Commentary edited and saved.', 'ok'); }
+      });
     });
+    btn('Delete', async () => {
+      if(!confirm('Delete this commentary from ' + stampText(c.at) + '? It is removed from the thread and from the log.')) return;
+      const gone = Object.assign({}, c, { deleted: true, deletedAt: new Date().toISOString(), deletedBy: whoAmI() });
+      const st = await updateRow(modalRow, { commentary: [gone] }, bcLine);
+      if(st){ renderThread(st.commentary); setLine(bcLine, 'Commentary deleted.', 'ok'); }
+    });
+    return li;
   }
 
   function fillApproval(st){
@@ -544,6 +613,7 @@ const Dashboard = (function(){
       .filter(Boolean).join(' · ');
     document.getElementById('bc-sor-value').textContent = money(Flows.rowValue(row));
     fillApproval(st);
+    showDeleted = false;
     renderThread(st.commentary);
     bcFrom.value = (shownProject && shownProject.attention) ? shownProject.attention +
       (shownProject.headContractor ? ', ' + shownProject.headContractor : '') : '';

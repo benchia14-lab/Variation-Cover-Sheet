@@ -1107,3 +1107,15 @@ input[type=file]{ display:none; }
 .bc-new textarea{ min-height:80px; }
 .bc-hint{ font-size:11px; color:var(--muted); margin-left:10px; }
 @media (max-width: 640px){ .bc-approval-row{ grid-template-columns:1fr; } .modal-head, .modal-body{ padding-left:16px; padding-right:16px; } }
+.bc-acts{ margin-left:auto; display:flex; gap:12px; }
+.bc-acts .link-btn{ font-size:11px; }
+.bc-edited{ font-style:italic; }
+.bc-deleted{ color:#A0402E; font-style:italic; }
+.bc-entry.deleted{ border-left-color:var(--line); background:#F7F5F0 !important; }
+.bc-entry.deleted .bc-text{ color:#9A9284; text-decoration:line-through; }
+.bc-entry.editing{ background:#fff !important; border-left-color:var(--steel); }
+.bc-edit input, .bc-edit textarea{ margin-bottom:8px; }
+.bc-edit textarea{ min-height:80px; }
+.bc-edit-acts{ display:flex; gap:8px; }
+.bc-edit-acts .refresh-btn{ padding:9px 14px; }
+.bc-gone{ padding:8px 12px; border-top:1px solid var(--line-soft); text-align:center; }
