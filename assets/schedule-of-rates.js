@@ -16,9 +16,7 @@ const SCHEDULE_OF_RATES = {
  "title": "Schedule of Rates",
  "source": "Schedule of Rates.xlsx",
  "gstPercent": 10,
- "preamble": [
-  "Note - All rates provided below exclude spotters for EWP works"
- ],
+ "preamble": [],
  "sections": [
   {
    "title": "Prelims",

@@ -150,12 +150,52 @@ const Stages = (function(){
     return (typeof SCOPE_LIBRARY !== 'undefined' && SCOPE_LIBRARY[key]) || [];
   }
 
+  /* A line can carry blanks, written {name} -- the working hours in "After
+     hours works (working hours are {hours})". Each is a box on the line, its
+     value kept with the variation; what prints is the line filled in, and a
+     blank left empty takes its bracket with it. */
+  const BLANK = /\{(\w+)\}/g;
+  const blanksIn = text => (String(text).match(BLANK) || []).map(m => m.slice(1, -1));
+
+  function itemText(item){
+    const values = item.values || {};
+    return String(item.text)
+      .replace(/\s*\(([^()]*)\)/g, (all, inner) =>
+        blanksIn(inner).some(k => !String(values[k] || '').trim()) ? '' : all)
+      .replace(BLANK, (m, k) => String(values[k] || '').trim())
+      .replace(/\s{2,}/g, ' ').trim();
+  }
+
+  // the same line as it was saved before it had a blank: its wording with
+  // whatever stood where the blank now is
+  function matchBlanks(template, text){
+    const parts = String(template).split(BLANK);
+    let pattern = '';
+    const names = [];
+    parts.forEach((part, i) => {
+      if(i % 2) { names.push(part); pattern += '(.*?)'; }
+      else pattern += part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    });
+    const m = new RegExp('^' + pattern + '$').exec(text);
+    if(!m) return null;
+    const values = {};
+    names.forEach((n, i) => { values[n] = m[i + 1]; });
+    return values;
+  }
+
   // every line on offer, none of them chosen: each variation picks its own
   function defaultScope(){
     const items = [];
     GROUPS.forEach(g => {
       libraryLines(g.key).forEach(entry => {
-        items.push({ id: newId(), text: typeof entry === 'string' ? entry : entry.text, group: g.key, state: 'off' });
+        const text = typeof entry === 'string' ? entry : entry.text;
+        const item = { id: newId(), text: text, group: g.key, state: 'off' };
+        const blanks = blanksIn(text);
+        if(blanks.length){
+          item.values = {};
+          blanks.forEach(k => { item.values[k] = (typeof entry === 'object' && entry[k]) || ''; });
+        }
+        items.push(item);
       });
     });
     return items;
@@ -201,7 +241,7 @@ const Stages = (function(){
   function renderScopeList(){
     const q = scopeSearch.value.trim().toLowerCase();
     const matches = item => {
-      if(q && item.text.toLowerCase().indexOf(q) === -1) return false;
+      if(q && itemText(item).toLowerCase().indexOf(q) === -1) return false;
       if(scopeFilter === 'all') return true;
       if(scopeFilter === 'on') return item.state !== 'off';
       return item.state === scopeFilter;
@@ -228,11 +268,39 @@ const Stages = (function(){
 
       shown.forEach(item => {
         const row = el('div', 'scope-item st-' + item.state);
-        const text = el('button', 'si-text');
-        text.type = 'button';
+        let text;
+        if(item.values){
+          // the wording, with a box where each blank goes
+          text = el('div', 'si-text si-template');
+          String(item.text).split(BLANK).forEach((part, i) => {
+            if(i % 2 === 0){
+              if(!part) return;
+              const span = el('span');
+              span.textContent = part;
+              span.addEventListener('click', () => cycleItem(item));
+              text.appendChild(span);
+              return;
+            }
+            const box = el('input', 'si-fill');
+            box.type = 'text';
+            box.value = item.values[part] || '';
+            box.placeholder = part;
+            box.size = Math.max(10, box.value.length + 3);
+            box.title = 'Change for this variation';
+            box.addEventListener('input', () => {
+              item.values[part] = box.value;
+              box.size = Math.max(10, box.value.length + 3);
+              renderScopePreview();
+            });
+            text.appendChild(box);
+          });
+        } else {
+          text = el('button', 'si-text');
+          text.type = 'button';
+          text.textContent = item.text;
+          text.addEventListener('click', () => cycleItem(item));
+        }
         text.title = 'Click to change';
-        text.textContent = item.text;
-        text.addEventListener('click', () => cycleItem(item));
         row.appendChild(text);
 
         const actions = el('div', 'si-actions');
@@ -281,7 +349,7 @@ const Stages = (function(){
       if(!list.length) return;
       const items = list.map(i => {
         const d = el('div', 'scope-line');
-        d.textContent = i.text;
+        d.textContent = itemText(i);
         return d;
       });
       blocks.push({ heading: g.title, items: items });
@@ -1596,7 +1664,8 @@ const Stages = (function(){
 
   function collect(){
     return {
-      scope: scopeItems.map(i => ({ text: i.text, group: i.group, state: i.state, custom: !!i.custom })),
+      scope: scopeItems.map(i => Object.assign({ text: i.text, group: i.group, state: i.state, custom: !!i.custom },
+        i.values ? { values: Object.assign({}, i.values) } : {})),
       rates: collectRates(),
       valueExGst: Math.round(computeRates().exGst * 100) / 100
     };
@@ -1605,10 +1674,19 @@ const Stages = (function(){
   // a variation saved before these stages existed comes back with the defaults
   function apply(saved){
     scopeItems = (saved && Array.isArray(saved.scope))
-      ? saved.scope.map(i => ({ id: newId(), text: i.text, group: i.group,
-          // a qualification "added" before they could be included or excluded
-          // printed as an exclusion note, so that is what it becomes
-          state: i.state === 'qual' ? 'out' : i.state, custom: !!i.custom }))
+      ? saved.scope.map(i => {
+          const item = { id: newId(), text: i.text, group: i.group,
+            // a qualification "added" before they could be included or excluded
+            // printed as an exclusion note, so that is what it becomes
+            state: i.state === 'qual' ? 'out' : i.state, custom: !!i.custom };
+          if(i.values) item.values = Object.assign({}, i.values);
+          // saved before its line had a blank: the same line, with what it said
+          if(!item.values && !item.custom){
+            const now = defaultScope().find(d => d.group === item.group && d.values && matchBlanks(d.text, item.text));
+            if(now){ item.values = matchBlanks(now.text, item.text); item.text = now.text; }
+          }
+          return item;
+        })
       : defaultScope();
     // lines the library has gained since it was saved are offered, unselected
     defaultScope().forEach(d => {

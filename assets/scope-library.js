@@ -12,6 +12,10 @@
    rates workbook) are one dropdown, Inclusions & Exclusions; the general
    notes are a second.
 
+   A line can carry a blank to fill in for each variation, written {name},
+   with its starting value given beside the text -- see the working hours
+   under general.
+
    TO EDIT: add, remove or reword lines below. Keep each line one sentence —
    it prints as one bullet. Lines typed in the app for a single variation are
    saved with that variation, not here.
@@ -86,7 +90,9 @@ const SCOPE_LIBRARY = {
   ],
 
   general: [
-    'After hours works (working hours are Mon–Fri 6:30am–2:30pm)',
+    // {hours} is a box on the line, filled with this default and changed for
+    // the variation; left empty, the bracket is left off the printed line
+    { text: 'After hours works (working hours are {hours})', hours: 'Mon–Fri 6:30am–2:30pm' },
     'Any works not shown as included',
     'Validity of quote after 60 days'
   ]
