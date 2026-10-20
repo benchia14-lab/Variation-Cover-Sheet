@@ -84,18 +84,35 @@ def _safe_url(value, name):
     return text
 
 
+def _urls_in_repository():
+    """The URLs assets/flow-config.js in the repository carries, by key."""
+    import re
+    path = ROOT / 'assets' / 'flow-config.js'
+    if not path.exists():
+        return {}
+    return dict(re.findall(r"^\s*(\w+):\s*'([^']*)'", path.read_text(encoding='utf-8'), re.M))
+
+
 def flow_config_from_env():
-    """flow-config.js built from the environment, or None if none is set."""
+    """flow-config.js built from the environment, or None if none is set.
+
+    A flow the environment does not set keeps the URL embedded in the
+    repository's copy, so adding one variable on Netlify never blanks the
+    others, and a URL embedded in the repository is never lost to a build."""
     import os
     found = {key: _safe_url(os.environ.get(name), name) for key, name in ENV_FLOWS}
     if not any(found.values()):
         return None
+    embedded = _urls_in_repository()
+    for key, name in ENV_FLOWS:
+        if not found[key]:
+            found[key] = _safe_url(embedded.get(key), 'flow-config.js ' + key)
     lines = []
     for i, (key, _) in enumerate(ENV_FLOWS):
         comma = ',' if i < len(ENV_FLOWS) - 1 else ''
         lines.append("  %s: '%s'%s" % (key, found[key], comma))
-    return ('/* Generated at build time from this site\'s environment variables.\n'
-            ' * Nothing here is in the repository: the values come from Netlify.\n'
+    return ('/* Generated at build time from this site\'s environment variables,\n'
+            ' * with the repository\'s copy filling any flow they do not set.\n'
             ' */\n'
             'const FLOW_URLS = {\n' + '\n'.join(lines) + '\n};\n')
 
