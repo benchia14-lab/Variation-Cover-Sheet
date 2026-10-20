@@ -19,8 +19,8 @@ them are made — they decide how much it can show and how fast.
 
 | Change | Without it | With it |
 |---|---|---|
-| 1 · Four new columns in the Variation Log list | Values and statuses still show — they are read from each row's saved form | They are real columns: visible, sortable and totalled in SharePoint and Excel |
-| 2 · Map them in the log **write** flow (flow 5) | The columns stay empty | Every save and every status change fills them |
+| 1 · Five new columns in the Variation Log list | Values, statuses, approvals and commentary still show — they are read from each row's saved form | They are real columns: visible, sortable and totalled in SharePoint and Excel |
+| 2 · Map them in the log **write** flow (flow 5) | The columns stay empty | Every save, status change, approval and comment fills them |
 | 3 · One expression in the log **read** flow (flow 4) | The projects page asks the log once per project | One call per office |
 
 ---
@@ -31,8 +31,29 @@ them are made — they decide how much it can show and how fast.
 |---|---|
 | **Draft** | A variation saved to the log but never downloaded |
 | **Submitted** | Automatically, the first time its PDF is downloaded |
-| **Approved** | On the dashboard. The approved value fills in as the variation's value, and the date as today — both can be changed |
-| **Rejected** | On the dashboard |
+| **Approved** | On the dashboard — the status list in the table, or the **Builder commentary** window |
+| **Rejected** | The same |
+
+### Approved value and date
+
+Entered by hand in the **Builder commentary** window, from what the builder
+actually approved. They are **not** taken from the schedule of rates — the
+window shows the schedule's figure beside them for reference only. The
+dashboard's *Approved* total adds up the approved values entered, and says how
+many approved variations do not have one yet.
+
+### Builder commentary
+
+**Builder commentary** on each row opens a window with the variation's thread:
+every entry timestamped when it is added, with who it is from (the builder's
+contact) and who entered it (your name, remembered on this computer, or the
+signed-in Microsoft account). Each entry is saved to the log as soon as it is
+added. Entries are never edited or removed, only added.
+
+Two people can add commentary to the same variation at once without losing
+each other's: the window reads the row again just before it saves and merges
+the two threads. A revision has a thread of its own; the original's stays with
+the original.
 
 A **revision** (`VAR-001.1`) is a new submission, so it starts again at Draft.
 Totals count each variation once, at its latest revision; earlier revisions are
@@ -44,7 +65,7 @@ have no value and show **—** until they are reopened and saved again.
 
 ---
 
-## 1 · Add four columns to the Variation Log list
+## 1 · Add five columns to the Variation Log list
 
 In the list: **+ Add column**, one at a time. Type the name exactly as shown —
 no spaces — so the internal name is clean; rename the display name afterwards
@@ -56,6 +77,7 @@ if you like.
 | `ValueExGst` | **Currency** (or Number, 2 decimals) | |
 | `ApprovedValue` | **Currency** (or Number, 2 decimals) | |
 | `ApprovedDate` | **Date and time**, *Date only* | |
+| `BuilderCommentary` | **Multiple lines of text**, *plain text* | The whole thread as readable text, newest last |
 
 `registers/Variation Log.xlsx` lists them with the rest.
 
@@ -66,7 +88,7 @@ if you like.
 ## 2 · Map them in flow 5 (the log write)
 
 The app already sends them. Open flow 5 and, in **both** the *Update item*
-(If yes) and the *Create item* (If no), fill the four new fields:
+(If yes) and the *Create item* (If no), fill the five new fields:
 
 | Column | Value |
 |---|---|
@@ -74,6 +96,7 @@ The app already sends them. Open flow 5 and, in **both** the *Update item*
 | ValueExGst | `@{outputs('Incoming')?['valueExGst']}` |
 | ApprovedValue | `@{outputs('Incoming')?['approvedValue']}` |
 | ApprovedDate | `@{outputs('Incoming')?['approvedDate']}` |
+| BuilderCommentary | `@{outputs('Incoming')?['builderCommentary']}` |
 
 Type each one in through the **expression editor (fx)** without the `@{ }`
 — e.g. `outputs('Incoming')?['status']` — so it goes in as an expression,
@@ -131,7 +154,7 @@ run for the page rather than one per project.
 
 ## What the app sends now
 
-Flow 5 receives four more fields with every write:
+Flow 5 receives five more fields with every write:
 
 | Field | Example |
 |---|---|
@@ -139,6 +162,7 @@ Flow 5 receives four more fields with every write:
 | `valueExGst` | `2440` (a number), or `null` when nothing is priced |
 | `approvedValue` | `2440`, or `null` |
 | `approvedDate` | `2026-10-20`, or `null` |
+| `builderCommentary` | `20 Oct 2026, 09:15 am — Glen O'Connor, Kapitol (entered by Ben Smith):` and the text, one entry after another |
 
 Flow 4 additionally receives `"action": "listState"` with an empty `projectId`
 from the projects page. The variation log's row shape in its reply is
