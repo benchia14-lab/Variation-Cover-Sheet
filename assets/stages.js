@@ -114,17 +114,32 @@ const Stages = (function(){
      STAGE 2 · INCLUSIONS & EXCLUSIONS
   ======================================================================== */
 
-  // Inclusions and exclusions can be moved to either side; the last two
-  // groups are notes, which are either on the variation or not (`single`).
-  // The qualifications are the schedule of rates' own, so they stay in step
-  // with the workbook they came from.
+  // Where each line comes from. The qualifications are the schedule of rates'
+  // own, so they stay in step with the workbook they came from. General notes
+  // are either on the variation or not (`single`); every other line can be
+  // included or excluded.
   const GROUPS = [
-    { key: 'inclusions', title: 'Inclusions', print: 'in' },
-    { key: 'exclusions', title: 'Exclusions', print: 'out' },
-    { key: 'general', title: 'General', print: 'gen', single: 'gen' },
-    { key: 'qualifications', title: 'Exclusions / Qualifications', print: 'qual', single: 'qual' }
+    { key: 'inclusions' },
+    { key: 'exclusions' },
+    { key: 'qualifications' },
+    { key: 'general', single: 'gen' }
   ];
   const groupOf = key => GROUPS.find(g => g.key === key) || GROUPS[0];
+
+  // How the list is shown: one dropdown for everything that can be included
+  // or excluded, whichever list it came from, and one for the general notes.
+  const LIST_GROUPS = [
+    { key: 'scope', title: 'Inclusions & Exclusions', members: ['inclusions', 'exclusions', 'qualifications'] },
+    { key: 'general', title: 'General', members: ['general'] }
+  ];
+  const listGroupOf = group => LIST_GROUPS.find(g => g.members.indexOf(group) !== -1) || LIST_GROUPS[0];
+
+  // How it prints: under the heading its state puts it, not its origin
+  const PRINT_HEADINGS = [
+    { print: 'in', title: 'Inclusions' },
+    { print: 'out', title: 'Exclusions' },
+    { print: 'gen', title: 'General' }
+  ];
 
   let scopeItems = [];
   let scopeFilter = 'all';
@@ -154,7 +169,7 @@ const Stages = (function(){
       in: scopeItems.filter(i => i.state === 'in'),
       out: scopeItems.filter(i => i.state === 'out'),
       gen: scopeItems.filter(i => i.state === 'gen'),
-      qual: scopeItems.filter(i => i.state === 'qual')
+      qual: []
     };
   }
 
@@ -193,8 +208,8 @@ const Stages = (function(){
     };
     const scrollAt = scopeList.closest('.form-side').scrollTop;
     scopeList.innerHTML = '';
-    GROUPS.forEach(g => {
-      const items = scopeItems.filter(i => i.group === g.key);
+    LIST_GROUPS.forEach(g => {
+      const items = scopeItems.filter(i => g.members.indexOf(i.group) !== -1);
       const shown = items.filter(matches);
       if(!shown.length) return;
       // a search or a filter opens every group it finds something in
@@ -261,7 +276,7 @@ const Stages = (function(){
   function scopeBlocks(){
     const p = scopePrinted();
     const blocks = [];
-    GROUPS.forEach(g => {
+    PRINT_HEADINGS.forEach(g => {
       const list = p[g.print];
       if(!list.length) return;
       const items = list.map(i => {
@@ -310,7 +325,7 @@ const Stages = (function(){
       if(!text){ scopeNew.focus(); return; }
       const state = b.getAttribute('data-add');
       const group = state === 'in' ? 'inclusions' : state === 'out' ? 'exclusions' : 'general';
-      openGroups[group] = true;
+      openGroups[listGroupOf(group).key] = true;
       // added at the end of its group, where it will print
       const lastOfGroup = scopeItems.map(i => i.group).lastIndexOf(group);
       scopeItems.splice(lastOfGroup + 1, 0, { id: newId(), text: text, group: group, state: state, custom: true });
@@ -325,8 +340,8 @@ const Stages = (function(){
     renderScope();
   });
   document.getElementById('scope-expand').addEventListener('click', () => {
-    const anyClosed = GROUPS.some(g => !openGroups[g.key]);
-    GROUPS.forEach(g => { openGroups[g.key] = anyClosed; });
+    const anyClosed = LIST_GROUPS.some(g => !openGroups[g.key]);
+    LIST_GROUPS.forEach(g => { openGroups[g.key] = anyClosed; });
     renderScopeList();
   });
   document.getElementById('scope-clear').addEventListener('click', () => {
@@ -364,7 +379,8 @@ const Stages = (function(){
       id: newId(),
       name: name,
       measured: {},          // key -> { section, d, u, r, r0, c, add, ded }
-      percents: {},          // key -> { section, d, percent }
+      percents: {},          // key -> { section, d, percent }, the prelims applied
+      pct: {},               // key -> the percentage typed for a prelim, applied or not
       extras: [],            // { id, d, c, u, r, add, ded }
       notes: ''
     };
@@ -408,8 +424,9 @@ const Stages = (function(){
     if(extras.length) sections.push({ title: 'Additional Items', lines: extras, total: extras.reduce((n, l) => n + l.amount, 0) });
 
     const works = sections.reduce((n, s) => n + s.total, 0);
+    // prelims: each a percentage of the measured works, never of each other
     const percents = Object.keys(sch.percents).map(k => sch.percents[k])
-      .map(p => ({ d: p.d, percent: p.percent, amount: works * p.percent / 100 }));
+      .map(p => ({ d: p.d, section: p.section, percent: num(p.percent), amount: works * num(p.percent) / 100 }));
     const exGst = works + percents.reduce((n, p) => n + p.amount, 0);
     return { schedule: sch, sections: sections, works: works, percents: percents, exGst: exGst };
   }
@@ -545,16 +562,45 @@ const Stages = (function(){
     desc.appendChild(el('span', 'sor-d')).textContent = l.d;
 
     if(l.percent !== undefined){
+      // A prelim: a percentage of the measured works on this schedule, typed
+      // for this variation and applied with the tick. The workbook's figure,
+      // if it has one, is only where it starts.
       row.classList.add('sor-row-pct');
-      desc.appendChild(el('span', 'sor-meta', qtyText(l.percent) + '% of the measured works on this schedule'));
+      desc.appendChild(el('span', 'sor-meta', '% of the measured works on this schedule' +
+        (l.percent !== null ? ' · usually ' + qtyText(l.percent) + '%' : '')));
       row.appendChild(desc);
+      const applied = () => rates.percents[k];
+      const startAt = applied() ? applied().percent
+        : rates.pct[k] !== undefined ? rates.pct[k] : (l.percent !== null ? l.percent : '');
+      const pctBox = el('div', 'sor-pct');
+      const pct = textInput(startAt, '0', 'mono-input sor-r', v => {
+        rates.pct[k] = v;
+        pct.classList.remove('field-invalid');
+        if(applied()) applied().percent = num(v);
+        updateRates();
+      });
+      pct.inputMode = 'decimal';
+      pctBox.appendChild(pct);
+      pctBox.appendChild(el('span', 'sor-pct-sign', '%'));
+      row.appendChild(pctBox);
       const lab = el('label', 'sor-apply');
       const cb = el('input');
       cb.type = 'checkbox';
-      cb.checked = !!rates.percents[k];
+      cb.checked = !!applied();
       cb.addEventListener('change', () => {
-        if(cb.checked) rates.percents[k] = { section: s.title, d: l.d, percent: l.percent };
-        else delete rates.percents[k];
+        if(cb.checked){
+          if(!(num(pct.value) > 0)){
+            // nothing to apply yet: say where the percentage goes
+            cb.checked = false;
+            pct.classList.add('field-invalid');
+            pct.focus();
+            return;
+          }
+          rates.percents[k] = { section: s.title, d: l.d, percent: num(pct.value) };
+        } else {
+          rates.pct[k] = pct.value;
+          delete rates.percents[k];
+        }
         row.classList.toggle('on', cb.checked);
         updateRates();
       });
@@ -614,6 +660,8 @@ const Stages = (function(){
   }
 
   const ROW_HEAD = '<div>Description</div><div>Comment</div><div class="r">Rate</div><div>Add</div><div>Ded</div><div class="r">Total</div>';
+  const PCT_HEAD = '<div>Description</div><div class="r">Percentage</div><div>Apply</div><div class="r">Total</div>';
+  const isPrelims = s => s.lines.length > 0 && s.lines.every(l => l.percent !== undefined);
 
   function buildRatesEditor(){
     const q = sorSearch.value.trim().toLowerCase();
@@ -642,7 +690,9 @@ const Stages = (function(){
       const count = measuredIn(s);
       head.innerHTML = '<span class="sor-caret">' + (open ? '▾' : '▸') + '</span>' +
         '<span class="sor-title">' + escapeHtml(s.title) + '</span>' +
-        '<span class="sor-count">' + (count ? count + ' measured' : s.lines.length + ' rates') + '</span>' +
+        '<span class="sor-count">' + (isPrelims(s)
+          ? (count ? count + ' applied' : s.lines.length + ' items')
+          : (count ? count + ' measured' : s.lines.length + ' rates')) + '</span>' +
         '<span class="sor-sec-total" data-sec="' + escapeHtml(s.title) + '"></span>';
       head.addEventListener('click', () => {
         openSections[s.title] = !open;
@@ -654,8 +704,16 @@ const Stages = (function(){
       if(open){
         if(s.note) box.appendChild(el('div', 'sor-note')).textContent = s.note;
         const grid = el('div', 'sor-grid');
-        grid.appendChild(el('div', 'sor-row sor-row-head', ROW_HEAD));
-        lines.forEach(l => grid.appendChild(scheduleRow(s, l)));
+        grid.appendChild(el('div', 'sor-row sor-row-head' + (isPrelims(s) ? ' sor-row-pct' : ''), isPrelims(s) ? PCT_HEAD : ROW_HEAD));
+        let group = null;
+        lines.forEach(l => {
+          // a line's group, where it has one, heads the lines that share it
+          if(l.group && l.group !== group){
+            grid.appendChild(el('div', 'sor-subhead')).textContent = l.group;
+            group = l.group;
+          }
+          grid.appendChild(scheduleRow(s, l));
+        });
         box.appendChild(grid);
       }
       sorSections.appendChild(box);
@@ -716,7 +774,7 @@ const Stages = (function(){
   // the totals of one schedule
   function scheduleRows(c){
     const rows = [['Measured works', c.works]];
-    c.percents.forEach(p => rows.push([p.d, p.amount]));
+    c.percents.forEach(p => rows.push([p.d + ' (' + qtyText(p.percent) + '%)', p.amount]));
     rows.push([(c.schedule.name || 'Schedule') + ' total (ex GST)', c.exGst, 'strong']);
     return rows;
   }
@@ -745,11 +803,13 @@ const Stages = (function(){
     });
     sorSections.querySelectorAll('[data-pct]').forEach(cell => {
       const p = rates.percents[cell.getAttribute('data-pct')];
-      cell.textContent = p ? money(c.works * p.percent / 100) : '—';
+      cell.textContent = p ? money(c.works * num(p.percent) / 100) : '—';
     });
     sorSections.querySelectorAll('[data-sec]').forEach(cell => {
-      const sec = c.sections.find(s => s.title === cell.getAttribute('data-sec'));
-      cell.textContent = sec ? money(sec.total) : '';
+      const title = cell.getAttribute('data-sec');
+      const sec = c.sections.find(s => s.title === title);
+      const prelims = c.percents.filter(p => p.section === title).reduce((n, p) => n + p.amount, 0);
+      cell.textContent = sec ? money(sec.total) : prelims ? money(prelims) : '';
     });
     sorExtras.querySelectorAll('[data-extra]').forEach(cell => {
       const e = rates.extras.find(x => x.id === cell.getAttribute('data-extra'));
@@ -903,6 +963,7 @@ const Stages = (function(){
         name: sch.name,
         measured: Object.keys(sch.measured).map(k => sch.measured[k]),
         percents: Object.keys(sch.percents).map(k => sch.percents[k]),
+        pct: Object.assign({}, sch.pct),
         extras: sch.extras.map(e => ({ d: e.d, c: e.c, u: e.u, r: e.r, add: e.add, ded: e.ded })),
         notes: sch.notes
       }))
@@ -918,10 +979,24 @@ const Stages = (function(){
       if(m.c === undefined) m.c = '';
       sch.measured[keyOf(e.section, e.d)] = m;
     });
-    (saved.percents || []).forEach(p => { sch.percents[keyOf(p.section, p.d)] = Object.assign({}, p); });
+    (saved.percents || []).forEach(p => {
+      const kept = Object.assign({}, p);
+      // saved before there was a Prelims section: the same allowance, now
+      // listed there and without its "(5%)", is the one that was applied
+      const prelim = findPrelim(p.d);
+      if(prelim && p.section !== 'Prelims'){ kept.section = 'Prelims'; kept.d = prelim.d; }
+      sch.percents[keyOf(kept.section, kept.d)] = kept;
+    });
+    Object.assign(sch.pct, saved.pct || {});
     sch.extras = (saved.extras || []).map(e => Object.assign({ id: newId() }, e, { c: e.c || '' }));
     sch.notes = saved.notes || '';
     return sch;
+  }
+
+  function findPrelim(desc){
+    const bare = d => String(d || '').replace(/\s*\(\s*[\d.]+\s*%\s*\)\s*$/, '').trim().toLowerCase();
+    const s = SOR.sections.find(x => x.title === 'Prelims');
+    return s ? s.lines.find(l => bare(l.d) === bare(desc)) : null;
   }
 
   function applyRates(saved){
@@ -1530,7 +1605,10 @@ const Stages = (function(){
   // a variation saved before these stages existed comes back with the defaults
   function apply(saved){
     scopeItems = (saved && Array.isArray(saved.scope))
-      ? saved.scope.map(i => ({ id: newId(), text: i.text, group: i.group, state: i.state, custom: !!i.custom }))
+      ? saved.scope.map(i => ({ id: newId(), text: i.text, group: i.group,
+          // a qualification "added" before they could be included or excluded
+          // printed as an exclusion note, so that is what it becomes
+          state: i.state === 'qual' ? 'out' : i.state, custom: !!i.custom }))
       : defaultScope();
     // lines the library has gained since it was saved are offered, unselected
     defaultScope().forEach(d => {

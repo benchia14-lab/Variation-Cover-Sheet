@@ -13,7 +13,10 @@ a unit and a rate is a line in the current section. Everything under the
 
 A rate below 1 against a unit of "item" is a percentage (0.05 is 5%) and is
 applied to the measured works, which is what "Design, Co-Ordination ... (5%)"
-means in the sheet.
+means in the sheet. Every such line is moved into a Prelims section at the
+top, with the percentage as its starting value (the "(5%)" in its wording is
+dropped, since the percentage can be changed for a variation), followed by
+the lines in PRELIM_LINES below, which start with no percentage.
 
 Rates are copied, never retyped: re-run this whenever the workbook changes and
 commit the result.
@@ -46,6 +49,13 @@ HEADER = '''/* =================================================================
 ============================================================================ */
 
 '''
+
+
+# Prelims the workbook does not carry, each one line applied as a percentage
+# of the measured works, chosen per variation. Worded like the workbook's own
+# design allowance: one line naming everything it covers. Edit and re-run.
+PRELIM_LINES = ['Overheads - Equipment Hire, Labour Hire, Fire Rating and Treatment, '
+                'Siphonic Design, Seismic Etc']
 
 
 def clean(value):
@@ -99,6 +109,22 @@ def main(path):
         if ref is not None:
             line['ref'] = str(ref).strip()
         current['lines'].append(line)
+
+    # every percentage line, wherever the workbook put it, becomes a prelim
+    prelims = []
+    for s in sections:
+        keep = []
+        for line in s['lines']:
+            if 'percent' in line:
+                d = re.sub(r'\s*\(\s*[\d.]+\s*%\s*\)\s*$', '', line['d']).strip()
+                prelims.append(dict(line, d=d))
+            else:
+                keep.append(line)
+        s['lines'] = keep
+    prelims += [{'d': name, 'u': '%', 'percent': None} for name in PRELIM_LINES]
+    sections.insert(0, {'title': 'Prelims',
+                        'note': 'Each applied as a percentage of the measured works on this schedule',
+                        'lines': prelims})
 
     sections = [s for s in sections if s['lines']]
     data = {

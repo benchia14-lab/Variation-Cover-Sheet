@@ -21,6 +21,22 @@ const SCHEDULE_OF_RATES = {
  ],
  "sections": [
   {
+   "title": "Prelims",
+   "note": "Each applied as a percentage of the measured works on this schedule",
+   "lines": [
+    {
+     "d": "Design, Co-Ordination, Modelling, Asbuilts Etc",
+     "u": "%",
+     "percent": 5.0
+    },
+    {
+     "d": "Overheads - Equipment Hire, Labour Hire, Fire Rating and Treatment, Siphonic Design, Seismic Etc",
+     "u": "%",
+     "percent": null
+    }
+   ]
+  },
+  {
    "title": "Labour Rates - For revised Program",
    "note": "",
    "lines": [
@@ -71,11 +87,6 @@ const SCHEDULE_OF_RATES = {
      "u": "hrs",
      "r": 329,
      "ref": "14"
-    },
-    {
-     "d": "Design, Co-Ordination, Modelling, Asbuilts Etc (5%)",
-     "u": "%",
-     "percent": 5.0
     }
    ]
   },

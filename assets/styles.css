@@ -213,6 +213,10 @@ input[type=file]{ display:none; }
 .co-detail-row .k{ flex:0 0 auto; color:var(--muted); font-weight:600; text-align:left; }
 .co-detail-row .v{ flex:0 0 auto; max-width:100%; margin-left:auto; color:var(--ink); text-align:right; overflow-wrap:anywhere; }
 .co-detail-more{ color:var(--ink); text-align:right; white-space:pre-line; margin:-2px 0 2px; }
+/* The email always takes the line under its label, flush right: most
+   addresses are wider than the company name allows beside it, and every
+   letterhead should look the same whichever email it carries. */
+.co-detail-row.email-row .v{ flex-basis:100%; }
 .co-detail-row.email-row{ border-top:1px solid var(--line-soft); padding-top:4px; margin-top:4px; }
 
 /* body */
@@ -710,9 +714,14 @@ input[type=file]{ display:none; }
 @media (max-width: 1180px){ .app.app-wide{ grid-template-columns: 1fr 1fr; } }
 @media (max-width: 980px){ .app.app-wide{ grid-template-columns: 1fr; } }
 .stage .form-side{ min-height:calc(100vh - 56px); }
-/* the list scrolls, the preview stays put beside it */
+/* Two panes, each scrolling on its own: the form on the left moves, the
+   preview on the right stays in view, on the cover sheet and every stage.
+   The page itself no longer scrolls, so the preview cannot be scrolled away.
+   Below 981px the columns stack and the page scrolls as one, as before. */
 @media (min-width: 981px){
-  .stage .preview-side{ position:sticky; top:56px; height:calc(100vh - 56px); overflow-y:auto; }
+  #view-editor, .app.stage{ height:calc(100vh - 56px); min-height:0; overflow:hidden; align-items:stretch; }
+  #view-editor > .form-side, .app.stage > .form-side{ height:100%; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
+  #view-editor > .preview-side, .app.stage > .preview-side{ position:static; height:100%; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
 }
 .stage-nav{
   display:flex; justify-content:space-between; align-items:center; gap:10px;
@@ -820,7 +829,11 @@ input[type=file]{ display:none; }
 .sor-q{ text-align:right; }
 .sor-amount{ font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--ink); }
 .sor-amount.neg{ color:#A0402E; }
-.sor-row-pct{ grid-template-columns: minmax(0,1fr) 134px 88px; }
+.sor-row-pct{ grid-template-columns: minmax(0,1fr) 92px 84px 88px; }
+.sor-pct{ position:relative; }
+.sor-pct input{ padding-right:22px; }
+.sor-pct-sign{ position:absolute; right:8px; top:50%; transform:translateY(-50%); font-size:12px; color:var(--muted); pointer-events:none; }
+.sor-subhead{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--steel-dark); padding:10px 6px 4px; }
 .sor-c{ font-size:12px; }
 .sor-c:not(:placeholder-shown){ background:#FFFBEA; border-color:#E0C48A; }
 .sor-r{ text-align:right; }
@@ -971,6 +984,7 @@ input[type=file]{ display:none; }
 
 @media print{
   .stepper{ display:none !important; }
+  #view-editor, .app.stage, .app > .form-side, .app > .preview-side{ height:auto !important; overflow:visible !important; }
   /* the print rules above force .app to show; a stage that is not open must not */
   .app[hidden]{ display:none !important; }
 }
