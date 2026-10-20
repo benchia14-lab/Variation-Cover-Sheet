@@ -48,10 +48,10 @@ own; it is stage 1 of five, shown in the step bar along the top:
 | Stage | What happens |
 |---|---|
 | 1 · Cover sheet | The letter, as above |
-| 2 · Inclusions & exclusions | The standard list (`assets/scope-library.js`) down the left. Click **Include** or **Exclude** on each line, or click it again to leave it off; lines can be added for one variation. The preview prints them under Inclusions, Exclusions and General |
-| 3 · Schedule of rates | The master schedule (`assets/schedule-of-rates.js`, generated from `registers/Schedule of Rates.xlsx`). Search it, enter **Add** and **Ded** quantities, and Diff × Rate is totalled per section, plus the 5% design item when applied, then GST. Only measured lines print. Items not in the schedule go under *Additional items* with their own rate. The total also prints on the cover sheet as *Variation Value* |
+| 2 · Inclusions & exclusions | Every line on offer, none selected to start with, in four collapsible groups: Inclusions and Exclusions (`assets/scope-library.js`), General, and the schedule of rates' own Exclusions / Qualifications. Open a group and click **Include** or **Exclude** on a line (or **Add** for the notes); click again to leave it off. Lines can be added for one variation |
+| 3 · Schedule of rates | The master schedule (`assets/schedule-of-rates.js`, generated from `registers/Schedule of Rates.xlsx`). Search it, enter **Add** and **Ded** quantities, and Diff × Rate is totalled per section, plus the 5% design item when applied, then GST. Only measured lines print; its exclusions and qualifications are chosen in stage 2. Items not in the schedule go under *Additional items* with their own rate. The total also prints on the cover sheet as *Variation Value* |
 | 4 · Documentation | **A · Drawings & markups** and **B · Approval & correspondence**: PDFs, images, and emails saved as `.eml`. A screenshot can be pasted straight in with Ctrl+V. Each gets a title and can be reordered |
-| 5 · Review & download | The finished PDF in full, with a checklist of each stage. **Download PDF** saves exactly what is shown and files it, as before |
+| 5 · Review & download | Every page of the finished PDF, drawn in the page with pdf.js (not the browser's PDF viewer, which is blocked or blank in too many setups), with a checklist of each stage. **Download PDF** saves exactly what is shown and files it, as before |
 
 The PDF is one document: the letter, then the inclusions and exclusions, the
 schedule of rates, and an index page per attachment section followed by the

@@ -175,6 +175,7 @@ def build(flow_config=None, settings_password=None):
         '<style>\n' + css + '\n</style>')
 
     for rel in ['vendor/html2pdf.bundle.min.js', 'vendor/pdf-lib.min.js',
+                'vendor/pdf.min.js', 'vendor/pdf.worker.min.js',
                 'assets/settings-password.js',
                 'assets/settings-lock.js', 'assets/logo.js',
                 'assets/state-register.js', 'assets/flow-config.js', 'assets/flow-urls.js',

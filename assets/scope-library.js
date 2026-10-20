@@ -2,21 +2,22 @@
    SCOPE LIBRARY — the standard inclusions, exclusions and general notes
    ============================================================================
 
-   Stage 2 of a variation lists every line below down the left-hand column.
-   Each one can be clicked to Include or Exclude it on this variation, or left
-   out altogether; the preview shows the result as it will print.
+   Stage 2 of a variation offers every line below, grouped and collapsible,
+   with none of them selected: each one is clicked to Include or Exclude it on
+   that variation, or left off. A line can be printed on either side, whichever
+   list it is written under here.
 
-   An item starts on the side of the list it is written under here, so the
-   standard wording is already in place and only the exceptions need clicking.
-   Anything with `start: 'off'` begins unselected.
+   The fourth group in the app, Exclusions / Qualifications, is not here: it is
+   the schedule of rates' own notes (assets/schedule-of-rates.js), so it stays
+   in step with the rates workbook.
 
    TO EDIT: add, remove or reword lines below. Keep each line one sentence —
    it prints as one bullet. Lines typed in the app for a single variation are
    saved with that variation, not here.
 
    "Passive Fire to Hydraulic Services" was supplied under both inclusions and
-   exclusions. It is listed once and starts unselected, so it is a deliberate
-   choice on every variation rather than a contradiction on the page.
+   exclusions. It is listed once; it can be excluded from the inclusions group
+   like any other line.
 ============================================================================ */
 
 const SCOPE_LIBRARY = {
@@ -44,7 +45,7 @@ const SCOPE_LIBRARY = {
     'Submission and documentation of as-builts',
     'NDD excavation',
     'Spotters',
-    { text: 'Passive fire to hydraulic services', start: 'off' }
+    'Passive fire to hydraulic services'
   ],
 
   exclusions: [

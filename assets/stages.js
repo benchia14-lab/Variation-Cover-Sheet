@@ -114,23 +114,33 @@ const Stages = (function(){
      STAGE 2 · INCLUSIONS & EXCLUSIONS
   ======================================================================== */
 
+  // Inclusions and exclusions can be moved to either side; the last two
+  // groups are notes, which are either on the variation or not (`single`).
+  // The qualifications are the schedule of rates' own, so they stay in step
+  // with the workbook they came from.
   const GROUPS = [
     { key: 'inclusions', title: 'Inclusions', print: 'in' },
     { key: 'exclusions', title: 'Exclusions', print: 'out' },
-    { key: 'general', title: 'General', print: 'gen' }
+    { key: 'general', title: 'General', print: 'gen', single: 'gen' },
+    { key: 'qualifications', title: 'Exclusions / Qualifications', print: 'qual', single: 'qual' }
   ];
-  const DEFAULT_STATE = { inclusions: 'in', exclusions: 'out', general: 'gen' };
+  const groupOf = key => GROUPS.find(g => g.key === key) || GROUPS[0];
 
   let scopeItems = [];
   let scopeFilter = 'all';
+  const openGroups = {};    // collapsed unless opened
 
+  function libraryLines(key){
+    if(key === 'qualifications') return (typeof SCHEDULE_OF_RATES !== 'undefined' && SCHEDULE_OF_RATES.notes) || [];
+    return (typeof SCOPE_LIBRARY !== 'undefined' && SCOPE_LIBRARY[key]) || [];
+  }
+
+  // every line on offer, none of them chosen: each variation picks its own
   function defaultScope(){
     const items = [];
     GROUPS.forEach(g => {
-      ((typeof SCOPE_LIBRARY !== 'undefined' && SCOPE_LIBRARY[g.key]) || []).forEach(entry => {
-        const text = typeof entry === 'string' ? entry : entry.text;
-        const start = typeof entry === 'string' ? DEFAULT_STATE[g.key] : (entry.start || DEFAULT_STATE[g.key]);
-        items.push({ id: newId(), text: text, group: g.key, state: start === 'off' ? 'off' : DEFAULT_STATE[g.key] === 'gen' ? 'gen' : start });
+      libraryLines(g.key).forEach(entry => {
+        items.push({ id: newId(), text: typeof entry === 'string' ? entry : entry.text, group: g.key, state: 'off' });
       });
     });
     return items;
@@ -143,7 +153,8 @@ const Stages = (function(){
     return {
       in: scopeItems.filter(i => i.state === 'in'),
       out: scopeItems.filter(i => i.state === 'out'),
-      gen: scopeItems.filter(i => i.state === 'gen')
+      gen: scopeItems.filter(i => i.state === 'gen'),
+      qual: scopeItems.filter(i => i.state === 'qual')
     };
   }
 
@@ -157,9 +168,19 @@ const Stages = (function(){
   }
 
   function cycleItem(item){
-    if(item.group === 'general'){ item.state = item.state === 'gen' ? 'off' : 'gen'; }
+    const single = groupOf(item.group).single;
+    if(single){ item.state = item.state === single ? 'off' : single; }
     else { item.state = { in: 'out', out: 'off', off: 'in' }[item.state] || 'in'; }
     renderScope();
+  }
+
+  function groupCounts(items){
+    const n = st => items.filter(i => i.state === st).length;
+    const parts = [];
+    if(n('in')) parts.push(n('in') + ' included');
+    if(n('out')) parts.push(n('out') + ' excluded');
+    if(n('gen') + n('qual')) parts.push((n('gen') + n('qual')) + ' added');
+    return (parts.length ? parts.join(' · ') + ' of ' : '') + items.length;
   }
 
   function renderScopeList(){
@@ -167,7 +188,7 @@ const Stages = (function(){
     const matches = item => {
       if(q && item.text.toLowerCase().indexOf(q) === -1) return false;
       if(scopeFilter === 'all') return true;
-      if(scopeFilter === 'in') return item.state === 'in' || item.state === 'gen';
+      if(scopeFilter === 'on') return item.state !== 'off';
       return item.state === scopeFilter;
     };
     const scrollAt = scopeList.closest('.form-side').scrollTop;
@@ -176,10 +197,19 @@ const Stages = (function(){
       const items = scopeItems.filter(i => i.group === g.key);
       const shown = items.filter(matches);
       if(!shown.length) return;
-      const head = el('div', 'scope-group-head');
-      head.appendChild(el('span', '', g.title));
-      head.appendChild(el('span', 'scope-group-count', shown.length + (shown.length === items.length ? '' : ' of ' + items.length)));
+      // a search or a filter opens every group it finds something in
+      const open = !!(q || scopeFilter !== 'all' || openGroups[g.key]);
+      const head = el('button', 'scope-group-head' + (open ? ' open' : ''));
+      head.type = 'button';
+      head.innerHTML = '<span class="sor-caret">' + (open ? '▾' : '▸') + '</span>' +
+        '<span class="sg-title">' + escapeHtml(g.title) + '</span>' +
+        '<span class="scope-group-count">' + escapeHtml(groupCounts(items)) + '</span>';
+      head.addEventListener('click', () => {
+        openGroups[g.key] = !open;
+        renderScopeList();
+      });
       scopeList.appendChild(head);
+      if(!open) return;
 
       shown.forEach(item => {
         const row = el('div', 'scope-item st-' + item.state);
@@ -197,8 +227,9 @@ const Stages = (function(){
           b.addEventListener('click', () => setItemState(item, state));
           actions.appendChild(b);
         };
-        if(item.group === 'general'){
-          btn(item.state === 'gen' ? '✓ Shown' : 'Show', 'gen', 'si-gen');
+        const single = groupOf(item.group).single;
+        if(single){
+          btn(item.state === single ? '✓ Added' : 'Add', single, 'si-gen');
         } else {
           btn(item.state === 'in' ? '✓ Include' : 'Include', 'in', 'si-in');
           btn(item.state === 'out' ? '✕ Exclude' : 'Exclude', 'out', 'si-out');
@@ -224,7 +255,7 @@ const Stages = (function(){
 
     const p = scopePrinted();
     scopeCounts.innerHTML = '<strong>' + p.in.length + '</strong> included · <strong>' + p.out.length +
-      '</strong> excluded · <strong>' + p.gen.length + '</strong> general';
+      '</strong> excluded · <strong>' + (p.gen.length + p.qual.length) + '</strong> notes';
   }
 
   function scopeBlocks(){
@@ -279,6 +310,7 @@ const Stages = (function(){
       if(!text){ scopeNew.focus(); return; }
       const state = b.getAttribute('data-add');
       const group = state === 'in' ? 'inclusions' : state === 'out' ? 'exclusions' : 'general';
+      openGroups[group] = true;
       // added at the end of its group, where it will print
       const lastOfGroup = scopeItems.map(i => i.group).lastIndexOf(group);
       scopeItems.splice(lastOfGroup + 1, 0, { id: newId(), text: text, group: group, state: state, custom: true });
@@ -288,9 +320,14 @@ const Stages = (function(){
   });
 
   document.getElementById('scope-reset').addEventListener('click', () => {
-    if(!confirm('Put every line back to the standard list? Lines you added for this variation are removed.')) return;
+    if(!confirm('Start the list again? Every line is unselected and lines you added for this variation are removed.')) return;
     scopeItems = defaultScope();
     renderScope();
+  });
+  document.getElementById('scope-expand').addEventListener('click', () => {
+    const anyClosed = GROUPS.some(g => !openGroups[g.key]);
+    GROUPS.forEach(g => { openGroups[g.key] = anyClosed; });
+    renderScopeList();
   });
   document.getElementById('scope-clear').addEventListener('click', () => {
     scopeItems.forEach(i => { i.state = 'off'; });
@@ -321,7 +358,6 @@ const Stages = (function(){
       percents: {},          // key -> { section, d, percent }
       extras: [],            // { id, d, u, r, add, ded }
       gstPercent: SOR.gstPercent === undefined ? 10 : SOR.gstPercent,
-      notesOff: {},          // index of a schedule note left off this variation
       notes: ''
     };
   }
@@ -381,7 +417,6 @@ const Stages = (function(){
   const sorGst = document.getElementById('sor-gst');
   const sorNotes = document.getElementById('sor-notes');
   const sorSummary = document.getElementById('sor-summary');
-  const sorSchedNotes = document.getElementById('sor-sched-notes');
   const sorExtras = document.getElementById('sor-extras');
   document.getElementById('sor-preamble').textContent = (SOR.preamble || []).join(' ');
   document.getElementById('sor-preamble').hidden = !(SOR.preamble || []).length;
@@ -548,24 +583,6 @@ const Stages = (function(){
     if(inputs.length) inputs[0].focus();
   });
 
-  function buildScheduleNotes(){
-    sorSchedNotes.innerHTML = '';
-    (SOR.notes || []).forEach((n, i) => {
-      const lab = el('label', 'sor-sched-note');
-      const cb = el('input');
-      cb.type = 'checkbox';
-      cb.checked = !rates.notesOff[i];
-      cb.addEventListener('change', () => {
-        if(cb.checked) delete rates.notesOff[i]; else rates.notesOff[i] = true;
-        updateRates();
-      });
-      lab.appendChild(cb);
-      lab.appendChild(el('span')).textContent = n;
-      sorSchedNotes.appendChild(lab);
-    });
-    sorSchedNotes.parentNode.hidden = !(SOR.notes || []).length;
-  }
-
   sorSearch.addEventListener('input', () => { buildRatesEditor(); updateRates(); });
   sorOnly.addEventListener('change', () => { buildRatesEditor(); updateRates(); });
   sorGst.addEventListener('input', () => { rates.gstPercent = sorGst.value; updateRates(); });
@@ -614,7 +631,6 @@ const Stages = (function(){
     sorNotes.value = rates.notes || '';
     buildRatesEditor();
     buildExtras();
-    buildScheduleNotes();
     updateRates();
   }
 
@@ -652,22 +668,12 @@ const Stages = (function(){
     return t;
   }
 
-  // the schedule's own notes, then whatever was typed for this variation
+  // the schedule's own note, then whatever was typed for this variation (its
+  // exclusions and qualifications are chosen in stage 2 with the others)
   function notesNodes(){
     const out = [];
     const pre = (SOR.preamble || []).join(' ');
     if(pre){ const p = el('p', 'sor-notes'); p.textContent = pre; out.push(p); }
-    const kept = (SOR.notes || []).filter((n, i) => !rates.notesOff[i]);
-    kept.forEach((n, i) => {
-      const d = el('div', 'scope-line');
-      d.textContent = n;
-      if(i){ out.push(d); return; }
-      // the heading travels with the first note
-      const lead = el('div');
-      lead.appendChild(el('p', 'dwg-panel-title scope-pdf-head', 'Exclusions / Qualifications'));
-      lead.appendChild(d);
-      out.push(lead);
-    });
     const text = (rates.notes || '').trim();
     if(text){ const p = el('p', 'sor-notes'); p.textContent = text; out.push(p); }
     return out;
@@ -703,7 +709,6 @@ const Stages = (function(){
       percents: Object.keys(rates.percents).map(k => rates.percents[k]),
       extras: rates.extras.map(e => ({ d: e.d, u: e.u, r: e.r, add: e.add, ded: e.ded })),
       gstPercent: rates.gstPercent,
-      notesOff: Object.keys(rates.notesOff).map(Number),
       notes: rates.notes
     };
   }
@@ -715,7 +720,6 @@ const Stages = (function(){
     (saved.percents || []).forEach(p => { rates.percents[keyOf(p.section, p.d)] = Object.assign({}, p); });
     rates.extras = (saved.extras || []).map(e => Object.assign({ id: newId() }, e));
     if(saved.gstPercent !== undefined) rates.gstPercent = saved.gstPercent;
-    (saved.notesOff || []).forEach(i => { rates.notesOff[i] = true; });
     rates.notes = saved.notes || '';
   }
 
@@ -753,7 +757,8 @@ const Stages = (function(){
           const bytes = new Uint8Array(await readAs(file, 'buffer'));
           if(typeof PDFLib === 'undefined') throw new Error('the PDF library did not load');
           const pdf = await PDFLib.PDFDocument.load(bytes, { ignoreEncryption: true });
-          docs[bucket].push({ id: newId(), kind: 'pdf', name: name, caption: baseName(name), bytes: bytes, pageCount: pdf.getPageCount() });
+          docs[bucket].push({ id: newId(), kind: 'pdf', name: name, caption: baseName(name), bytes: bytes,
+            pageCount: pdf.getPageCount(), thumb: await pdfThumb(bytes) });
         } else if(/^image\//.test(file.type) || /\.(png|jpe?g|gif|webp|bmp)$/.test(lower)){
           const url = await readAs(file, 'url');
           docs[bucket].push({ id: newId(), kind: 'image', name: name, caption: baseName(name), dataUrl: await asPngOrJpeg(url) });
@@ -938,9 +943,9 @@ const Stages = (function(){
 
   function docThumb(d){
     const t = el('div', 'doc-thumb doc-thumb-' + d.kind);
-    if(d.kind === 'image'){
+    if(d.kind === 'image' || d.thumb){
       const img = el('img');
-      img.src = d.dataUrl;
+      img.src = d.kind === 'image' ? d.dataUrl : d.thumb;
       img.alt = '';
       t.appendChild(img);
     } else {
@@ -1159,18 +1164,60 @@ const Stages = (function(){
      STAGE 5 · REVIEW
   ======================================================================== */
 
-  const reviewFrame = document.getElementById('review-frame');
+  const reviewPages = document.getElementById('review-pages');
   const reviewBuilding = document.getElementById('review-building');
   const reviewList = document.getElementById('review-list');
   let built = null;      // { bytes, fileName } of what the preview shows
   let buildToken = 0;
-  let frameUrl = '';
 
   function dropBuild(){
     built = null;
     buildToken++;
-    if(frameUrl){ URL.revokeObjectURL(frameUrl); frameUrl = ''; }
-    reviewFrame.removeAttribute('src');
+    reviewPages.innerHTML = '';
+  }
+
+  // The finished file, drawn page by page with pdf.js. Not the browser's own
+  // PDF viewer in a frame: that is switched off or blank in enough places
+  // (Edge policies, phones, some sign-in setups) that the preview could not
+  // be trusted to show anything.
+  async function drawPdfPages(bytes, token){
+    if(typeof pdfjsLib === 'undefined') throw new Error('the PDF viewer did not load');
+    // pdf.js takes ownership of the buffer it is given, so hand it a copy
+    const doc = await pdfjsLib.getDocument({ data: bytes.slice() }).promise;
+    const width = Math.max(320, Math.min(reviewPages.clientWidth - 4, 860));
+    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    for(let n = 1; n <= doc.numPages; n++){
+      if(token !== buildToken) return;
+      const page = await doc.getPage(n);
+      const scale = width / page.getViewport({ scale: 1 }).width;
+      const vp = page.getViewport({ scale: scale * ratio });
+      const canvas = el('canvas');
+      canvas.width = Math.floor(vp.width);
+      canvas.height = Math.floor(vp.height);
+      canvas.style.width = Math.floor(vp.width / ratio) + 'px';
+      const wrap = el('div', 'review-page');
+      wrap.appendChild(canvas);
+      wrap.appendChild(el('div', 'review-page-num', 'Page ' + n + ' of ' + doc.numPages));
+      reviewPages.appendChild(wrap);
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+    }
+    doc.destroy();
+  }
+
+  // the first sheet of an uploaded PDF, small, for the documentation stage
+  async function pdfThumb(bytes){
+    if(typeof pdfjsLib === 'undefined') return '';
+    try {
+      const doc = await pdfjsLib.getDocument({ data: bytes.slice() }).promise;
+      const page = await doc.getPage(1);
+      const vp = page.getViewport({ scale: 320 / page.getViewport({ scale: 1 }).width });
+      const canvas = el('canvas');
+      canvas.width = Math.floor(vp.width);
+      canvas.height = Math.floor(vp.height);
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+      doc.destroy();
+      return canvas.toDataURL('image/png');
+    } catch(e){ return ''; }
   }
 
   function missingCover(){
@@ -1187,7 +1234,7 @@ const Stages = (function(){
       { stage: 'cover', title: 'Cover sheet', ok: !missing.length,
         text: missing.length ? 'Still needs: ' + missing.join(', ') : (ref || els['project'].value.trim() || 'Ready') },
       { stage: 'scope', title: 'Inclusions & exclusions', ok: true, warn: !(p.in.length + p.out.length),
-        text: p.in.length + ' included · ' + p.out.length + ' excluded · ' + p.gen.length + ' general' },
+        text: p.in.length + ' included · ' + p.out.length + ' excluded · ' + (p.gen.length + p.qual.length) + ' notes' },
       { stage: 'rates', title: 'Schedule of rates', ok: true, warn: !hasPricing(c),
         text: hasPricing(c) ? money(c.exGst) + ' ex GST · ' + money(c.incGst) + ' inc GST' : 'Nothing measured — no schedule page will print' },
       { stage: 'docs', title: 'Drawings & markups', ok: true, warn: !drawings.length,
@@ -1214,8 +1261,8 @@ const Stages = (function(){
     render();
     dropBuild();
     const token = buildToken;
-    reviewFrame.hidden = true;
     reviewBuilding.hidden = false;
+    VIEWS.review.querySelector('.preview-side').scrollTop = 0;
     reviewBuilding.className = 'review-building';
     reviewBuilding.textContent = 'Building the preview…';
     printBtn.disabled = true;
@@ -1225,15 +1272,17 @@ const Stages = (function(){
       const result = await buildVariationPdf();
       if(token !== buildToken) return;   // left the stage while it was building
       built = result;
-      frameUrl = URL.createObjectURL(new Blob([result.bytes], { type: 'application/pdf' }));
-      reviewFrame.src = frameUrl + '#view=FitH';
-      reviewFrame.hidden = false;
-      reviewBuilding.hidden = true;
+      // the download is ready as soon as the file is; the pages draw after
+      printBtn.disabled = false;
+      reviewBuilding.textContent = 'Drawing the pages…';
+      await drawPdfPages(result.bytes, token);
+      if(token === buildToken) reviewBuilding.hidden = true;
     } catch(err){
       console.error(err);
       if(token !== buildToken) return;
-      reviewBuilding.textContent = 'The preview could not be built (' + (err.message || 'unknown error') +
-        '). Download PDF will fall back to the print dialog.';
+      reviewBuilding.textContent = built
+        ? 'The PDF is built and Download PDF works, but the pages could not be drawn here (' + (err.message || 'unknown error') + ').'
+        : 'The preview could not be built (' + (err.message || 'unknown error') + '). Download PDF will fall back to the print dialog.';
       reviewBuilding.className = 'review-building err';
     } finally {
       if(token === buildToken) printBtn.disabled = false;

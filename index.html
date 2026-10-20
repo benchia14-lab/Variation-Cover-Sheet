@@ -404,17 +404,20 @@
 <div class="app stage" id="view-scope" hidden>
   <div class="form-side stage-side">
     <div class="brand"><span class="brand-mark"></span><h1>Inclusions &amp; exclusions</h1></div>
-    <div class="subhead">Click to include or exclude each line — click it again to leave it off</div>
+    <div class="subhead">Nothing is selected to start with — open a group and include or exclude the lines this variation needs</div>
 
     <div class="scope-tools">
       <input type="text" id="scope-search" placeholder="Search the list…" autocomplete="off">
       <div class="scope-filter" id="scope-filter">
         <button type="button" class="chip on" data-filter="all">All</button>
+        <button type="button" class="chip" data-filter="on">Selected</button>
         <button type="button" class="chip" data-filter="in">Included</button>
         <button type="button" class="chip" data-filter="out">Excluded</button>
-        <button type="button" class="chip" data-filter="off">Not used</button>
       </div>
-      <div class="scope-counts" id="scope-counts"></div>
+      <div class="scope-counts-row">
+        <span class="scope-counts" id="scope-counts"></span>
+        <button type="button" class="link-btn" id="scope-expand">Expand / collapse all</button>
+      </div>
     </div>
 
     <div class="scope-list" id="scope-list"></div>
@@ -425,11 +428,11 @@
       <div class="scope-add-actions">
         <button type="button" class="refresh-btn" data-add="in">+ Add as inclusion</button>
         <button type="button" class="refresh-btn" data-add="out">+ Add as exclusion</button>
-        <button type="button" class="refresh-btn" data-add="gen">+ Add as general</button>
+        <button type="button" class="refresh-btn" data-add="gen">+ Add as a general note</button>
       </div>
     </div>
     <div class="scope-bulk">
-      <button type="button" class="link-btn" id="scope-reset">Reset to the standard list</button>
+      <button type="button" class="link-btn" id="scope-reset">Start the list again</button>
       <button type="button" class="link-btn" id="scope-clear">Clear everything</button>
     </div>
 
@@ -465,10 +468,6 @@
       <div class="field-row">
         <div class="field"><label for="sor-gst">GST %</label><input type="text" id="sor-gst" class="mono-input" inputmode="decimal"></div>
         <div class="field"></div>
-      </div>
-      <div class="field sor-sched-notes-wrap">
-        <label>Exclusions / qualifications <span style="text-transform:none;font-weight:400;">(from the schedule — untick any that do not apply)</span></label>
-        <div id="sor-sched-notes"></div>
       </div>
       <div class="field"><label for="sor-notes">Pricing notes <span style="text-transform:none;font-weight:400;">(optional, prints under the totals)</span></label>
         <textarea id="sor-notes" placeholder="e.g. Quantities measured on site 14 Aug."></textarea></div>
@@ -539,10 +538,8 @@
     </div>
   </div>
   <div class="preview-side review-preview">
-    <div class="review-frame-wrap">
-      <div class="review-building" id="review-building">Building the preview…</div>
-      <iframe id="review-frame" title="Variation preview" hidden></iframe>
-    </div>
+    <div class="review-building" id="review-building">Building the preview…</div>
+    <div class="review-pages" id="review-pages" aria-label="Variation preview"></div>
   </div>
 </div>
 
@@ -791,6 +788,11 @@
 
 <script src="vendor/html2pdf.bundle.min.js"></script>
 <script src="vendor/pdf-lib.min.js"></script>
+<!-- pdf.js draws the review preview and the drawing thumbnails. The worker is
+     loaded as a plain script so it runs on the page itself: the single-file
+     copy has no separate worker file to start, and a preview is small work. -->
+<script src="vendor/pdf.min.js"></script>
+<script src="vendor/pdf.worker.min.js"></script>
 <script src="assets/settings-password.js"></script>
 <script src="assets/settings-lock.js"></script>
 <script src="assets/logo.js"></script>
