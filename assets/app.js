@@ -1307,6 +1307,10 @@ async function downloadPdf(built){
     saveBytes(result.bytes, result.fileName);
     // The log records what was issued, so it is written only once the PDF
     // exists -- not when the button was pressed.
+    if(currentStatus().status === 'Draft'){
+      variationStatus = Object.assign(normaliseStatus(currentStatus()), { status: 'Submitted' });
+      statusRef = effectiveRef();
+    }
     if(Flows.has('logWriteUrl') && els['varref'].value.trim()){
       await saveToLog({ downloadedAt: new Date().toISOString(), fileName: result.fileName });
     }
@@ -1389,7 +1393,8 @@ function collectFormState(){
     // They are in the variation file, and this names it, so reopening from the
     // log can fetch the whole thing back.
     stages: (typeof Stages !== 'undefined') ? Stages.collect() : null,
-    variationFile: variationFileName()
+    variationFile: variationFileName(),
+    status: Object.assign({}, currentStatus())
   };
 }
 
@@ -1413,6 +1418,8 @@ function applyFormState(saved){
   if(!dwgRowsContainer.children.length) addDwgRow();
 
   if(typeof Stages !== 'undefined') Stages.apply(saved && saved.stages);
+  variationStatus = normaliseStatus(saved && saved.status);
+  statusRef = '';   // the caller says which reference it belongs to
 
   clearInvalid();
   render();
@@ -1481,6 +1488,25 @@ const reopenedBar = document.getElementById('reopened-bar');
 
 let logRows = [];
 let reopenedRef = '';      // the reference this form was loaded from, if any
+
+/* Where the variation has got to with the head contractor. Kept in the saved
+   form and in the log's own Status columns, so the project dashboard can total
+   what is approved and what is still pending. A variation becomes Submitted
+   when its PDF is first downloaded; the rest is set on the dashboard. */
+const STATUSES = ['Draft', 'Submitted', 'Approved', 'Rejected'];
+let variationStatus = { status: 'Draft', approvedValue: '', approvedDate: '' };
+// The reference that status belongs to. A revision is a new submission, so
+// once the reference on the form differs, the status starts again at Draft.
+let statusRef = '';
+
+function currentStatus(){
+  return (statusRef && Flows.sameRef(statusRef, effectiveRef())) ? variationStatus : normaliseStatus(null);
+}
+
+function normaliseStatus(s){
+  const status = s && STATUSES.indexOf(s.status) !== -1 ? s.status : 'Draft';
+  return { status: status, approvedValue: (s && s.approvedValue) || '', approvedDate: (s && s.approvedDate) || '' };
+}
 let issueMode = 'new';     // 'new' or 'revise'
 let refOverridden = false; // the number was typed by hand, so stop allocating it
 
@@ -1690,10 +1716,22 @@ async function openFromLog(ref){
     const full = (summary && summary.state_) ? summary
                : await Flows.getLog(currentState.code, selectedProject.id, ref);
     if(!full){ setLogStatus('No log entry found for ' + ref + '.', 'err'); return; }
+    await openLoggedVariation(full);
+  } catch(err){
+    setLogStatus('Could not open ' + ref + ' — ' + (err.message || 'the flow failed'), 'err');
+  }
+}
+
+/* A log row, as the list or the project dashboard holds it, back onto the
+   form. The project must already be the selected one. Returns false, having
+   said why, when the row cannot be restored. */
+async function openLoggedVariation(full){
+  const ref = full.variationRef;
+  {
     if(!full.state_){
       setLogStatus('Found ' + ref + ', but its saved form could not be read — the Payload column is ' +
                    'empty or not valid JSON. Nothing has been changed.', 'err');
-      return;
+      return false;
     }
     // Parsed, but not a saved form. Restoring it would clear the boxes it does
     // not mention and look like the log losing the variation, so refuse and say
@@ -1703,7 +1741,7 @@ async function openFromLog(ref){
                    Object.keys(full.state_).slice(0, 6).join(', ') +
                    '. In the log write flow, map Payload to the payload FIELD of the request, not to ' +
                    'the Compose action of the same name. Nothing has been changed.', 'err');
-      return;
+      return false;
     }
     // The log holds the form; the variation file holds the form AND the
     // attachments. Fetch the file when there is one and a flow to read it,
@@ -1716,6 +1754,8 @@ async function openFromLog(ref){
     }
     applyFormState(fromFile ? fromFile.form : full.state_);
     if(fromFile) Stages.applyDocs(fromFile.documents);
+    // saved before statuses existed: the log's own columns say what it can
+    if(!(fromFile ? fromFile.form : full.state_).status) variationStatus = Flows.rowStatus(full);
     reopenedRef = full.variationRef;
     reopenedFromLog = true;
     // the form now holds a variation that exists, so the reference is its base
@@ -1723,7 +1763,9 @@ async function openFromLog(ref){
     const parsed = parseRef(full.variationRef);
     els['varref'].value = parsed ? parsed.base : full.variationRef;
     setMode('revise', { keepRef: true });
-    varrev.value = '';
+    // a revision reopens as itself, so saving updates that row and not its base
+    varrev.value = parsed ? parsed.revision.replace(/^[.\-_]/, '') : '';
+    statusRef = full.variationRef;
     showReopened();
     setLogStatus('Opened ' + full.variationRef + (fromFile ? ' with its attachments' : ' from the log') +
                  '. Add a revision to issue it as a new entry, or save to update it.' +
@@ -1731,8 +1773,7 @@ async function openFromLog(ref){
                    '" in the project folder' + (Flows.has('openFileUrl') ? ', which could not be fetched.' : '.') : ''), 'ok');
     updateEffectiveRef();
     render();
-  } catch(err){
-    setLogStatus('Could not open ' + ref + ' — ' + (err.message || 'the flow failed'), 'err');
+    return true;
   }
 }
 
@@ -1773,6 +1814,7 @@ async function restoreVariation(file){
     varrev.value = (file.summary && file.summary.revision) || '';
     showReopened();
   }
+  statusRef = (file.summary && file.summary.variationRef) || effectiveRef();
   updateEffectiveRef();
   render();
   return { project: project, unmatchedProject: !project && !!saved.projectId };
@@ -1826,18 +1868,25 @@ els['varref'].addEventListener('input', () => {
 
 /* ---- writing --------------------------------------------------------- */
 
-function buildLogPayload(extra){
-  const saved = collectFormState();
-  const v = id => (els[id] ? els[id].value.trim() : '');
+/* One log row, built from a saved form rather than from the boxes on screen,
+   so the project dashboard can change a variation's status without opening it.
+   The write flow sets every column it maps from whatever arrives, so a row
+   sent from here has to carry everything, not just what changed. */
+function logPayloadFromSaved(saved, ref, extra){
+  const f = saved.fields || {};
+  const v = id => String(f[id] === undefined || f[id] === null ? '' : f[id]).trim();
+  const drawings = saved.drawings || [];
+  const st = normaliseStatus(saved.status);
+  const value = saved.stages && typeof saved.stages.valueExGst === 'number' ? saved.stages.valueExGst : null;
   return Object.assign({
     // the two halves of the key; the flow matches on both
-    projectId: selectedProject ? String(selectedProject.id) : '',
-    variationRef: effectiveRef(),
-    baseRef: v('varref'),
-    revision: issueMode === 'revise' ? varrev.value.trim() : '',
+    projectId: String(ref.projectId === undefined ? saved.projectId : ref.projectId),
+    variationRef: ref.variationRef,
+    baseRef: ref.baseRef !== undefined ? ref.baseRef : v('varref'),
+    revision: ref.revision || '',
 
     project: v('project'),
-    state: currentState ? currentState.code : '',
+    state: ref.state || saved.office || '',
     stateEntity: v('co-name'),
     variationDescription: v('variationdesc'),
     headContractor: v('recipient-name'),
@@ -1851,18 +1900,35 @@ function buildLogPayload(extra){
     contractorDirection: v('contractordirection'),
     emailRef: v('emailref'),
     descriptionOfWorks: v('desc-final'),
-    notes: document.getElementById('desc-raw').value.trim(),
-    drawings: saved.drawings,
-    drawingsText: saved.drawings
+    notes: v('desc-raw'),
+    drawings: drawings,
+    drawingsText: drawings
       .map(d => [d.number, d.name, d.oldRev && d.newRev ? d.oldRev + ' \u2192 ' + d.newRev : '']
       .filter(Boolean).join('  ')).join('\n'),
-    folderPath: selectedProject ? (selectedProject.folderPath || '') : '',
-    variationFile: variationFileName(),
+    folderPath: ref.folderPath || '',
+    variationFile: saved.variationFile || '',
+
+    // the dashboard's columns
+    status: st.status,
+    valueExGst: value,
+    approvedValue: st.approvedValue === '' ? null : Number(st.approvedValue),
+    approvedDate: st.approvedDate || null,
 
     // the whole form, so reopening restores it exactly whatever the columns do
     payload: JSON.stringify(saved),
     updatedAt: new Date().toISOString()
   }, extra || {});
+}
+
+function buildLogPayload(extra){
+  return logPayloadFromSaved(collectFormState(), {
+    projectId: selectedProject ? String(selectedProject.id) : '',
+    variationRef: effectiveRef(),
+    baseRef: els['varref'].value.trim(),
+    revision: issueMode === 'revise' ? varrev.value.trim() : '',
+    state: currentState ? currentState.code : '',
+    folderPath: selectedProject ? (selectedProject.folderPath || '') : ''
+  }, extra);
 }
 
 async function saveToLog(reason){
@@ -1924,14 +1990,17 @@ async function saveToLog(reason){
 
 logSaveBtn.addEventListener('click', () => saveToLog());
 
-document.getElementById('reopened-new').addEventListener('click', () => {
-  if(currentHasContent() && !confirm('Start a new variation? What is on the form now will be cleared.')) return;
-  // keep the letterhead and the project, clear what belongs to one variation
+// Keep the letterhead and the project; clear what belongs to one variation,
+// every stage of it.
+function clearVariation(){
   ['varref','variationdesc','siref','clauseref','aconexref','contractordirection','emailref',
    'desc-final'].forEach(id => { els[id].value = ''; });
   document.getElementById('desc-raw').value = '';
   dwgRowsContainer.innerHTML = '';
   addDwgRow();
+  if(typeof Stages !== 'undefined') Stages.apply(null);
+  variationStatus = normaliseStatus(null);
+  statusRef = '';
   reopenedRef = '';
   refOverridden = false;
   setLogStatus('');
@@ -1941,6 +2010,11 @@ document.getElementById('reopened-new').addEventListener('click', () => {
   clearInvalid();
   setMode('new');
   renderDwgPreview();
+}
+
+document.getElementById('reopened-new').addEventListener('click', () => {
+  if(currentHasContent() && !confirm('Start a new variation? What is on the form now will be cleared.')) return;
+  clearVariation();
   els['variationdesc'].focus();
 });
 
@@ -2442,9 +2516,10 @@ document.getElementById('states-reset').addEventListener('click', () => {
 
 const stepper = document.getElementById('stepper');
 const stageViews = ['view-scope', 'view-rates', 'view-docs', 'view-review'].map(id => document.getElementById(id));
+const boardViews = ['view-projects', 'view-dashboard'].map(id => document.getElementById(id));
 
 function showOnly(view){
-  [viewPicker, viewEditor, viewSettings, viewAdmin].concat(stageViews).forEach(v => { v.hidden = v !== view; });
+  [viewPicker, viewEditor, viewSettings, viewAdmin].concat(stageViews, boardViews).forEach(v => { v.hidden = v !== view; });
   stepper.hidden = !(view === viewEditor || stageViews.indexOf(view) !== -1);
   window.scrollTo(0, 0);
 }
@@ -2838,7 +2913,8 @@ document.getElementById('admin-gate-form').addEventListener('submit', e => {
   }, 0));
 });
 
-function openState(code, stage){
+// route: { page: 'projects' } | { page: 'project', id } | { page: 'stage', stage }
+function openState(code, route){
   const row = StateRegister.get(code);
   if(!row){ location.hash = ''; return; }
   const switching = !currentState || currentState.code !== row.code;
@@ -2853,22 +2929,39 @@ function openState(code, stage){
   // Without a projects flow no project is ever selected, so nothing else calls
   // this and the field would sit locked with nothing able to fill it.
   syncRefLock();
-  Stages.show(stage || 'cover');
+  if(route.page === 'projects') Dashboard.showProjects();
+  else if(route.page === 'project') Dashboard.showProject(route.id);
+  else Stages.show(route.stage);
 }
+
+let lastWorkHash = '';   // where Settings' back button returns to
 
 function routeFromHash(){
   const hash = location.hash;
   if(hash === '#/settings/admin'){ showAdmin(); return; }
   if(hash === '#/settings'){ showSettings(); return; }
-  const match = /^#\/state\/([^/]+)(?:\/([a-z]+))?$/.exec(hash);
-  if(match){ openState(decodeURIComponent(match[1]), match[2]); return; }
+  // #/state/VIC                the office's projects
+  // #/state/VIC/project/7      one project's variations
+  // #/state/VIC/cover … review  the variation being worked on
+  const match = /^#\/state\/([^/]+)(?:\/project\/([^/]+)|\/([a-z]+))?$/.exec(hash);
+  if(match){
+    lastWorkHash = hash;
+    const code = decodeURIComponent(match[1]);
+    openState(code, match[2] ? { page: 'project', id: decodeURIComponent(match[2]) }
+                   : match[3] ? { page: 'stage', stage: match[3] } : { page: 'projects' });
+    return;
+  }
   showPicker();
 }
 
 window.addEventListener('hashchange', routeFromHash);
 
 document.getElementById('picker-settings-btn').addEventListener('click', () => { location.hash = '#/settings'; });
-document.getElementById('back-to-picker').addEventListener('click', () => { location.hash = ''; });
+document.getElementById('back-to-picker').addEventListener('click', () => {
+  if(!currentState){ location.hash = ''; return; }
+  const base = '#/state/' + encodeURIComponent(currentState.code);
+  location.hash = selectedProject ? base + '/project/' + encodeURIComponent(selectedProject.id) : base;
+});
 document.getElementById('chip-change').addEventListener('click', () => { location.hash = ''; });
 document.getElementById('open-admin').addEventListener('click', () => {
   location.hash = '#/settings/admin';
@@ -2883,7 +2976,7 @@ document.getElementById('admin-back').addEventListener('click', () => {
 document.getElementById('settings-back').addEventListener('click', () => {
   urlsUnlocked = false;
   urlsRevealed = false;
-  location.hash = currentState ? '#/state/' + encodeURIComponent(currentState.code) : '';
+  location.hash = lastWorkHash || '';
 });
 
 /* ---------------------------------------------------------------------------

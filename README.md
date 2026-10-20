@@ -26,6 +26,15 @@ the old one keeps them.
 decides two things: which letterhead prints, and which slice of the project
 register gets pulled. Both follow immediately.
 
+**1b · The office's projects.** Every project in the register, each with its
+number of variations and their value, and the office's totals across them.
+Click one for its **dashboard**: every variation with its value ex GST and
+status (Draft, Submitted, Approved, Rejected), approved and pending totals,
+revisions grouped under the variation they revise, **Open** to carry on with
+one and **+ New variation** to start another. Status is set on the dashboard;
+a variation becomes *Submitted* when its PDF is downloaded. Setup:
+[docs/PROJECT-DASHBOARD.md](docs/PROJECT-DASHBOARD.md).
+
 **2 · Pick a project.** The dropdown is the SharePoint project register, read
 live through Power Automate: one register filtered to the state you chose, or a
 register per state that the flow picks between. Either way you only ever see

@@ -419,6 +419,10 @@ this holds even if the filter query is wrong. Filtering in the flow as well
 keeps the response small and means the app is enforcing the rule rather than
 repairing it.
 
+**For the projects page**, the filter should also answer for a whole office when
+no project is sent — one expression in place of the filter above; see
+[PROJECT-DASHBOARD.md § 3](PROJECT-DASHBOARD.md#3--let-flow-4-the-log-read-answer-for-a-whole-office).
+
 If a project ever accumulates so many variations that the response gets heavy,
 add `and VariationRef eq '@{outputs('Incoming')?['variationRef']}'` to the filter
 when `variationRef` is present. Nothing in the app needs changing for that.
@@ -512,7 +516,9 @@ when `variationRef` is present. Nothing in the app needs changing for that.
    `RecipientAddress`, `Attention`, `IssuedBy`, `Position`,
    `SiteInstructionRef`, `ClauseRef`, `AconexRef`, `ContractorDirection`,
    `EmailRef`, `DescriptionOfWorks`, `Notes` (from `notes`), `DrawingsText`,
-   `FolderPath`, `DownloadedAt`, `UpdatedAt`, and `Payload`.
+   `FolderPath`, `DownloadedAt`, `UpdatedAt`, and `Payload` — and, for the
+   project dashboard, `Status`, `ValueExGst`, `ApprovedValue` and
+   `ApprovedDate` (see [PROJECT-DASHBOARD.md](PROJECT-DASHBOARD.md)).
 
 4. **Response**, status `200`, body `{ "ok": true }`, with the same two headers.
 

@@ -568,8 +568,39 @@ const Flows = (() => {
     issuedDate:      ['issuedDate', 'IssuedDate', 'Issued_x0020_Date'],
     updatedAt:       ['updatedAt', 'UpdatedAt', 'Modified'],
     downloadedAt:    ['downloadedAt', 'DownloadedAt', 'Downloaded_x0020_At'],
-    payload:         ['payload', 'Payload', 'FormJson', 'Form_x0020_Json', 'json']
+    payload:         ['payload', 'Payload', 'FormJson', 'Form_x0020_Json', 'json'],
+    // the project dashboard's columns -- optional; the saved form carries the
+    // same, so a list without them still shows values and statuses
+    status:          ['status', 'Status', 'VariationStatus', 'Variation_x0020_Status'],
+    valueExGst:      ['valueExGst', 'ValueExGst', 'Value_x0020_Ex_x0020_GST', 'Value'],
+    approvedValue:   ['approvedValue', 'ApprovedValue', 'Approved_x0020_Value'],
+    approvedDate:    ['approvedDate', 'ApprovedDate', 'Approved_x0020_Date']
   };
+
+  const STATUS_NAMES = ['Draft', 'Submitted', 'Approved', 'Rejected'];
+
+  // What a row says about where the variation stands: the saved form first,
+  // then the Status column, then -- for rows older than either -- whether its
+  // PDF was ever downloaded.
+  function rowStatus(row){
+    const saved = row.state_ && row.state_.status;
+    const pick = name => STATUS_NAMES.find(n => n.toLowerCase() === String(name || '').trim().toLowerCase());
+    const status = (saved && pick(saved.status)) || pick(row.status) || (row.downloadedAt ? 'Submitted' : 'Draft');
+    const num = x => (x === null || x === undefined || x === '' || isNaN(Number(x))) ? '' : Number(x);
+    return {
+      status: status,
+      approvedValue: saved && saved.approvedValue !== undefined && saved.approvedValue !== '' ? num(saved.approvedValue) : num(row.approvedValue),
+      approvedDate: (saved && saved.approvedDate) || (row.approvedDate ? String(row.approvedDate).slice(0, 10) : '')
+    };
+  }
+
+  // the variation's value ex GST, or null when it was never priced
+  function rowValue(row){
+    const st = row.state_ && row.state_.stages;
+    if(st && typeof st.valueExGst === 'number') return st.valueExGst;
+    const col = row.valueExGst;
+    return (col === null || col === undefined || col === '' || isNaN(Number(col))) ? null : Number(col);
+  }
 
   // The Payload column should hold the form state. It very often holds the
   // whole request body instead: the write flow's Compose action and the column
@@ -684,6 +715,14 @@ const Flows = (() => {
     return readLog({ action: 'list', state: state, projectId: projectId });
   }
 
+  // Every variation in an office, in one call, for the projects page. Needs
+  // the read flow's "no project → filter on state alone" branch; a flow
+  // without it fails on the empty project id, and the caller falls back to
+  // asking project by project.
+  function listStateLog(state){
+    return readLog({ action: 'listState', state: state, projectId: '' });
+  }
+
   async function getLog(state, projectId, variationRef){
     const rows = await readLog({ action: 'get', state: state, projectId: projectId,
                                  variationRef: variationRef });
@@ -787,7 +826,7 @@ const Flows = (() => {
 
   return { get, save, has, plainMessage, probeProxy, proxyState, viaProxy, sourceOf, builtIn: FlowUrls.get,
            getProjects, fileVariation, describe, openVariationFile, unwrapFile,
-           listLog, getLog, writeLog, sameRef, LOG_ALIASES,
+           listLog, listStateLog, getLog, writeLog, sameRef, rowStatus, rowValue, STATUS_NAMES, LOG_ALIASES,
            normaliseProject, extractRows, describeRow, describeRows, normKey,
            MAPPABLE, ALIASES, decodePath, splitSitePath };
 })();

@@ -54,7 +54,7 @@ const Stages = (function(){
 
   function go(next){
     if(!currentState) return;
-    location.hash = '#/state/' + encodeURIComponent(currentState.code) + (next === 'cover' ? '' : '/' + next);
+    location.hash = '#/state/' + encodeURIComponent(currentState.code) + '/' + next;
   }
 
   // called by the router, so the browser's back button walks the stages too
