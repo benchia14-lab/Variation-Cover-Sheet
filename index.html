@@ -448,7 +448,16 @@
 <div class="app stage app-wide" id="view-rates" hidden>
   <div class="form-side stage-side">
     <div class="brand"><span class="brand-mark"></span><h1>Schedule of rates</h1></div>
-    <div class="subhead">Enter what is added and what is deducted against each rate — only measured lines print</div>
+    <div class="subhead">One tab per zone or area. Enter what is added and deducted against each rate, with a comment or an adjusted rate where needed — only measured lines print</div>
+    <div class="sor-tabs" id="sor-tabs" role="tablist" aria-label="Schedules on this variation"></div>
+    <div class="sor-tab-bar">
+      <div class="field">
+        <label for="sor-name">Schedule name <span style="text-transform:none;font-weight:400;">(e.g. Level 2 — Zone A)</span></label>
+        <input type="text" id="sor-name" autocomplete="off">
+      </div>
+      <button type="button" class="refresh-btn" id="sor-duplicate" title="Copy this schedule to a new tab">Duplicate</button>
+      <button type="button" class="refresh-btn" id="sor-delete" title="Delete this schedule">Delete</button>
+    </div>
     <div class="sor-preamble" id="sor-preamble" hidden></div>
 
     <div class="scope-tools">
@@ -466,10 +475,10 @@
 
     <div class="sor-totals-edit">
       <div class="field-row">
-        <div class="field"><label for="sor-gst">GST %</label><input type="text" id="sor-gst" class="mono-input" inputmode="decimal"></div>
+        <div class="field"><label for="sor-gst">GST % <span style="text-transform:none;font-weight:400;">(on the whole variation)</span></label><input type="text" id="sor-gst" class="mono-input" inputmode="decimal"></div>
         <div class="field"></div>
       </div>
-      <div class="field"><label for="sor-notes">Pricing notes <span style="text-transform:none;font-weight:400;">(optional, prints under the totals)</span></label>
+      <div class="field"><label for="sor-notes">Notes for this schedule <span style="text-transform:none;font-weight:400;">(optional, prints under its totals)</span></label>
         <textarea id="sor-notes" placeholder="e.g. Quantities measured on site 14 Aug."></textarea></div>
       <div class="sor-summary" id="sor-summary"></div>
     </div>
