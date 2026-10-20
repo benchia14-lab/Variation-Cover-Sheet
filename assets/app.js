@@ -19,7 +19,7 @@
 const textIds = ['project','varref','variationdesc','siref','clauseref','aconexref','contractordirection','emailref','desc-final',
                   'co-name','co-abn','co-acn','co-phone','co-address','co-email',
                   'recipient-name','recipient-address','attention',
-                  'intro-text','closing-text','sig-name','sig-title'];
+                  'intro-text','closing-text','sig-name','sig-title','sig-email'];
 const els = {};
 textIds.forEach(id => els[id] = document.getElementById(id));
 
@@ -96,7 +96,10 @@ function render(){
   toggleRow('p-co-acn-row', 'p-co-acn', v('co-acn'));
   toggleRow('p-co-address-row', 'p-co-address', v('co-address'));
   toggleRow('p-co-phone-row', 'p-co-phone', v('co-phone'));
-  toggleRow('p-co-email-row', 'p-co-email', v('co-email'));
+  // The letter's email is the PM's, from the project register (step 6). The
+  // office address in the letterhead register stands in only when there is none.
+  const replyTo = v('sig-email') || v('co-email');
+  toggleRow('p-co-email-row', 'p-co-email', replyTo);
 
   document.getElementById('p-footer-co').textContent = coName || 'Company name';
   toggleEl('p-footer-ref', shownRef, 'Ref ' + shownRef, 'inline');
@@ -105,7 +108,7 @@ function render(){
   toggleEl('p-sig-title', v('sig-title'));
   toggleEl('p-sig-co', coName);
   toggleEl('p-sig-phone', v('co-phone'));
-  toggleEl('p-sig-email', v('co-email'));
+  toggleEl('p-sig-email', replyTo);
 }
 
 textIds.forEach(id => els[id].addEventListener('input', render));
@@ -195,7 +198,8 @@ const PULLED_FIELDS = [
   { key: 'recipientAddress', id: 'recipient-address', label: 'Recipient address' },
   { key: 'attention',        id: 'attention',         label: 'Attention' },
   { key: 'issuedBy',         id: 'sig-name',          label: 'Issued by' },
-  { key: 'position',         id: 'sig-title',         label: 'Position' }
+  { key: 'position',         id: 'sig-title',         label: 'Position' },
+  { key: 'pmEmail',          id: 'sig-email',         label: 'PM email' }
 ];
 
 // The tag marks a field the register actually filled. It used to go up for all
@@ -441,7 +445,7 @@ function summarise(){
   if(v('co-name')) parts.push(['Letterhead', v('co-name')]);
   const to = [v('recipient-name'), v('attention')].filter(Boolean).join(', ');
   if(to) parts.push(['To', to]);
-  const by = [v('sig-name'), v('sig-title')].filter(Boolean).join(' \u2014 ');
+  const by = [v('sig-name'), v('sig-title'), v('sig-email')].filter(Boolean).join(' \u2014 ');
   if(by) parts.push(['Issued by', by]);
   return parts.map(([k, val]) =>
     '<span class="pf-item"><span class="pf-k">' + k + '</span>' + escapeHtml(val) + '</span>').join('');
@@ -483,7 +487,8 @@ function revealPrefilled(){
 const REQUIRED_FIELDS = [
   { id: 'co-phone', label: 'Phone' },
   { id: 'co-address', label: 'Address' },
-  { id: 'co-email', label: 'Email' },
+  // the PM's email, or failing that the office's -- one of them has to print
+  { id: 'sig-email', label: 'PM email', missing: () => !els['sig-email'].value.trim() && !els['co-email'].value.trim() },
   { id: 'recipient-name', label: 'Head contractor / company' },
   { id: 'recipient-address', label: 'Recipient address' },
   { id: 'attention', label: 'Attention' },
@@ -491,7 +496,10 @@ const REQUIRED_FIELDS = [
   // hidden text input nobody can see
   { id: 'project', label: 'Project', getEl: () => (projectManualWrap.hidden ? projectSelect : els['project']) }
 ];
-REQUIRED_FIELDS.forEach(f => { if(!f.getEl) f.getEl = () => els[f.id]; });
+REQUIRED_FIELDS.forEach(f => {
+  if(!f.getEl) f.getEl = () => els[f.id];
+  if(!f.missing) f.missing = () => !els[f.id].value.trim();
+});
 
 const printStatus = document.getElementById('print-status');
 const printBtn = document.getElementById('print-btn');
@@ -508,6 +516,8 @@ REQUIRED_FIELDS.forEach(f => {
     projectSelect.classList.remove('field-invalid');
   });
 });
+// an office email typed in answers the PM email's requirement too
+els['co-email'].addEventListener('input', () => els['sig-email'].classList.remove('field-invalid'));
 
 // The variation file sits beside the PDF and is named after it.
 function variationFileName(){
@@ -601,7 +611,7 @@ renderDwgPreview();
    FIELD SUGGESTIONS — what this browser has typed before
    ========================================================================== */
 
-const AC_FIELDS = ['co-phone','co-address','co-email','recipient-address','attention','project'];
+const AC_FIELDS = ['co-phone','co-address','co-email','recipient-address','attention','project','sig-email'];
 const AC_KEY = 'variationCoverSheet:history';
 const AC_MAX = 20;
 const AC_MAX_LENGTH = 400;
@@ -1154,6 +1164,7 @@ function buildFilingPayload(pdfBase64, fileName, fileKind){
     attention: els['attention'].value.trim(),
     issuedBy: els['sig-name'].value.trim(),
     position: els['sig-title'].value.trim(),
+    pmEmail: els['sig-email'].value.trim(),
     siteInstructionRef: els['siref'].value.trim(),
     clauseRef: els['clauseref'].value.trim(),
     aconexRef: els['aconexref'].value.trim(),
@@ -1340,7 +1351,7 @@ async function downloadPdf(built){
 // otherwise marks them, opens the cover sheet and puts the cursor in the first.
 function checkCoverSheet(statusEl){
   clearInvalid();
-  const missing = REQUIRED_FIELDS.filter(f => !els[f.id].value.trim());
+  const missing = REQUIRED_FIELDS.filter(f => f.missing());
   if(!missing.length){ statusEl.textContent = ''; return true; }
   if(typeof Stages !== 'undefined' && Stages.current() !== 'cover') Stages.go('cover');
   // it may be sitting in a collapsed group; open it before pointing at it
@@ -1934,6 +1945,7 @@ function logPayloadFromSaved(saved, ref, extra){
     attention: v('attention'),
     issuedBy: v('sig-name'),
     position: v('sig-title'),
+    pmEmail: v('sig-email'),
     siteInstructionRef: v('siref'),
     clauseRef: v('clauseref'),
     aconexRef: v('aconexref'),

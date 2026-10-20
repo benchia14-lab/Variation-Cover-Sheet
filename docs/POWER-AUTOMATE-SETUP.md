@@ -187,11 +187,16 @@ map to text mode (the icon on the right) and paste:
   "attention": "@{item()?['Attention']}",
   "issuedBy": "@{item()?['IssuedBy']}",
   "position": "@{item()?['Position']}",
+  "pmEmail": "@{item()?['PmEmail']}",
   "folderPath": "@{item()?['FolderPath']}",
   "siteUrl": "@{item()?['SiteUrl']}",
   "clauseRef": "@{item()?['ClauseRef']}"
 }
 ```
+
+**If your flow already has this Select step, add the `pmEmail` line** — a Select
+only passes on the fields it names, so without it the PM email never reaches the
+app, and the cover sheet says *Missing: PM email* when a project is picked.
 
 `State` is a Choice column, so it arrives as an object and needs `?['Value']`.
 Plain text columns don't. If you made `IssuedBy` a **Person** column, use
@@ -513,7 +518,7 @@ when `variationRef` is present. Nothing in the app needs changing for that.
    each row's name. The reference goes in `VariationRef`, with `BaseRef` and
    `Revision` beside it. Then `ProjectId`, `State`, `VariationDescription`,
    `HeadContractor`,
-   `RecipientAddress`, `Attention`, `IssuedBy`, `Position`,
+   `RecipientAddress`, `Attention`, `IssuedBy`, `Position`, `PmEmail` (from `pmEmail`),
    `SiteInstructionRef`, `ClauseRef`, `AconexRef`, `ContractorDirection`,
    `EmailRef`, `DescriptionOfWorks`, `Notes` (from `notes`), `DrawingsText`,
    `FolderPath`, `DownloadedAt`, `UpdatedAt`, and `Payload` — and, for the
@@ -648,6 +653,7 @@ recipe is in [VARIATION-FILES.md](VARIATION-FILES.md).
 | `variationRef` / `variationDescription` | `VAR-042` / `RPZ Valve Relocation` |
 | `headContractor` / `attention` | `Kapitol Group` / `Glen O'Connor` |
 | `issuedBy` / `position` | `Ben Smith` / `Project Engineer` |
+| `pmEmail` | `ben.smith@axisplumbing.com.au` |
 | `siteInstructionRef`, `clauseRef`, `aconexRef`, `contractorDirection`, `emailRef` | as typed |
 | `descriptionOfWorks` | the final description |
 | `drawings` | `[{ "number": "H-201", "name": "…", "oldRev": "C", "newRev": "D" }]` |

@@ -282,6 +282,8 @@ const Flows = (() => {
     attention:        ['attention', 'Attention', 'Attn', 'attn', 'Contact', 'contact'],
     issuedBy:         ['issuedBy', 'IssuedBy', 'Issued_x0020_By', 'issuedby'],
     position:         ['position', 'Position', 'Title2', 'JobTitle', 'Job_x0020_Title'],
+    pmEmail:          ['PmEmail', 'pmEmail', 'PMEmail', 'PM_x0020_Email', 'Pm_x0020_Email',
+                       'ProjectManagerEmail', 'IssuedByEmail', 'Email'],
     folderPath:       ['folderPath', 'FolderPath', 'Folder_x0020_Path', 'folder',
                        'Folder', 'saveFolder', 'SaveFolder', 'LibraryPath'],
     siteUrl:          ['siteUrl', 'SiteUrl', 'Site_x0020_Url', 'site', 'SiteAddress'],
@@ -437,6 +439,7 @@ const Flows = (() => {
     { field: 'attention',        label: 'Attention' },
     { field: 'issuedBy',         label: 'Issued by (name)' },
     { field: 'position',         label: 'Position' },
+    { field: 'pmEmail',          label: 'PM email' },
     { field: 'folderPath',       label: 'SharePoint folder path' }
   ];
 

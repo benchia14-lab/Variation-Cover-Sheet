@@ -279,7 +279,7 @@
       </div>
       <div class="field-row">
         <div class="field ac-wrap"><label for="co-address">Address <span class="req-mark">*</span></label><textarea id="co-address" autocomplete="off"></textarea><div class="ac-list" id="ac-co-address"></div></div>
-        <div class="field ac-wrap"><label for="co-email">Email <span class="req-mark">*</span></label><input type="text" id="co-email" class="mono-input" autocomplete="off"><div class="ac-list" id="ac-co-email"></div></div>
+        <div class="field ac-wrap"><label for="co-email">Office email <span style="text-transform:none;font-weight:400;">(used only if there is no PM email)</span></label><input type="text" id="co-email" class="mono-input" autocomplete="off"><div class="ac-list" id="ac-co-email"></div></div>
       </div>
       </div>
     </div>
@@ -444,6 +444,13 @@
         <div class="field pulled-field">
           <span class="pulled-tag" title="Filled from the SharePoint project register" id="tag-sig-title" hidden>auto</span>
           <label for="sig-title">Position</label><input type="text" id="sig-title" placeholder="e.g. Project Engineer">
+        </div>
+        <div class="field pulled-field ac-wrap">
+          <span class="pulled-tag" title="Filled from the SharePoint project register (PmEmail)" id="tag-sig-email" hidden>auto</span>
+          <label for="sig-email">PM email <span class="req-mark">*</span></label>
+          <input type="text" id="sig-email" class="mono-input" placeholder="e.g. ben.smith@axisplumbing.com.au" autocomplete="off">
+          <div class="ac-list" id="ac-sig-email"></div>
+          <div class="ac-hint">Prints in the letterhead and under the sign-off. From the project register's PmEmail column, or type it.</div>
         </div>
       </div>
       </div>

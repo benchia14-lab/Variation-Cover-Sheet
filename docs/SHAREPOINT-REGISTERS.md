@@ -85,6 +85,7 @@ One row per live project.
 | Attention | `Attention` | Single line of text | Fills *Attention* |
 | Issued By | `IssuedBy` | Single line of text *(or Person)* | Fills *Issued by (name)* |
 | Position | `Position` | Single line of text | Fills *Position* |
+| PM Email | `PmEmail` | Single line of text | Fills *PM email* — the email printed in the letterhead and under the sign-off |
 | Folder Path | `FolderPath` | Single line of text | **Where the PDF gets filed.** See below |
 | Site Url | `SiteUrl` | Single line of text | Only if this project's folder is on a different SharePoint site. Blank = the flow's default site |
 | Clause Ref | `ClauseRef` | Single line of text | Optional. Pre-fills *Clause ref* when it is the same on every variation for this project |
@@ -108,7 +109,7 @@ Then give the columns readable headings. Editing the **display name** does not
 touch the internal name, so rename freely:
 
 `HeadContractor` → Head Contractor · `RecipientAddress` → Recipient Address ·
-`IssuedBy` → Issued By · `FolderPath` → Folder Path · `SiteUrl` → Site Url ·
+`IssuedBy` → Issued By · `PmEmail` → PM Email · `FolderPath` → Folder Path · `SiteUrl` → Site Url ·
 `ClauseRef` → Clause Ref
 
 Leave `Title` alone — every SharePoint list has one and the flow reads it by
