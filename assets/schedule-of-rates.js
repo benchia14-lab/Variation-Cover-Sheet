@@ -27,44 +27,12 @@ const SCHEDULE_OF_RATES = {
     {
      "d": "Design, Co-Ordination, Modelling, Asbuilts Etc",
      "u": "%",
-     "percent": 5.0,
-     "group": "Design & documentation"
+     "percent": 5.0
     },
     {
-     "d": "Equipment hire",
+     "d": "Overheads, Equipment Hire, Labour Hire, Fire Rating, Fire Treatment, Siphonic Design, Seismic Etc",
      "u": "%",
-     "percent": null,
-     "group": "Overheads"
-    },
-    {
-     "d": "Labour hire",
-     "u": "%",
-     "percent": null,
-     "group": "Overheads"
-    },
-    {
-     "d": "Fire rating",
-     "u": "%",
-     "percent": null,
-     "group": "Overheads"
-    },
-    {
-     "d": "Fire treatment",
-     "u": "%",
-     "percent": null,
-     "group": "Overheads"
-    },
-    {
-     "d": "Siphonic design",
-     "u": "%",
-     "percent": null,
-     "group": "Overheads"
-    },
-    {
-     "d": "Seismic",
-     "u": "%",
-     "percent": null,
-     "group": "Overheads"
+     "percent": null
     }
    ]
   },

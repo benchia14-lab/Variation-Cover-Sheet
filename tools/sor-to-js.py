@@ -16,7 +16,7 @@ applied to the measured works, which is what "Design, Co-Ordination ... (5%)"
 means in the sheet. Every such line is moved into a Prelims section at the
 top, with the percentage as its starting value (the "(5%)" in its wording is
 dropped, since the percentage can be changed for a variation), followed by
-the overheads in PRELIM_OVERHEADS below, which start with no percentage.
+the lines in PRELIM_LINES below, which start with no percentage.
 
 Rates are copied, never retyped: re-run this whenever the workbook changes and
 commit the result.
@@ -51,10 +51,11 @@ HEADER = '''/* =================================================================
 '''
 
 
-# Prelims the workbook does not carry: overheads applied as a percentage of the
-# measured works, chosen per variation. Add or remove lines here and re-run.
-PRELIM_OVERHEADS = ['Equipment hire', 'Labour hire', 'Fire rating', 'Fire treatment',
-                    'Siphonic design', 'Seismic']
+# Prelims the workbook does not carry, each one line applied as a percentage
+# of the measured works, chosen per variation. Worded like the workbook's own
+# design allowance: one line naming everything it covers. Edit and re-run.
+PRELIM_LINES = ['Overheads, Equipment Hire, Labour Hire, Fire Rating, Fire Treatment, '
+                'Siphonic Design, Seismic Etc']
 
 
 def clean(value):
@@ -116,11 +117,11 @@ def main(path):
         for line in s['lines']:
             if 'percent' in line:
                 d = re.sub(r'\s*\(\s*[\d.]+\s*%\s*\)\s*$', '', line['d']).strip()
-                prelims.append(dict(line, d=d, group='Design & documentation'))
+                prelims.append(dict(line, d=d))
             else:
                 keep.append(line)
         s['lines'] = keep
-    prelims += [{'d': name, 'u': '%', 'percent': None, 'group': 'Overheads'} for name in PRELIM_OVERHEADS]
+    prelims += [{'d': name, 'u': '%', 'percent': None} for name in PRELIM_LINES]
     sections.insert(0, {'title': 'Prelims',
                         'note': 'Each applied as a percentage of the measured works on this schedule',
                         'lines': prelims})
