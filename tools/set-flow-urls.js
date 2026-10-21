@@ -40,7 +40,8 @@ const FLAGS = {
   '--log-read': 'logReadUrl',
   '--log-write': 'logWriteUrl',
   '--describe': 'describeUrl',
-  '--open-file': 'openFileUrl'
+  '--open-file': 'openFileUrl',
+  '--rates': 'ratesUrl'
 };
 
 function load(){

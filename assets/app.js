@@ -2097,7 +2097,8 @@ const flowInputs = {
   logReadUrl: document.getElementById('flow-log-read'),
   logWriteUrl: document.getElementById('flow-log-write'),
   describeUrl: document.getElementById('flow-describe'),
-  openFileUrl: document.getElementById('flow-open-file')
+  openFileUrl: document.getElementById('flow-open-file'),
+  ratesUrl: document.getElementById('flow-rates')
 };
 Object.values(flowInputs).forEach(el => { el.dataset.placeholder = el.placeholder; });
 const flowsStatus = document.getElementById('flows-status');
@@ -2112,7 +2113,8 @@ const FLOW_LABELS = {
   logReadUrl: 'Variation log — read',
   logWriteUrl: 'Variation log — write',
   describeUrl: 'Write professionally',
-  openFileUrl: 'Open a variation file'
+  openFileUrl: 'Open a variation file',
+  ratesUrl: 'Get agreed rates'
 };
 
 /* A deployment can hold the trigger URLs server-side (netlify/functions/flow.js).
@@ -2340,7 +2342,7 @@ async function connectFlows(){
   const found = {};
   let worked = 0, failed = 0;
 
-  for(const key of ['projectsUrl', 'fileUrl', 'logReadUrl', 'logWriteUrl', 'describeUrl', 'openFileUrl']){
+  for(const key of ['projectsUrl', 'fileUrl', 'logReadUrl', 'logWriteUrl', 'describeUrl', 'openFileUrl', 'ratesUrl']){
     const name = FLOW_LABELS[key];
     const source = Flows.sourceOf(key);
 
@@ -2843,7 +2845,7 @@ function download(text, name, type){
 const LOCK_DECLARATION =
   /const SETTINGS_LOCK = \{\s*salt: '[0-9a-f]*',\s*hash: '[0-9a-f]*',\s*iterations: \d+,?\s*\};/g;
 const URLS_DECLARATION =
-  /const FLOW_URLS = \{\s*projectsUrl: '[^']*',\s*fileUrl: '[^']*',\s*logReadUrl: '[^']*',\s*logWriteUrl: '[^']*',\s*describeUrl: '[^']*'(?:,\s*openFileUrl: '[^']*')?,?\s*\};/g;
+  /const FLOW_URLS = \{\s*projectsUrl: '[^']*',\s*fileUrl: '[^']*',\s*logReadUrl: '[^']*',\s*logWriteUrl: '[^']*',\s*describeUrl: '[^']*'(?:,\s*openFileUrl: '[^']*')?(?:,\s*ratesUrl: '[^']*')?,?\s*\};/g;
 
 // The declaration on its own, without the comment header the file also carries.
 function declarationOnly(source, keyword){

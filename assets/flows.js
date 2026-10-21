@@ -46,13 +46,13 @@
 const FLOW_SETTINGS_KEY = 'variationCoverSheet:flows';
 
 const Flows = (() => {
-  const KEYS = ['projectsUrl', 'fileUrl', 'describeUrl', 'logReadUrl', 'logWriteUrl', 'openFileUrl'];
+  const KEYS = ['projectsUrl', 'fileUrl', 'describeUrl', 'logReadUrl', 'logWriteUrl', 'openFileUrl', 'ratesUrl'];
   const MAP_KEY = 'columnMap';   // saved alongside the URLs, same shape rules
   let settings = load();
 
   function load(){
     const blank = { projectsUrl: '', fileUrl: '', describeUrl: '',
-                    logReadUrl: '', logWriteUrl: '', openFileUrl: '', columnMap: {} };
+                    logReadUrl: '', logWriteUrl: '', openFileUrl: '', ratesUrl: '', columnMap: {} };
     try {
       const raw = localStorage.getItem(FLOW_SETTINGS_KEY);
       if(!raw) return blank;
@@ -168,7 +168,8 @@ const Flows = (() => {
     logReadUrl: 'logRead',
     logWriteUrl: 'logWrite',
     describeUrl: 'describe',
-    openFileUrl: 'openFile'
+    openFileUrl: 'openFile',
+    ratesUrl: 'rates'
   };
 
   async function probeProxy(){
@@ -284,6 +285,8 @@ const Flows = (() => {
     position:         ['position', 'Position', 'Title2', 'JobTitle', 'Job_x0020_Title'],
     pmEmail:          ['PmEmail', 'pmEmail', 'PMEmail', 'PM_x0020_Email', 'Pm_x0020_Email',
                        'ProjectManagerEmail', 'IssuedByEmail', 'Email'],
+    ratesFile:        ['RatesFile', 'ratesFile', 'Rates_x0020_File', 'AgreedRates', 'AgreedRatesFile',
+                       'ScheduleOfRates', 'SORFile'],
     folderPath:       ['folderPath', 'FolderPath', 'Folder_x0020_Path', 'folder',
                        'Folder', 'saveFolder', 'SaveFolder', 'LibraryPath'],
     siteUrl:          ['siteUrl', 'SiteUrl', 'Site_x0020_Url', 'site', 'SiteAddress'],
@@ -440,6 +443,7 @@ const Flows = (() => {
     { field: 'issuedBy',         label: 'Issued by (name)' },
     { field: 'position',         label: 'Position' },
     { field: 'pmEmail',          label: 'PM email' },
+    { field: 'ratesFile',        label: 'Agreed schedule of rates file' },
     { field: 'folderPath',       label: 'SharePoint folder path' }
   ];
 
@@ -814,6 +818,57 @@ const Flows = (() => {
   }
 
   /* ---------------------------------------------------------------------
+     The agreed schedule of rates
+
+     A project whose rates were agreed separately names its Excel file in the
+     register's RatesFile column. This flow is handed the project and answers
+     with that file -- read from the register on its side, never taken from
+     the browser -- and the app reads the workbook itself.
+     --------------------------------------------------------------------- */
+
+  function bytesOf(data, depth){
+    if(depth > 4 || data === null || data === undefined) return null;
+    if(typeof data === 'string'){
+      const text = data.replace(/\s+/g, '');
+      if(!text) return null;
+      try {
+        const bin = atob(text);
+        const out = new Uint8Array(bin.length);
+        for(let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+        return out;
+      } catch(e){ return null; }
+    }
+    if(typeof data !== 'object') return null;
+    const inner = data.$content !== undefined ? data.$content
+      : data.contentBase64 !== undefined ? data.contentBase64
+      : data.content !== undefined ? data.content
+      : data.body !== undefined ? data.body
+      : data.file !== undefined ? data.file : undefined;
+    return inner === undefined ? null : bytesOf(inner, depth + 1);
+  }
+
+  async function getAgreedRates(payload){
+    if(!configured('ratesUrl')){
+      const err = new Error('This app has no flow for reading agreed schedules of rates — tell whoever set it up.');
+      err.unconfigured = true;
+      throw err;
+    }
+    let data;
+    try {
+      data = await postJson(endpointFor('ratesUrl'), payload);
+    } catch(err){
+      if(err.status === 404) err.message = 'The agreed schedule of rates named in the register is not there (' + (payload.ratesFile || 'no file named') + ').';
+      throw err;
+    }
+    const bytes = bytesOf(data, 0);
+    if(!bytes || bytes.length < 4){
+      throw new Error('The rates flow answered, but not with a file. Its Response body should be the ' +
+                      'Get file content output (see docs/AGREED-RATES.md).');
+    }
+    return bytes;
+  }
+
+  /* ---------------------------------------------------------------------
      Description wording (optional)
      --------------------------------------------------------------------- */
 
@@ -830,7 +885,7 @@ const Flows = (() => {
   }
 
   return { get, save, has, plainMessage, probeProxy, proxyState, viaProxy, sourceOf, builtIn: FlowUrls.get,
-           getProjects, fileVariation, describe, openVariationFile, unwrapFile,
+           getProjects, fileVariation, describe, openVariationFile, unwrapFile, getAgreedRates,
            listLog, listStateLog, getLog, writeLog, sameRef, rowStatus, rowValue, STATUS_NAMES, LOG_ALIASES,
            normaliseProject, extractRows, describeRow, describeRows, normKey,
            MAPPABLE, ALIASES, decodePath, splitSitePath };

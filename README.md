@@ -93,6 +93,12 @@ review tab can also save it on its own or download it. Reopening from
 *Open a variation file* flow is connected; a downloaded copy opens from this
 computer with no flow at all. Setup: [docs/VARIATION-FILES.md](docs/VARIATION-FILES.md).
 
+**Agreed rates per project.** A project whose rates were agreed separately
+names its Excel file in the register's `RatesFile` column; the Schedule of
+rates stage loads it through the *Get agreed rates* flow and lays its rates
+over the master, line by line. A workbook can also be dropped onto the stage by
+hand. Setup: [docs/AGREED-RATES.md](docs/AGREED-RATES.md).
+
 **To update the rates**, replace `registers/Schedule of Rates.xlsx` and run
 
 ```

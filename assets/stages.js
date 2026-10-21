@@ -73,7 +73,7 @@ const Stages = (function(){
     if(side) side.scrollTop = 0;
     if(next === 'cover') render();
     if(next === 'scope') renderScope();
-    if(next === 'rates') renderRates();
+    if(next === 'rates'){ renderRates(); ensureRates(); }
     if(next === 'docs') renderDocs();
     if(next === 'review') enterReview();
   }
@@ -150,12 +150,52 @@ const Stages = (function(){
     return (typeof SCOPE_LIBRARY !== 'undefined' && SCOPE_LIBRARY[key]) || [];
   }
 
+  /* A line can carry blanks, written {name} -- the working hours in "After
+     hours works (working hours are {hours})". Each is a box on the line, its
+     value kept with the variation; what prints is the line filled in, and a
+     blank left empty takes its bracket with it. */
+  const BLANK = /\{(\w+)\}/g;
+  const blanksIn = text => (String(text).match(BLANK) || []).map(m => m.slice(1, -1));
+
+  function itemText(item){
+    const values = item.values || {};
+    return String(item.text)
+      .replace(/\s*\(([^()]*)\)/g, (all, inner) =>
+        blanksIn(inner).some(k => !String(values[k] || '').trim()) ? '' : all)
+      .replace(BLANK, (m, k) => String(values[k] || '').trim())
+      .replace(/\s{2,}/g, ' ').trim();
+  }
+
+  // the same line as it was saved before it had a blank: its wording with
+  // whatever stood where the blank now is
+  function matchBlanks(template, text){
+    const parts = String(template).split(BLANK);
+    let pattern = '';
+    const names = [];
+    parts.forEach((part, i) => {
+      if(i % 2) { names.push(part); pattern += '(.*?)'; }
+      else pattern += part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    });
+    const m = new RegExp('^' + pattern + '$').exec(text);
+    if(!m) return null;
+    const values = {};
+    names.forEach((n, i) => { values[n] = m[i + 1]; });
+    return values;
+  }
+
   // every line on offer, none of them chosen: each variation picks its own
   function defaultScope(){
     const items = [];
     GROUPS.forEach(g => {
       libraryLines(g.key).forEach(entry => {
-        items.push({ id: newId(), text: typeof entry === 'string' ? entry : entry.text, group: g.key, state: 'off' });
+        const text = typeof entry === 'string' ? entry : entry.text;
+        const item = { id: newId(), text: text, group: g.key, state: 'off' };
+        const blanks = blanksIn(text);
+        if(blanks.length){
+          item.values = {};
+          blanks.forEach(k => { item.values[k] = (typeof entry === 'object' && entry[k]) || ''; });
+        }
+        items.push(item);
       });
     });
     return items;
@@ -201,7 +241,7 @@ const Stages = (function(){
   function renderScopeList(){
     const q = scopeSearch.value.trim().toLowerCase();
     const matches = item => {
-      if(q && item.text.toLowerCase().indexOf(q) === -1) return false;
+      if(q && itemText(item).toLowerCase().indexOf(q) === -1) return false;
       if(scopeFilter === 'all') return true;
       if(scopeFilter === 'on') return item.state !== 'off';
       return item.state === scopeFilter;
@@ -228,11 +268,39 @@ const Stages = (function(){
 
       shown.forEach(item => {
         const row = el('div', 'scope-item st-' + item.state);
-        const text = el('button', 'si-text');
-        text.type = 'button';
+        let text;
+        if(item.values){
+          // the wording, with a box where each blank goes
+          text = el('div', 'si-text si-template');
+          String(item.text).split(BLANK).forEach((part, i) => {
+            if(i % 2 === 0){
+              if(!part) return;
+              const span = el('span');
+              span.textContent = part;
+              span.addEventListener('click', () => cycleItem(item));
+              text.appendChild(span);
+              return;
+            }
+            const box = el('input', 'si-fill');
+            box.type = 'text';
+            box.value = item.values[part] || '';
+            box.placeholder = part;
+            box.size = Math.max(10, box.value.length + 3);
+            box.title = 'Change for this variation';
+            box.addEventListener('input', () => {
+              item.values[part] = box.value;
+              box.size = Math.max(10, box.value.length + 3);
+              renderScopePreview();
+            });
+            text.appendChild(box);
+          });
+        } else {
+          text = el('button', 'si-text');
+          text.type = 'button';
+          text.textContent = item.text;
+          text.addEventListener('click', () => cycleItem(item));
+        }
         text.title = 'Click to change';
-        text.textContent = item.text;
-        text.addEventListener('click', () => cycleItem(item));
         row.appendChild(text);
 
         const actions = el('div', 'si-actions');
@@ -281,7 +349,7 @@ const Stages = (function(){
       if(!list.length) return;
       const items = list.map(i => {
         const d = el('div', 'scope-line');
-        d.textContent = i.text;
+        d.textContent = itemText(i);
         return d;
       });
       blocks.push({ heading: g.title, items: items });
@@ -366,8 +434,11 @@ const Stages = (function(){
      variation; the contract rate stays alongside it so the change shows.
   ======================================================================== */
 
-  const SOR = (typeof SCHEDULE_OF_RATES !== 'undefined') ? SCHEDULE_OF_RATES
+  const MASTER_SOR = (typeof SCHEDULE_OF_RATES !== 'undefined') ? SCHEDULE_OF_RATES
     : { title: 'Schedule of Rates', sections: [], notes: [], preamble: [], gstPercent: 10 };
+  // the schedule in use: the master, or the master with a project's agreed
+  // rates laid over it (agreed-rates.js)
+  let SOR = MASTER_SOR;
   const keyOf = (section, desc) => section + '\u0000' + desc;
 
   // Per schedule, what has been measured, keyed by section and description.
@@ -521,6 +592,9 @@ const Stages = (function(){
   const sorSections = document.getElementById('sor-sections');
   const sorSearch = document.getElementById('sor-search');
   const sorOnly = document.getElementById('sor-only');
+  const sorService = document.getElementById('sor-service');
+  const sorFold = document.getElementById('sor-fold');
+  const sorHits = document.getElementById('sor-hits');
   const sorGst = document.getElementById('sor-gst');
   const sorNotes = document.getElementById('sor-notes');
   const sorSummary = document.getElementById('sor-summary');
@@ -528,6 +602,26 @@ const Stages = (function(){
   document.getElementById('sor-preamble').textContent = (SOR.preamble || []).join(' ');
   document.getElementById('sor-preamble').hidden = !(SOR.preamble || []).length;
   const openSections = {};
+  // While searching or filtering, each section with a hit can still be
+  // folded. Those choices last until the search changes; a new search starts
+  // with the sections closed (so the service is picked from its heading),
+  // unless its hits are all in one section or there are only a few.
+  let foldKey = null, foldOpen = {}, servicesFor = null;
+  // every word typed has to appear, in any order: "pvc 100" finds "100 PVC"
+  const searchWords = q => q.split(/\s+/).filter(Boolean);
+  const matches = (words, text) => words.every(w => text.indexOf(w) !== -1);
+  // the services to pick from, in schedule order
+  function fillServices(){
+    const keep = sorService.value;
+    sorService.innerHTML = '<option value="">All services</option>';
+    SOR.sections.forEach(s => {
+      const o = el('option');
+      o.value = s.title;
+      o.textContent = s.title;
+      sorService.appendChild(o);
+    });
+    sorService.value = SOR.sections.some(s => s.title === keep) ? keep : '';
+  }
 
   // touched: measured, commented on, or re-rated
   const touched = e => !!e && (isMeasured(e) || (e.c || '').trim() || num(e.r) !== num(e.r0));
@@ -555,11 +649,21 @@ const Stages = (function(){
     return i;
   };
 
-  function scheduleRow(s, l){
+  // the description, with the words searched for marked
+  function markWords(span, text, words){
+    if(!words.length){ span.textContent = text; return; }
+    const re = new RegExp('(' + words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'gi');
+    text.split(re).forEach((part, i) => {
+      if(i % 2) span.appendChild(el('mark', 'sor-hit')).textContent = part;
+      else if(part) span.appendChild(document.createTextNode(part));
+    });
+  }
+
+  function scheduleRow(s, l, words){
     const k = keyOf(s.title, l.d);
     const row = el('div', 'sor-row');
     const desc = el('div', 'sor-desc');
-    desc.appendChild(el('span', 'sor-d')).textContent = l.d;
+    markWords(desc.appendChild(el('span', 'sor-d')), l.d, words || []);
 
     if(l.percent !== undefined){
       // A prelim: a percentage of the measured works on this schedule, typed
@@ -612,7 +716,11 @@ const Stages = (function(){
       return row;
     }
 
-    const meta = desc.appendChild(el('span', 'sor-meta', escapeHtml(l.u)));
+    // with agreed rates in use, every line says which rate it is on
+    const meta = desc.appendChild(el('span', 'sor-meta', escapeHtml(l.u) +
+      (source.kind === 'master' || source.kind === 'pending' ? ''
+        : l.added ? ' · <b class="sor-tag agreed">agreed · not in master</b>'
+        : l.agreed ? ' · <b class="sor-tag agreed">agreed</b>' : ' · <b class="sor-tag">master rate</b>')));
     // shown only once the rate has been typed over
     const adj = meta.appendChild(el('span', 'sor-adj', ' · contract ' + money(l.r) + ' '));
     const reset = adj.appendChild(el('button', 'sor-reset', 'reset'));
@@ -664,25 +772,45 @@ const Stages = (function(){
   const isPrelims = s => s.lines.length > 0 && s.lines.every(l => l.percent !== undefined);
 
   function buildRatesEditor(){
+    if(servicesFor !== SOR){ servicesFor = SOR; fillServices(); }
     const q = sorSearch.value.trim().toLowerCase();
+    const words = searchWords(q);
     const only = sorOnly.checked;
+    const service = sorService.value;
     const scrollAt = sorSections.closest('.form-side').scrollTop;
     sorSections.innerHTML = '';
-    let shownAny = false;
 
-    SOR.sections.forEach(s => {
-      const lines = s.lines.filter(l => {
-        if(q && l.d.toLowerCase().indexOf(q) === -1 && s.title.toLowerCase().indexOf(q) === -1) return false;
-        if(only){
-          if(l.percent !== undefined) return !!rates.percents[keyOf(s.title, l.d)];
-          return touched(rates.measured[keyOf(s.title, l.d)]);
-        }
-        return true;
-      });
-      if(!lines.length) return;
-      shownAny = true;
-      // searching or filtering opens every section with a hit
-      const open = !!(q || only || openSections[s.title]);
+    const found = SOR.sections.filter(s => !service || s.title === service).map(s => ({ s: s, lines: s.lines.filter(l => {
+      if(words.length && !matches(words, (s.title + ' ' + (l.group || '') + ' ' + l.d + ' ' + (l.u || '')).toLowerCase())) return false;
+      if(only){
+        if(l.percent !== undefined) return !!rates.percents[keyOf(s.title, l.d)];
+        return touched(rates.measured[keyOf(s.title, l.d)]);
+      }
+      return true;
+    }) })).filter(f => f.lines.length);
+
+    const filtering = !!(words.length || only || service);
+    const key = [q, only, service].join('|');
+    if(key !== foldKey){
+      foldKey = key;
+      foldOpen = {};
+      // what a search or filter shows first: a measured-only view, a single
+      // service or a single section is opened; a search across several
+      // services is shown as their headings, to pick from
+      if(filtering){
+        const startOpen = only || !!service || found.length === 1 ||
+          found.reduce((n, f) => n + f.lines.length, 0) <= 5;
+        found.forEach(f => { foldOpen[f.s.title] = startOpen; });
+      }
+    }
+    const hits = found.reduce((n, f) => n + f.lines.length, 0);
+    sorFold.hidden = !filtering || !found.length;
+    sorHits.textContent = hits + ' rate' + (hits === 1 ? '' : 's') + ' in ' +
+      found.length + ' section' + (found.length === 1 ? '' : 's') + ' ·';
+
+    found.forEach(f => {
+      const s = f.s, lines = f.lines;
+      const open = filtering ? !!foldOpen[s.title] : !!openSections[s.title];
 
       const box = el('div', 'sor-section' + (open ? ' open' : ''));
       const head = el('button', 'sor-section-head');
@@ -690,12 +818,15 @@ const Stages = (function(){
       const count = measuredIn(s);
       head.innerHTML = '<span class="sor-caret">' + (open ? '▾' : '▸') + '</span>' +
         '<span class="sor-title">' + escapeHtml(s.title) + '</span>' +
-        '<span class="sor-count">' + (isPrelims(s)
+        '<span class="sor-count">' + (words.length && !only
+          ? lines.length + ' of ' + s.lines.length + ' match' + (lines.length === 1 ? 'es' : '') + (count ? ' · ' + count + ' measured' : '')
+          : isPrelims(s)
           ? (count ? count + ' applied' : s.lines.length + ' items')
           : (count ? count + ' measured' : s.lines.length + ' rates')) + '</span>' +
         '<span class="sor-sec-total" data-sec="' + escapeHtml(s.title) + '"></span>';
       head.addEventListener('click', () => {
-        openSections[s.title] = !open;
+        if(filtering) foldOpen[s.title] = !open;
+        else openSections[s.title] = !open;
         buildRatesEditor();
         updateRates();
       });
@@ -712,14 +843,16 @@ const Stages = (function(){
             grid.appendChild(el('div', 'sor-subhead')).textContent = l.group;
             group = l.group;
           }
-          grid.appendChild(scheduleRow(s, l));
+          grid.appendChild(scheduleRow(s, l, words));
         });
         box.appendChild(grid);
       }
       sorSections.appendChild(box);
     });
-    if(!shownAny){
-      sorSections.appendChild(el('div', 'scope-empty', only ? 'Nothing measured on this schedule yet.' : 'Nothing in the schedule matches.'));
+    if(!found.length){
+      sorSections.appendChild(el('div', 'scope-empty', only && !words.length
+        ? 'Nothing measured' + (service ? ' under ' + escapeHtml(service) : '') + ' on this schedule yet.'
+        : 'Nothing in ' + (service ? escapeHtml(service) : 'the schedule') + ' matches.'));
     }
     sorSections.closest('.form-side').scrollTop = scrollAt;
   }
@@ -768,6 +901,14 @@ const Stages = (function(){
 
   sorSearch.addEventListener('input', () => { buildRatesEditor(); updateRates(); });
   sorOnly.addEventListener('change', () => { buildRatesEditor(); updateRates(); });
+  sorService.addEventListener('change', () => { buildRatesEditor(); updateRates(); });
+  const foldAll = open => {
+    SOR.sections.forEach(s => { foldOpen[s.title] = open; });
+    buildRatesEditor();
+    updateRates();
+  };
+  document.getElementById('sor-open-all').addEventListener('click', () => foldAll(true));
+  document.getElementById('sor-close-all').addEventListener('click', () => foldAll(false));
   sorGst.addEventListener('input', () => { book.gstPercent = sorGst.value; updateRates(); });
   sorNotes.addEventListener('input', () => { rates.notes = sorNotes.value; updateRates(); });
 
@@ -830,6 +971,7 @@ const Stages = (function(){
   }
 
   function renderRates(){
+    renderSource();
     sorGst.value = book.gstPercent;
     sorNotes.value = rates.notes || '';
     renderTabs();
@@ -959,6 +1101,7 @@ const Stages = (function(){
     return {
       version: 2,
       gstPercent: book.gstPercent,
+      source: savedSource(),
       schedules: book.schedules.map(sch => ({
         name: sch.name,
         measured: Object.keys(sch.measured).map(k => sch.measured[k]),
@@ -1009,6 +1152,228 @@ const Stages = (function(){
     }
     if(saved && saved.gstPercent !== undefined) book.gstPercent = saved.gstPercent;
     rates = book.schedules[0];
+    restoreSource(saved && saved.source);
+  }
+
+  /* ---- where the rates come from ---------------------------------------------
+     The master schedule, unless the project has agreed rates of its own:
+     named in the register's RatesFile column and fetched by the Get agreed
+     rates flow, or a workbook dropped onto this stage by hand.
+
+     Rates are copied onto a line when it is measured, so changing the
+     schedule never silently reprices a variation. Choosing other rates here
+     -- the button, a dropped file, back to the master -- reprices the lines
+     still on their schedule rate, and leaves any typed-over rate alone. When
+     rates arrive on their own (picking the project, reopening a variation),
+     nothing is repriced; the banner says how many lines differ and offers to.
+  ------------------------------------------------------------------------- */
+
+  let source = { kind: 'pending' };     // 'pending' | 'master' | 'agreed' | 'upload'
+  let uploaded = null;                   // the parsed workbook, for an upload
+  const agreedCache = {};                // project id -> { agreed, meta }
+  let loading = null;
+
+  const fileNameOf = path => String(path || '').split(/[\\/]/).pop() || String(path || '');
+
+  function useSchedule(agreed, meta, opts){
+    if(agreed){
+      const o = AgreedRates.overlay(MASTER_SOR, agreed);
+      SOR = o.schedule;
+      source = Object.assign({}, meta, { report: o.report });
+    } else {
+      SOR = MASTER_SOR;
+      source = Object.assign({ kind: 'master' }, meta || {});
+    }
+    const repriced = opts && opts.reprice ? reprice() : 0;
+    if(repriced) source.repriced = repriced;
+    if(stage === 'rates') renderRates();
+    render();   // the cover sheet carries the value
+  }
+
+  // measured lines still on their schedule rate, at a different rate from
+  // the schedule now in use
+  function stale(){
+    let n = 0;
+    book.schedules.forEach(sch => Object.keys(sch.measured).forEach(k => {
+      const e = sch.measured[k];
+      const line = findLine(e.section, e.d);
+      if(line && line.r !== undefined && num(e.r) === num(e.r0) && num(e.r0) !== num(line.r)) n++;
+    }));
+    return n;
+  }
+
+  function reprice(){
+    let n = 0;
+    book.schedules.forEach(sch => Object.keys(sch.measured).forEach(k => {
+      const e = sch.measured[k];
+      const line = findLine(e.section, e.d);
+      if(!line || line.r === undefined) return;
+      if(num(e.r) === num(e.r0)){ if(num(e.r) !== num(line.r)) n++; e.r = line.r; }
+      e.r0 = line.r;   // a typed-over rate stays, now beside the right contract rate
+    }));
+    return n;
+  }
+
+  async function loadAgreed(reprice_){
+    const p = selectedProject;
+    if(!p || !p.ratesFile || !Flows.has('ratesUrl')) return;
+    const key = String(p.id);
+    source = { kind: 'pending', loadingFor: p.project || key };
+    renderSource();
+    try {
+      const bytes = await Flows.getAgreedRates({
+        action: 'rates', state: currentState ? currentState.code : '', projectId: key,
+        ratesFile: p.ratesFile, folderPath: p.folderPath || '', siteUrl: p.siteUrl || ''
+      });
+      const agreed = AgreedRates.readWorkbook(bytes);
+      const meta = { kind: 'agreed', projectId: key, project: p.project || '', name: fileNameOf(p.ratesFile),
+                     path: p.ratesFile, loadedAt: new Date().toISOString() };
+      agreedCache[key] = { agreed: agreed, meta: meta };
+      if(!selectedProject || String(selectedProject.id) !== key) return;   // moved on meanwhile
+      uploaded = null;
+      useSchedule(agreed, meta, { reprice: reprice_ });
+    } catch(err){
+      useSchedule(null, { error: 'The agreed rates for ' + (p.project || 'this project') + ' could not be loaded — ' +
+        (err.message || 'the flow failed') + '. The master rates are in use.' });
+    }
+  }
+
+  // the schedule this variation should be on, fetched if need be
+  function ensureRates(){
+    if(loading) return loading;
+    if(source.kind === 'upload' || (source.kind === 'master' && source.chosen)) return Promise.resolve();
+    const p = selectedProject;
+    const wanted = p && p.ratesFile && Flows.has('ratesUrl') ? String(p.id) : null;
+    if(!wanted){
+      if(source.kind !== 'master' || source.error) useSchedule(null, source.lost ? { lost: source.lost } : null);
+      return Promise.resolve();
+    }
+    if(source.kind === 'agreed' && source.projectId === wanted) return Promise.resolve();
+    if(agreedCache[wanted]){ useSchedule(agreedCache[wanted].agreed, agreedCache[wanted].meta); return Promise.resolve(); }
+    loading = loadAgreed(false).finally(() => { loading = null; });
+    return loading;
+  }
+
+  async function uploadSchedule(file){
+    const status = document.getElementById('sor-source-status');
+    try {
+      const agreed = AgreedRates.readWorkbook(new Uint8Array(await file.arrayBuffer()));
+      uploaded = agreed;
+      useSchedule(agreed, { kind: 'upload', name: file.name, loadedAt: new Date().toISOString() }, { reprice: true });
+    } catch(err){
+      status.textContent = file.name + ' could not be used — ' + (err.message || 'it could not be read') + '.';
+      status.className = 'status-line err';
+    }
+  }
+
+  const sourceText = document.getElementById('sor-source-text');
+  function renderSource(){
+    const p = selectedProject;
+    const when = iso => new Date(iso).toLocaleString('en-AU', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    let html;
+    if(source.loadingFor){
+      html = 'Loading the agreed rates for <b>' + escapeHtml(source.loadingFor) + '</b>…';
+    } else if(source.kind === 'agreed'){
+      html = '<b>Agreed rates</b> for ' + escapeHtml(source.project || 'this project') + ' — <code>' + escapeHtml(source.name) +
+        '</code>, loaded ' + escapeHtml(when(source.loadedAt));
+    } else if(source.kind === 'upload'){
+      html = '<b>Uploaded schedule</b> — <code>' + escapeHtml(source.name) + '</code>, ' + escapeHtml(when(source.loadedAt));
+    } else {
+      html = '<b>Master schedule of rates</b>' + (source.chosen ? ', chosen for this variation'
+        : p && !p.ratesFile ? ' — this project has no agreed rates in the register' : '');
+    }
+    sourceText.innerHTML = html;
+    const status = document.getElementById('sor-source-status');
+    const lines = [];
+    if(source.error) lines.push(['err', source.error]);
+    if(source.report) lines.push(['', AgreedRates.describe(source.report)]);
+    if(source.repriced) lines.push(['ok', source.repriced + ' measured line' + (source.repriced === 1 ? '' : 's') + ' repriced to these rates.']);
+    if(source.lost) lines.push(['err', 'The schedule uploaded for this variation (' + source.lost + ') was too large to keep in the log; its measured lines keep their rates. Drop the file again to see the rest.']);
+    status.innerHTML = lines.map(l => '<div class="' + (l[0] ? 'sor-' + l[0] : '') + '">' + escapeHtml(l[1]) + '</div>').join('');
+    const n = source.kind === 'pending' ? 0 : stale();
+    const repriceBtn = document.getElementById('sor-reprice');
+    repriceBtn.hidden = !n;
+    repriceBtn.textContent = 'Reprice ' + n + ' measured line' + (n === 1 ? '' : 's') + ' to these rates';
+    document.getElementById('sor-load-agreed').hidden = !(p && p.ratesFile && Flows.has('ratesUrl'));
+    document.getElementById('sor-use-master').hidden = source.kind === 'master' || source.kind === 'pending';
+  }
+
+  document.getElementById('sor-load-agreed').addEventListener('click', () => {
+    if(selectedProject) delete agreedCache[String(selectedProject.id)];
+    uploaded = null;
+    loading = loadAgreed(true).finally(() => { loading = null; });
+  });
+  document.getElementById('sor-use-master').addEventListener('click', () => {
+    uploaded = null;
+    useSchedule(null, { chosen: true }, { reprice: true });
+  });
+  document.getElementById('sor-reprice').addEventListener('click', () => {
+    source.repriced = reprice();
+    renderRates();
+    render();
+  });
+  const uploadInput = document.getElementById('sor-upload');
+  uploadInput.addEventListener('change', () => { if(uploadInput.files[0]) uploadSchedule(uploadInput.files[0]); uploadInput.value = ''; });
+  const ratesSide = VIEWS.rates.querySelector('.form-side');
+  ratesSide.addEventListener('dragover', e => {
+    if(e.dataTransfer && [...e.dataTransfer.items].some(i => i.kind === 'file')){ e.preventDefault(); ratesSide.classList.add('sor-drop'); }
+  });
+  ratesSide.addEventListener('dragleave', e => { if(e.target === ratesSide) ratesSide.classList.remove('sor-drop'); });
+  ratesSide.addEventListener('drop', e => {
+    ratesSide.classList.remove('sor-drop');
+    const f = e.dataTransfer && e.dataTransfer.files[0];
+    if(!f) return;
+    e.preventDefault();
+    if(!/\.(xlsx|xlsm|xls|csv)$/i.test(f.name)){
+      const status = document.getElementById('sor-source-status');
+      status.textContent = f.name + ' is not a spreadsheet — drop the Excel schedule of rates.';
+      status.className = 'status-line err';
+      return;
+    }
+    uploadSchedule(f);
+  });
+
+  // What the variation remembers of its rates. An upload's rates are kept
+  // with it when they fit comfortably in the log's Payload column; the
+  // variation file always keeps them (uploadedRates below).
+  function savedSource(){
+    // not settled yet (the stage has not been opened since): what it was
+    if(source.kind === 'pending') return Object.assign({}, source.was || { kind: 'master' });
+    const out = {};
+    ['kind', 'name', 'path', 'loadedAt', 'projectId', 'project', 'chosen'].forEach(k => { if(source[k] !== undefined) out[k] = source[k]; });
+    if(source.kind === 'upload' && uploaded){
+      const text = JSON.stringify(uploaded);
+      if(text.length < 20000) out.uploaded = uploaded; else out.uploadedTooBig = true;
+    }
+    return out;
+  }
+
+  function restoreSource(saved){
+    uploaded = null;
+    SOR = MASTER_SOR;
+    source = { kind: 'pending' };
+    if(!saved) return;
+    source.was = Object.assign({}, saved);
+    delete source.was.uploaded;
+    if(saved.kind === 'upload' && saved.uploaded){
+      uploaded = saved.uploaded;
+      const o = AgreedRates.overlay(MASTER_SOR, uploaded);
+      SOR = o.schedule;
+      source = Object.assign({}, saved, { report: o.report });
+      delete source.uploaded;
+    } else if(saved.kind === 'upload'){
+      source = { kind: 'pending', lost: saved.name || 'a spreadsheet', was: source.was };
+    } else if(saved.kind === 'master' && saved.chosen){
+      source = { kind: 'master', chosen: true };
+    }
+    // agreed rates are fetched again from the project when they are needed
+  }
+
+  function uploadedRates(){ return source.kind === 'upload' ? uploaded : null; }
+  function applyUploadedRates(agreed, meta){
+    if(!agreed) return;
+    uploaded = agreed;
+    useSchedule(agreed, Object.assign({ kind: 'upload' }, meta || {}));
   }
 
   /* ========================================================================
@@ -1565,6 +1930,7 @@ const Stages = (function(){
     printStatus.textContent = '';
     fileState.textContent = '';
     try {
+      await ensureRates();
       const result = await buildVariationPdf();
       if(token !== buildToken) return;   // left the stage while it was building
       built = result;
@@ -1596,7 +1962,8 @@ const Stages = (function(){
 
   function collect(){
     return {
-      scope: scopeItems.map(i => ({ text: i.text, group: i.group, state: i.state, custom: !!i.custom })),
+      scope: scopeItems.map(i => Object.assign({ text: i.text, group: i.group, state: i.state, custom: !!i.custom },
+        i.values ? { values: Object.assign({}, i.values) } : {})),
       rates: collectRates(),
       valueExGst: Math.round(computeRates().exGst * 100) / 100
     };
@@ -1605,10 +1972,19 @@ const Stages = (function(){
   // a variation saved before these stages existed comes back with the defaults
   function apply(saved){
     scopeItems = (saved && Array.isArray(saved.scope))
-      ? saved.scope.map(i => ({ id: newId(), text: i.text, group: i.group,
-          // a qualification "added" before they could be included or excluded
-          // printed as an exclusion note, so that is what it becomes
-          state: i.state === 'qual' ? 'out' : i.state, custom: !!i.custom }))
+      ? saved.scope.map(i => {
+          const item = { id: newId(), text: i.text, group: i.group,
+            // a qualification "added" before they could be included or excluded
+            // printed as an exclusion note, so that is what it becomes
+            state: i.state === 'qual' ? 'out' : i.state, custom: !!i.custom };
+          if(i.values) item.values = Object.assign({}, i.values);
+          // saved before its line had a blank: the same line, with what it said
+          if(!item.values && !item.custom){
+            const now = defaultScope().find(d => d.group === item.group && d.values && matchBlanks(d.text, item.text));
+            if(now){ item.values = matchBlanks(now.text, item.text); item.text = now.text; }
+          }
+          return item;
+        })
       : defaultScope();
     // lines the library has gained since it was saved are offered, unselected
     defaultScope().forEach(d => {
@@ -1678,6 +2054,9 @@ const Stages = (function(){
     collect: collect,
     apply: apply,
     collectDocs: collectDocs,
+    uploadedRates: uploadedRates,
+    applyUploadedRates: applyUploadedRates,
+    ensureRates: ensureRates,
     applyDocs: applyDocs,
     appendToPdf: appendToPdf,
     valueLine: valueLine

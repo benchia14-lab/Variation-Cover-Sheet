@@ -33,7 +33,7 @@
 ============================================================================ */
 
 const FlowUrls = (() => {
-  const KEYS = ['projectsUrl', 'fileUrl', 'logReadUrl', 'logWriteUrl', 'describeUrl', 'openFileUrl'];
+  const KEYS = ['projectsUrl', 'fileUrl', 'logReadUrl', 'logWriteUrl', 'describeUrl', 'openFileUrl', 'ratesUrl'];
 
   // flow-config.js declares FLOW_URLS. If it is missing — a half-copied folder
   // — the app must still run, unconfigured, rather than dying on load.

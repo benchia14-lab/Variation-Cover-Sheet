@@ -1,5 +1,5 @@
-Title,State,HeadContractor,RecipientAddress,Attention,IssuedBy,Position,PmEmail,FolderPath,SiteUrl,ClauseRef,Active
-Warrnambool Hospital Redevelopment 25-135,VIC,Kapitol Group,"L29/385 Bourke St, Melbourne VIC 3000",Glen O'Connor,Ben Smith,Project Engineer,ben.smith@axisplumbing.com.au,/Shared Documents/25-135 Warrnambool Hospital/Variations,,Cl 12.3,Yes
-Melbourne Quarter Tower 24-902,VIC,Lendlease,"Two Melbourne Quarter, Level 14/697 Collins St, Docklands VIC 3008",Sam Reid,Jo Tran,Contracts Administrator,jo.tran@axisplumbing.com.au,/Shared Documents/24-902 Melbourne Quarter/Variations,,,Yes
-Collins Street Fitout 25-018,VIC,Besix Watpac,"Level 7, 530 Collins Street, Melbourne VIC 3000",Priya Nair,Ben Smith,Project Engineer,ben.smith@axisplumbing.com.au,/Shared Documents/25-018 Collins Street/Variations,,,Yes
-Royal Adelaide Expansion 25-204,SA,Hansen Yuncken Pty Ltd,"Level 10/412 St Kilda Rd, Melbourne VIC 3004",Dan Whitfield,,,,/Shared Documents/25-204 Royal Adelaide/Variations,,,Yes
+Title,State,HeadContractor,RecipientAddress,Attention,IssuedBy,Position,PmEmail,RatesFile,FolderPath,SiteUrl,ClauseRef,Active
+Warrnambool Hospital Redevelopment 25-135,VIC,Kapitol Group,"L29/385 Bourke St, Melbourne VIC 3000",Glen O'Connor,Ben Smith,Project Engineer,ben.smith@axisplumbing.com.au,/Shared Documents/25-135 Warrnambool Hospital/Agreed Schedule of Rates.xlsx,/Shared Documents/25-135 Warrnambool Hospital/Variations,,Cl 12.3,Yes
+Melbourne Quarter Tower 24-902,VIC,Lendlease,"Two Melbourne Quarter, Level 14/697 Collins St, Docklands VIC 3008",Sam Reid,Jo Tran,Contracts Administrator,jo.tran@axisplumbing.com.au,,/Shared Documents/24-902 Melbourne Quarter/Variations,,,Yes
+Collins Street Fitout 25-018,VIC,Besix Watpac,"Level 7, 530 Collins Street, Melbourne VIC 3000",Priya Nair,Ben Smith,Project Engineer,ben.smith@axisplumbing.com.au,,/Shared Documents/25-018 Collins Street/Variations,,,Yes
+Royal Adelaide Expansion 25-204,SA,Hansen Yuncken Pty Ltd,"Level 10/412 St Kilda Rd, Melbourne VIC 3004",Dan Whitfield,,,,,/Shared Documents/25-204 Royal Adelaide/Variations,,,Yes

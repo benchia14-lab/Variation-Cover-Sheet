@@ -29,6 +29,7 @@
        VARIATION_LOG_WRITE_URL    creates or updates a log row
        WRITE_PROFESSIONALLY_URL   optional; tidies the description
        OPEN_VARIATION_FILE_URL    optional; reads a saved variation file back
+       GET_AGREED_RATES_URL       optional; reads a project's agreed schedule of rates
 
    Any that are missing simply report themselves as unconfigured, and the app
    falls back to the URL box in Settings for that one flow.
@@ -40,7 +41,8 @@ const TARGETS = {
   logRead: 'VARIATION_LOG_READ_URL',
   logWrite: 'VARIATION_LOG_WRITE_URL',
   describe: 'WRITE_PROFESSIONALLY_URL',
-  openFile: 'OPEN_VARIATION_FILE_URL'
+  openFile: 'OPEN_VARIATION_FILE_URL',
+  rates: 'GET_AGREED_RATES_URL'
 };
 
 const JSON_HEADERS = {

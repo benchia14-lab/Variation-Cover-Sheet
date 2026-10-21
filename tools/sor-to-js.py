@@ -89,9 +89,9 @@ def main(path):
                 in_notes = True
                 continue
             if title.upper() == 'CONTRACT RATES':
-                # the heading of the whole sheet, not a section
-                if sub:
-                    preamble.append(sub)
+                # The heading of the whole sheet, not a section. Its note --
+                # "All rates provided below exclude spotters for EWP works" --
+                # is left out: it is not printed on a variation.
                 continue
             # "OTHER PRICING - works below occur ..." -> a title and its note
             m = re.match(r'^([A-Z][A-Z ]+?)\s+-\s+(.*)$', title)

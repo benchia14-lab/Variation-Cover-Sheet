@@ -48,7 +48,7 @@ def guard(text, rel):
 
 FLOW_LABELS = [('projectsUrl', 'projects'), ('fileUrl', 'file'),
                ('logReadUrl', 'log read'), ('logWriteUrl', 'log write'),
-               ('describeUrl', 'describe'), ('openFileUrl', 'open file')]
+               ('describeUrl', 'describe'), ('openFileUrl', 'open file'), ('ratesUrl', 'agreed rates')]
 
 
 # The five Netlify environment variables, as they are named in the site's
@@ -62,6 +62,7 @@ ENV_FLOWS = [
     ('logWriteUrl', 'VARIATION_LOG_WRITE_URL'),
     ('describeUrl', 'WRITE_PROFESSIONALLY_URL'),
     ('openFileUrl', 'OPEN_VARIATION_FILE_URL'),
+    ('ratesUrl', 'GET_AGREED_RATES_URL'),
 ]
 ENV_SALT = 'SETTINGS_PASSWORD_SALT'
 ENV_HASH = 'SETTINGS_PASSWORD_HASH'
@@ -197,13 +198,13 @@ def build(flow_config=None, settings_password=None):
         '<link rel="stylesheet" href="assets/styles.css">',
         '<style>\n' + css + '\n</style>')
 
-    for rel in ['vendor/html2pdf.bundle.min.js', 'vendor/pdf-lib.min.js',
+    for rel in ['vendor/html2pdf.bundle.min.js', 'vendor/pdf-lib.min.js', 'vendor/xlsx.mini.min.js',
                 'vendor/pdf.min.js', 'vendor/pdf.worker.min.js',
                 'assets/settings-password.js',
                 'assets/settings-lock.js', 'assets/logo.js',
                 'assets/state-register.js', 'assets/flow-config.js', 'assets/flow-urls.js',
                 'assets/build-info.js', 'assets/flows.js',
-                'assets/scope-library.js', 'assets/schedule-of-rates.js',
+                'assets/scope-library.js', 'assets/schedule-of-rates.js', 'assets/agreed-rates.js',
                 'assets/app.js', 'assets/stages.js', 'assets/variation-file.js',
                 'assets/dashboard.js']:
         tag = '<script src="%s"></script>' % rel

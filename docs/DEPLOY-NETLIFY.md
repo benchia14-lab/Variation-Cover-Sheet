@@ -66,6 +66,7 @@ the site's own settings instead.
 | `VARIATION_LOG_WRITE_URL` | the Variation log write trigger URL |
 | `WRITE_PROFESSIONALLY_URL` | the Write professionally trigger URL |
 | `OPEN_VARIATION_FILE_URL` | the Open a variation file trigger URL (optional — see VARIATION-FILES.md) |
+| `GET_AGREED_RATES_URL` | the Get agreed rates trigger URL (optional — see AGREED-RATES.md) |
 | `SETTINGS_PASSWORD_SALT` | the `salt` from your `settings-password.js` |
 | `SETTINGS_PASSWORD_HASH` | the `hash` from the same file |
 

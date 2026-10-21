@@ -188,6 +188,7 @@ map to text mode (the icon on the right) and paste:
   "issuedBy": "@{item()?['IssuedBy']}",
   "position": "@{item()?['Position']}",
   "pmEmail": "@{item()?['PmEmail']}",
+  "ratesFile": "@{item()?['RatesFile']}",
   "folderPath": "@{item()?['FolderPath']}",
   "siteUrl": "@{item()?['SiteUrl']}",
   "clauseRef": "@{item()?['ClauseRef']}"
@@ -610,6 +611,14 @@ whichever your tenant has. A prompt along these lines works:
 Leave this flow out entirely and the button still works: it capitalises
 sentences and adds full stops locally, and says so, so nobody mistakes tidied
 notes for a rewrite.
+
+---
+
+## Flow 7 · Get agreed rates (optional)
+
+Fetches the Excel file the project register's `RatesFile` column names, so a
+project prices its variations at its own agreed rates. The whole recipe is in
+[AGREED-RATES.md](AGREED-RATES.md).
 
 ---
 
