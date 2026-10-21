@@ -116,13 +116,16 @@ exports.handler = async function (event) {
     return reply(502, { error: 'Could not reach Power Automate: ' + scrub(e && e.message) });
   }
 
-  const text = await response.text();
-  return {
-    statusCode: response.status,
-    headers: {
-      'Content-Type': response.headers.get('content-type') || 'application/json',
-      'Cache-Control': 'no-store'
-    },
-    body: scrub(text)
-  };
+  const type = response.headers.get('content-type') || 'application/json';
+  const bytes = Buffer.from(await response.arrayBuffer());
+  const headers = { 'Content-Type': type, 'Cache-Control': 'no-store' };
+  // A file (the agreed rates flow sends the workbook itself) goes back as it
+  // came; read as text it would be mangled
+  const isFile = (bytes[0] === 0x50 && bytes[1] === 0x4B) ||
+                 (bytes[0] === 0xD0 && bytes[1] === 0xCF) ||
+                 /octet-stream|spreadsheet|ms-excel|zip/i.test(type);
+  if (isFile) {
+    return { statusCode: response.status, headers: headers, body: bytes.toString('base64'), isBase64Encoded: true };
+  }
+  return { statusCode: response.status, headers: headers, body: scrub(bytes.toString('utf8')) };
 };
