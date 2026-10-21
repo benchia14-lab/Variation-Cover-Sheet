@@ -242,6 +242,14 @@ const Flows = (() => {
   }
 
   async function postJson(url, payload){
+    const text = await (await post(url, payload)).text();
+    if(!text.trim()) return {};
+    try { return JSON.parse(text); }
+    catch(e){ throw new Error('The flow replied with something that is not JSON. Check the Response action Body.'); }
+  }
+
+  // the call itself, its answer still unread
+  async function post(url, payload){
     let res;
     try {
       res = await fetch(url, {
@@ -258,10 +266,7 @@ const Flows = (() => {
       error.status = res.status;
       throw error;
     }
-    const text = await res.text();
-    if(!text.trim()) return {};
-    try { return JSON.parse(text); }
-    catch(e){ throw new Error('The flow replied with something that is not JSON. Check the Response action Body.'); }
+    return res;
   }
 
   /* ---------------------------------------------------------------------
@@ -853,12 +858,26 @@ const Flows = (() => {
       err.unconfigured = true;
       throw err;
     }
-    let data;
+    let raw;
     try {
-      data = await postJson(endpointFor('ratesUrl'), payload);
+      raw = new Uint8Array(await (await post(endpointFor('ratesUrl'), payload)).arrayBuffer());
     } catch(err){
       if(err.status === 404) err.message = 'The agreed schedule of rates named in the register is not there (' + (payload.ratesFile || 'no file named') + ').';
       throw err;
+    }
+    // The Response can hand back the file itself (its Body set to the file
+    // content) or JSON carrying it as base64; either is fine
+    const zip = raw[0] === 0x50 && raw[1] === 0x4B;                          // .xlsx / .xlsm
+    const ole = raw[0] === 0xD0 && raw[1] === 0xCF && raw[2] === 0x11;      // old .xls
+    if(zip || ole) return raw;
+    const text = new TextDecoder().decode(raw).replace(/^\uFEFF/, '').trim();
+    let data;
+    try { data = JSON.parse(text); }
+    catch(e){
+      // not JSON and not a workbook: a .csv as it is, if it reads as one
+      if(text && /[,\t]/.test(text.split(/\r?\n/)[0]) && !/^[{\[<]/.test(text)) return raw;
+      throw new Error('The rates flow answered, but not with the file. Set its Response Body to the ' +
+                      'Get file content using path output (see docs/AGREED-RATES.md)');
     }
     const bytes = bytesOf(data, 0);
     if(!bytes || bytes.length < 4){

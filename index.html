@@ -185,12 +185,23 @@
         <section class="bc-approval">
           <p class="form-section-title">Approval</p>
           <p class="bc-help">Typed here from what the builder approved — not taken from the schedule of rates
-            (that came to <strong id="bc-sor-value">—</strong>).</p>
+            (that came to <strong id="bc-sor-value">—</strong>). Type a percentage of that value, or the
+            approved value itself; each fills in the other.</p>
           <div class="bc-approval-row">
             <div class="field"><label for="bc-status">Status</label><select id="bc-status"></select></div>
+            <div class="field"><label for="bc-pct">Approved %</label>
+              <div class="bc-pct-box"><input type="text" id="bc-pct" class="mono-input" inputmode="decimal" placeholder="100">
+                <span class="bc-pct-sign">%</span></div></div>
             <div class="field"><label for="bc-value">Approved value ex GST</label>
               <input type="text" id="bc-value" class="mono-input" inputmode="decimal" placeholder="0.00"></div>
             <div class="field"><label for="bc-date">Approved date</label><input type="date" id="bc-date"></div>
+          </div>
+          <div class="bc-pct-quick" id="bc-pct-quick">
+            <span>Of the variation's value:</span>
+            <button type="button" class="chip" data-pct="100">100%</button>
+            <button type="button" class="chip" data-pct="80">80%</button>
+            <button type="button" class="chip" data-pct="50">50%</button>
+            <button type="button" class="chip" data-pct="20">20%</button>
           </div>
           <button type="button" class="print-btn" id="bc-save-approval">Save approval</button>
         </section>

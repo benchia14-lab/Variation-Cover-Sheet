@@ -85,6 +85,12 @@ with agreed rates, put the file's location in it. Either form works:
 - the file's full address, from the file's **… → Details → Path** (copy) — not
   a **Share** link, which is a different kind of address
 
+Copy it with the copy button beside **Path**, not by selecting the text you
+can see: SharePoint shortens a long path on screen to
+`/Shared Documents/15.Projects_VIC/…/Schedule of Rates.xlsx`, and a path
+with `…` in it points at a folder that does not exist. The app says so if
+the register holds one, rather than asking the flow.
+
 Leave it blank for projects on the master rates.
 
 ### 2 · One line in the Get projects flow
@@ -141,8 +147,15 @@ settings as flow 1.
    | File Path | `@{outputs('File')}` |
    | Infer Content Type | **No** |
 
-6. **Response**, status `200`, body `@{body('Get_file_content_using_path')}`,
-   with the same two headers as flow 1 ([step 6](POWER-AUTOMATE-SETUP.md#step6)).
+6. **Response**, status `200`, with the same two headers as flow 1
+   ([step 6](POWER-AUTOMATE-SETUP.md#step6)). For its **Body**, pick
+   **File Content** (from *Get file content using path*) from the dynamic
+   content list. The flow then sends the workbook itself, which the app reads
+   as it is. JSON with the file in base64 also works, if you would rather:
+
+   ```
+   { "file": "@{base64(body('Get_file_content_using_path'))}" }
+   ```
 
 7. A second **Response** after *Get file content using path*, status `404`,
    body `{ "error": "not found" }`, **Configure run after → has failed** only.

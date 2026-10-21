@@ -1214,6 +1214,21 @@ const Stages = (function(){
     return n;
   }
 
+  // Two kinds of address that look right in the register but can never be
+  // fetched: a path SharePoint shortened for display, and a Share link
+  function badRatesFile(file){
+    const f = String(file || '').trim();
+    if(/(^|\/)\s*(\.\.\.|…)\s*(\/|$)/.test(f)){
+      return 'the RatesFile in the register is a shortened path, with "…" where folders were left out (' + f + '). ' +
+        'Put the whole path in, or copy the file\'s full address from … → Details → Path in SharePoint';
+    }
+    if(/sharepoint\.com\/:[a-z]:\//i.test(f) || /[?&](e|share)=/i.test(f)){
+      return 'the RatesFile in the register is a Share link (' + f + '), which does not say where the file is. ' +
+        'Put in the file\'s full address from … → Details → Path in SharePoint, or its path in the site';
+    }
+    return '';
+  }
+
   async function loadAgreed(reprice_){
     const p = selectedProject;
     if(!p || !p.ratesFile || !Flows.has('ratesUrl')) return;
@@ -1221,6 +1236,8 @@ const Stages = (function(){
     source = { kind: 'pending', loadingFor: p.project || key };
     renderSource();
     try {
+      const wrong = badRatesFile(p.ratesFile);
+      if(wrong) throw new Error(wrong);
       const bytes = await Flows.getAgreedRates({
         action: 'rates', state: currentState ? currentState.code : '', projectId: key,
         ratesFile: p.ratesFile, folderPath: p.folderPath || '', siteUrl: p.siteUrl || ''
@@ -1234,7 +1251,7 @@ const Stages = (function(){
       useSchedule(agreed, meta, { reprice: reprice_ });
     } catch(err){
       useSchedule(null, { error: 'The agreed rates for ' + (p.project || 'this project') + ' could not be loaded — ' +
-        (err.message || 'the flow failed') + '. The master rates are in use.' });
+        String(err.message || 'the flow failed').replace(/\.\s*$/, '') + '. The master rates are in use.' });
     }
   }
 

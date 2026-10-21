@@ -42,6 +42,13 @@ window shows the schedule's figure beside them for reference only. The
 dashboard's *Approved* total adds up the approved values entered, and says how
 many approved variations do not have one yet.
 
+The approved value can also be entered as a **percentage** of the
+variation's value: type it in **Approved %**, or click **100%**, **80%**,
+**50%** or **20%**, and the value is worked out (80% of $1,600.00 is
+$1,280.00). Typing the value instead fills in the percentage. Only the value
+is saved, so no new column is needed; the dashboard shows the share under
+each approved value (*90.63% of value*).
+
 ### Builder commentary
 
 **Builder commentary** on each row opens a window with the variation's thread:
