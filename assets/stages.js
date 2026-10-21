@@ -592,6 +592,9 @@ const Stages = (function(){
   const sorSections = document.getElementById('sor-sections');
   const sorSearch = document.getElementById('sor-search');
   const sorOnly = document.getElementById('sor-only');
+  const sorService = document.getElementById('sor-service');
+  const sorFold = document.getElementById('sor-fold');
+  const sorHits = document.getElementById('sor-hits');
   const sorGst = document.getElementById('sor-gst');
   const sorNotes = document.getElementById('sor-notes');
   const sorSummary = document.getElementById('sor-summary');
@@ -599,6 +602,26 @@ const Stages = (function(){
   document.getElementById('sor-preamble').textContent = (SOR.preamble || []).join(' ');
   document.getElementById('sor-preamble').hidden = !(SOR.preamble || []).length;
   const openSections = {};
+  // While searching or filtering, each section with a hit can still be
+  // folded. Those choices last until the search changes; a new search starts
+  // with the sections closed (so the service is picked from its heading),
+  // unless its hits are all in one section or there are only a few.
+  let foldKey = null, foldOpen = {}, servicesFor = null;
+  // every word typed has to appear, in any order: "pvc 100" finds "100 PVC"
+  const searchWords = q => q.split(/\s+/).filter(Boolean);
+  const matches = (words, text) => words.every(w => text.indexOf(w) !== -1);
+  // the services to pick from, in schedule order
+  function fillServices(){
+    const keep = sorService.value;
+    sorService.innerHTML = '<option value="">All services</option>';
+    SOR.sections.forEach(s => {
+      const o = el('option');
+      o.value = s.title;
+      o.textContent = s.title;
+      sorService.appendChild(o);
+    });
+    sorService.value = SOR.sections.some(s => s.title === keep) ? keep : '';
+  }
 
   // touched: measured, commented on, or re-rated
   const touched = e => !!e && (isMeasured(e) || (e.c || '').trim() || num(e.r) !== num(e.r0));
@@ -626,11 +649,21 @@ const Stages = (function(){
     return i;
   };
 
-  function scheduleRow(s, l){
+  // the description, with the words searched for marked
+  function markWords(span, text, words){
+    if(!words.length){ span.textContent = text; return; }
+    const re = new RegExp('(' + words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'gi');
+    text.split(re).forEach((part, i) => {
+      if(i % 2) span.appendChild(el('mark', 'sor-hit')).textContent = part;
+      else if(part) span.appendChild(document.createTextNode(part));
+    });
+  }
+
+  function scheduleRow(s, l, words){
     const k = keyOf(s.title, l.d);
     const row = el('div', 'sor-row');
     const desc = el('div', 'sor-desc');
-    desc.appendChild(el('span', 'sor-d')).textContent = l.d;
+    markWords(desc.appendChild(el('span', 'sor-d')), l.d, words || []);
 
     if(l.percent !== undefined){
       // A prelim: a percentage of the measured works on this schedule, typed
@@ -739,25 +772,45 @@ const Stages = (function(){
   const isPrelims = s => s.lines.length > 0 && s.lines.every(l => l.percent !== undefined);
 
   function buildRatesEditor(){
+    if(servicesFor !== SOR){ servicesFor = SOR; fillServices(); }
     const q = sorSearch.value.trim().toLowerCase();
+    const words = searchWords(q);
     const only = sorOnly.checked;
+    const service = sorService.value;
     const scrollAt = sorSections.closest('.form-side').scrollTop;
     sorSections.innerHTML = '';
-    let shownAny = false;
 
-    SOR.sections.forEach(s => {
-      const lines = s.lines.filter(l => {
-        if(q && l.d.toLowerCase().indexOf(q) === -1 && s.title.toLowerCase().indexOf(q) === -1) return false;
-        if(only){
-          if(l.percent !== undefined) return !!rates.percents[keyOf(s.title, l.d)];
-          return touched(rates.measured[keyOf(s.title, l.d)]);
-        }
-        return true;
-      });
-      if(!lines.length) return;
-      shownAny = true;
-      // searching or filtering opens every section with a hit
-      const open = !!(q || only || openSections[s.title]);
+    const found = SOR.sections.filter(s => !service || s.title === service).map(s => ({ s: s, lines: s.lines.filter(l => {
+      if(words.length && !matches(words, (s.title + ' ' + (l.group || '') + ' ' + l.d + ' ' + (l.u || '')).toLowerCase())) return false;
+      if(only){
+        if(l.percent !== undefined) return !!rates.percents[keyOf(s.title, l.d)];
+        return touched(rates.measured[keyOf(s.title, l.d)]);
+      }
+      return true;
+    }) })).filter(f => f.lines.length);
+
+    const filtering = !!(words.length || only || service);
+    const key = [q, only, service].join('|');
+    if(key !== foldKey){
+      foldKey = key;
+      foldOpen = {};
+      // what a search or filter shows first: a measured-only view, a single
+      // service or a single section is opened; a search across several
+      // services is shown as their headings, to pick from
+      if(filtering){
+        const startOpen = only || !!service || found.length === 1 ||
+          found.reduce((n, f) => n + f.lines.length, 0) <= 5;
+        found.forEach(f => { foldOpen[f.s.title] = startOpen; });
+      }
+    }
+    const hits = found.reduce((n, f) => n + f.lines.length, 0);
+    sorFold.hidden = !filtering || !found.length;
+    sorHits.textContent = hits + ' rate' + (hits === 1 ? '' : 's') + ' in ' +
+      found.length + ' section' + (found.length === 1 ? '' : 's') + ' ·';
+
+    found.forEach(f => {
+      const s = f.s, lines = f.lines;
+      const open = filtering ? !!foldOpen[s.title] : !!openSections[s.title];
 
       const box = el('div', 'sor-section' + (open ? ' open' : ''));
       const head = el('button', 'sor-section-head');
@@ -765,12 +818,15 @@ const Stages = (function(){
       const count = measuredIn(s);
       head.innerHTML = '<span class="sor-caret">' + (open ? '▾' : '▸') + '</span>' +
         '<span class="sor-title">' + escapeHtml(s.title) + '</span>' +
-        '<span class="sor-count">' + (isPrelims(s)
+        '<span class="sor-count">' + (words.length && !only
+          ? lines.length + ' of ' + s.lines.length + ' match' + (lines.length === 1 ? 'es' : '') + (count ? ' · ' + count + ' measured' : '')
+          : isPrelims(s)
           ? (count ? count + ' applied' : s.lines.length + ' items')
           : (count ? count + ' measured' : s.lines.length + ' rates')) + '</span>' +
         '<span class="sor-sec-total" data-sec="' + escapeHtml(s.title) + '"></span>';
       head.addEventListener('click', () => {
-        openSections[s.title] = !open;
+        if(filtering) foldOpen[s.title] = !open;
+        else openSections[s.title] = !open;
         buildRatesEditor();
         updateRates();
       });
@@ -787,14 +843,16 @@ const Stages = (function(){
             grid.appendChild(el('div', 'sor-subhead')).textContent = l.group;
             group = l.group;
           }
-          grid.appendChild(scheduleRow(s, l));
+          grid.appendChild(scheduleRow(s, l, words));
         });
         box.appendChild(grid);
       }
       sorSections.appendChild(box);
     });
-    if(!shownAny){
-      sorSections.appendChild(el('div', 'scope-empty', only ? 'Nothing measured on this schedule yet.' : 'Nothing in the schedule matches.'));
+    if(!found.length){
+      sorSections.appendChild(el('div', 'scope-empty', only && !words.length
+        ? 'Nothing measured' + (service ? ' under ' + escapeHtml(service) : '') + ' on this schedule yet.'
+        : 'Nothing in ' + (service ? escapeHtml(service) : 'the schedule') + ' matches.'));
     }
     sorSections.closest('.form-side').scrollTop = scrollAt;
   }
@@ -843,6 +901,14 @@ const Stages = (function(){
 
   sorSearch.addEventListener('input', () => { buildRatesEditor(); updateRates(); });
   sorOnly.addEventListener('change', () => { buildRatesEditor(); updateRates(); });
+  sorService.addEventListener('change', () => { buildRatesEditor(); updateRates(); });
+  const foldAll = open => {
+    SOR.sections.forEach(s => { foldOpen[s.title] = open; });
+    buildRatesEditor();
+    updateRates();
+  };
+  document.getElementById('sor-open-all').addEventListener('click', () => foldAll(true));
+  document.getElementById('sor-close-all').addEventListener('click', () => foldAll(false));
   sorGst.addEventListener('input', () => { book.gstPercent = sorGst.value; updateRates(); });
   sorNotes.addEventListener('input', () => { rates.notes = sorNotes.value; updateRates(); });
 

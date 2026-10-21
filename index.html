@@ -612,8 +612,20 @@
     </div>
 
     <div class="scope-tools">
-      <input type="text" id="sor-search" placeholder="Search the schedule — e.g. 100 PVC, fire collar, foreman…" autocomplete="off">
-      <label class="sor-only"><input type="checkbox" id="sor-only"> Show only what is measured</label>
+      <div class="sor-find">
+        <select id="sor-service" title="Only the rates for one service">
+          <option value="">All services</option>
+        </select>
+        <input type="text" id="sor-search" placeholder="Search the schedule — e.g. 100 PVC, fire collar, foreman…" autocomplete="off">
+      </div>
+      <div class="sor-find-row">
+        <label class="sor-only"><input type="checkbox" id="sor-only"> Show only what is measured</label>
+        <span class="sor-fold" id="sor-fold" hidden>
+          <span id="sor-hits"></span>
+          <button type="button" class="link-btn" id="sor-open-all">Open all</button>
+          <button type="button" class="link-btn" id="sor-close-all">Close all</button>
+        </span>
+      </div>
     </div>
 
     <div id="sor-sections"></div>
