@@ -16,5 +16,5 @@ const FLOW_URLS = {
   logWriteUrl: 'https://defaulte52a9a8778f14048b915d974ad3d98.ac.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/27/workflows/bba6a4377f2f415dba14fc3ee5d06c7f/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=U0w6yi3vYrlLO7b6mTD4da0aJ3NzBoSgpuKUsmRun_w',
   describeUrl: 'https://defaulte52a9a8778f14048b915d974ad3d98.ac.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/29/workflows/fd2168d449474c899d01c07278b852d5/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=76qwSVy4AFkRbkRH9PGFLPyawu7yKnPtBpmEa9vdfZo',
   openFileUrl: 'https://defaulte52a9a8778f14048b915d974ad3d98.ac.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/24/workflows/2bd25ca6c7b046228ed982c0aa303c60/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=mOKfMxXBPiaN8C1Ng9m6q45OkF_sLMpZjTHHHmKDCZw',
-  ratesUrl: ''
+  ratesUrl: 'https://defaulte52a9a8778f14048b915d974ad3d98.ac.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/05/workflows/effaf5539f924d7f87435de20bb00b9f/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=utYe0DBCiuJgzPXzvVPa75EnfBuQumeWPnN4l2uIkDA'
 };
