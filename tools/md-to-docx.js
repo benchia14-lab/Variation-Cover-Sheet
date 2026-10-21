@@ -46,6 +46,7 @@ const DOC_TITLES = {
   'SIGN-IN.md': '8 - Microsoft Sign-In',
   'VARIATION-FILES.md': '9 - Saving and Reopening Variation Files',
   'PROJECT-DASHBOARD.md': '10 - The Projects Page and Dashboard',
+  'AGREED-RATES.md': '11 - Agreed Schedules of Rates',
 };
 
 /* ---------------------------------------------------------------- inline --- */

@@ -36,6 +36,13 @@ const VariationFile = (function(){
 
   function build(){
     const form = collectFormState();
+    // a schedule uploaded by hand travels whole in the file, however large;
+    // the log keeps it only when it is small
+    const up = Stages.uploadedRates();
+    if(up && form.stages && form.stages.rates && form.stages.rates.source){
+      form.stages.rates.source.uploaded = up;
+      delete form.stages.rates.source.uploadedTooBig;
+    }
     return {
       app: 'variation-cover-sheet',
       kind: 'variation',

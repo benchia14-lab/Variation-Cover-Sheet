@@ -598,6 +598,18 @@
       <button type="button" class="refresh-btn" id="sor-delete" title="Delete this schedule">Delete</button>
     </div>
     <div class="sor-preamble" id="sor-preamble" hidden></div>
+    <div class="sor-source">
+      <div class="sor-source-text" id="sor-source-text">Master schedule of rates</div>
+      <div class="sor-source-acts">
+        <button type="button" class="refresh-btn" id="sor-load-agreed" hidden>Load agreed rates</button>
+        <label class="refresh-btn" for="sor-upload">Upload a schedule…</label>
+        <input type="file" id="sor-upload" accept=".xlsx,.xlsm,.xls,.csv">
+        <button type="button" class="refresh-btn" id="sor-use-master" hidden>Use master rates</button>
+        <button type="button" class="refresh-btn" id="sor-reprice" hidden>Reprice</button>
+      </div>
+      <div class="sor-source-status" id="sor-source-status"></div>
+      <div class="sor-source-hint">Or drop the project's Excel schedule of rates anywhere on this side.</div>
+    </div>
 
     <div class="scope-tools">
       <input type="text" id="sor-search" placeholder="Search the schedule — e.g. 100 PVC, fire collar, foreman…" autocomplete="off">
@@ -842,6 +854,13 @@
       project's folder. Saving a variation file needs no flow of its own — it goes through
       <strong>File the PDF</strong>. See <code>docs/VARIATION-FILES.md</code>.</p>
 
+    <div class="field">
+      <label for="flow-rates">Get agreed rates — HTTP POST URL <span style="text-transform:none;font-weight:400;">(optional)</span></label>
+      <textarea id="flow-rates" placeholder="Leave blank to use the master schedule of rates, or rates uploaded by hand"></textarea>
+    </div>
+    <p class="settings-help">Receives <code>{"projectId","state"}</code> and answers with the Excel file the project
+      register's <code>RatesFile</code> column names. See <code>docs/AGREED-RATES.md</code>.</p>
+
     <div class="settings-actions">
       <button class="print-btn" id="flows-save" type="button">Save endpoints</button>
       <button class="refresh-btn" id="flows-test" type="button">Test projects flow</button>
@@ -877,13 +896,13 @@
   <div class="form-section">
     <div class="form-section-head"><span class="form-section-num">B</span><p class="form-section-title">Build the flow URLs into the app</p></div>
     <p class="settings-help" id="urls-current">&nbsp;</p>
-    <p class="settings-help">Takes whatever is in the six boxes above and gives you back a copy of the
+    <p class="settings-help">Takes whatever is in the seven boxes above and gives you back a copy of the
       app with them inside it. Deploy that, and nobody has to paste anything — it works on every
       laptop that opens the site.</p>
 
     <div class="warn-note">
       <strong>Only do this behind a sign-in.</strong> A trigger URL's <code>sig=</code> value is the
-      whole authentication, so a copy with them in it hands all six flows to anyone served the page.
+      whole authentication, so a copy with them in it hands all seven flows to anyone served the page.
       That is fine once the site is behind Microsoft sign-in and being served the page already means
       being in your organisation. It is not fine on an open site, and a filled-in copy should never
       be committed to a public repository.
@@ -974,6 +993,8 @@
 <script src="assets/flows.js"></script>
 <script src="assets/scope-library.js"></script>
 <script src="assets/schedule-of-rates.js"></script>
+<script src="vendor/xlsx.mini.min.js"></script>
+<script src="assets/agreed-rates.js"></script>
 <script src="assets/app.js"></script>
 <script src="assets/stages.js"></script>
 <script src="assets/variation-file.js"></script>

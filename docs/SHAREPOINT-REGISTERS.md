@@ -86,6 +86,7 @@ One row per live project.
 | Issued By | `IssuedBy` | Single line of text *(or Person)* | Fills *Issued by (name)* |
 | Position | `Position` | Single line of text | Fills *Position* |
 | PM Email | `PmEmail` | Single line of text | Fills *PM email* — the email printed in the letterhead and under the sign-off |
+| Rates File | `RatesFile` | Single line of text | Optional. The project's agreed schedule of rates (Excel). Blank = the master rates. See [AGREED-RATES.md](AGREED-RATES.md) |
 | Folder Path | `FolderPath` | Single line of text | **Where the PDF gets filed.** See below |
 | Site Url | `SiteUrl` | Single line of text | Only if this project's folder is on a different SharePoint site. Blank = the flow's default site |
 | Clause Ref | `ClauseRef` | Single line of text | Optional. Pre-fills *Clause ref* when it is the same on every variation for this project |

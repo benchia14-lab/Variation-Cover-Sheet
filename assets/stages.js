@@ -73,7 +73,7 @@ const Stages = (function(){
     if(side) side.scrollTop = 0;
     if(next === 'cover') render();
     if(next === 'scope') renderScope();
-    if(next === 'rates') renderRates();
+    if(next === 'rates'){ renderRates(); ensureRates(); }
     if(next === 'docs') renderDocs();
     if(next === 'review') enterReview();
   }
@@ -434,8 +434,11 @@ const Stages = (function(){
      variation; the contract rate stays alongside it so the change shows.
   ======================================================================== */
 
-  const SOR = (typeof SCHEDULE_OF_RATES !== 'undefined') ? SCHEDULE_OF_RATES
+  const MASTER_SOR = (typeof SCHEDULE_OF_RATES !== 'undefined') ? SCHEDULE_OF_RATES
     : { title: 'Schedule of Rates', sections: [], notes: [], preamble: [], gstPercent: 10 };
+  // the schedule in use: the master, or the master with a project's agreed
+  // rates laid over it (agreed-rates.js)
+  let SOR = MASTER_SOR;
   const keyOf = (section, desc) => section + '\u0000' + desc;
 
   // Per schedule, what has been measured, keyed by section and description.
@@ -680,7 +683,11 @@ const Stages = (function(){
       return row;
     }
 
-    const meta = desc.appendChild(el('span', 'sor-meta', escapeHtml(l.u)));
+    // with agreed rates in use, every line says which rate it is on
+    const meta = desc.appendChild(el('span', 'sor-meta', escapeHtml(l.u) +
+      (source.kind === 'master' || source.kind === 'pending' ? ''
+        : l.added ? ' · <b class="sor-tag agreed">agreed · not in master</b>'
+        : l.agreed ? ' · <b class="sor-tag agreed">agreed</b>' : ' · <b class="sor-tag">master rate</b>')));
     // shown only once the rate has been typed over
     const adj = meta.appendChild(el('span', 'sor-adj', ' · contract ' + money(l.r) + ' '));
     const reset = adj.appendChild(el('button', 'sor-reset', 'reset'));
@@ -898,6 +905,7 @@ const Stages = (function(){
   }
 
   function renderRates(){
+    renderSource();
     sorGst.value = book.gstPercent;
     sorNotes.value = rates.notes || '';
     renderTabs();
@@ -1027,6 +1035,7 @@ const Stages = (function(){
     return {
       version: 2,
       gstPercent: book.gstPercent,
+      source: savedSource(),
       schedules: book.schedules.map(sch => ({
         name: sch.name,
         measured: Object.keys(sch.measured).map(k => sch.measured[k]),
@@ -1077,6 +1086,228 @@ const Stages = (function(){
     }
     if(saved && saved.gstPercent !== undefined) book.gstPercent = saved.gstPercent;
     rates = book.schedules[0];
+    restoreSource(saved && saved.source);
+  }
+
+  /* ---- where the rates come from ---------------------------------------------
+     The master schedule, unless the project has agreed rates of its own:
+     named in the register's RatesFile column and fetched by the Get agreed
+     rates flow, or a workbook dropped onto this stage by hand.
+
+     Rates are copied onto a line when it is measured, so changing the
+     schedule never silently reprices a variation. Choosing other rates here
+     -- the button, a dropped file, back to the master -- reprices the lines
+     still on their schedule rate, and leaves any typed-over rate alone. When
+     rates arrive on their own (picking the project, reopening a variation),
+     nothing is repriced; the banner says how many lines differ and offers to.
+  ------------------------------------------------------------------------- */
+
+  let source = { kind: 'pending' };     // 'pending' | 'master' | 'agreed' | 'upload'
+  let uploaded = null;                   // the parsed workbook, for an upload
+  const agreedCache = {};                // project id -> { agreed, meta }
+  let loading = null;
+
+  const fileNameOf = path => String(path || '').split(/[\\/]/).pop() || String(path || '');
+
+  function useSchedule(agreed, meta, opts){
+    if(agreed){
+      const o = AgreedRates.overlay(MASTER_SOR, agreed);
+      SOR = o.schedule;
+      source = Object.assign({}, meta, { report: o.report });
+    } else {
+      SOR = MASTER_SOR;
+      source = Object.assign({ kind: 'master' }, meta || {});
+    }
+    const repriced = opts && opts.reprice ? reprice() : 0;
+    if(repriced) source.repriced = repriced;
+    if(stage === 'rates') renderRates();
+    render();   // the cover sheet carries the value
+  }
+
+  // measured lines still on their schedule rate, at a different rate from
+  // the schedule now in use
+  function stale(){
+    let n = 0;
+    book.schedules.forEach(sch => Object.keys(sch.measured).forEach(k => {
+      const e = sch.measured[k];
+      const line = findLine(e.section, e.d);
+      if(line && line.r !== undefined && num(e.r) === num(e.r0) && num(e.r0) !== num(line.r)) n++;
+    }));
+    return n;
+  }
+
+  function reprice(){
+    let n = 0;
+    book.schedules.forEach(sch => Object.keys(sch.measured).forEach(k => {
+      const e = sch.measured[k];
+      const line = findLine(e.section, e.d);
+      if(!line || line.r === undefined) return;
+      if(num(e.r) === num(e.r0)){ if(num(e.r) !== num(line.r)) n++; e.r = line.r; }
+      e.r0 = line.r;   // a typed-over rate stays, now beside the right contract rate
+    }));
+    return n;
+  }
+
+  async function loadAgreed(reprice_){
+    const p = selectedProject;
+    if(!p || !p.ratesFile || !Flows.has('ratesUrl')) return;
+    const key = String(p.id);
+    source = { kind: 'pending', loadingFor: p.project || key };
+    renderSource();
+    try {
+      const bytes = await Flows.getAgreedRates({
+        action: 'rates', state: currentState ? currentState.code : '', projectId: key,
+        ratesFile: p.ratesFile, folderPath: p.folderPath || '', siteUrl: p.siteUrl || ''
+      });
+      const agreed = AgreedRates.readWorkbook(bytes);
+      const meta = { kind: 'agreed', projectId: key, project: p.project || '', name: fileNameOf(p.ratesFile),
+                     path: p.ratesFile, loadedAt: new Date().toISOString() };
+      agreedCache[key] = { agreed: agreed, meta: meta };
+      if(!selectedProject || String(selectedProject.id) !== key) return;   // moved on meanwhile
+      uploaded = null;
+      useSchedule(agreed, meta, { reprice: reprice_ });
+    } catch(err){
+      useSchedule(null, { error: 'The agreed rates for ' + (p.project || 'this project') + ' could not be loaded — ' +
+        (err.message || 'the flow failed') + '. The master rates are in use.' });
+    }
+  }
+
+  // the schedule this variation should be on, fetched if need be
+  function ensureRates(){
+    if(loading) return loading;
+    if(source.kind === 'upload' || (source.kind === 'master' && source.chosen)) return Promise.resolve();
+    const p = selectedProject;
+    const wanted = p && p.ratesFile && Flows.has('ratesUrl') ? String(p.id) : null;
+    if(!wanted){
+      if(source.kind !== 'master' || source.error) useSchedule(null, source.lost ? { lost: source.lost } : null);
+      return Promise.resolve();
+    }
+    if(source.kind === 'agreed' && source.projectId === wanted) return Promise.resolve();
+    if(agreedCache[wanted]){ useSchedule(agreedCache[wanted].agreed, agreedCache[wanted].meta); return Promise.resolve(); }
+    loading = loadAgreed(false).finally(() => { loading = null; });
+    return loading;
+  }
+
+  async function uploadSchedule(file){
+    const status = document.getElementById('sor-source-status');
+    try {
+      const agreed = AgreedRates.readWorkbook(new Uint8Array(await file.arrayBuffer()));
+      uploaded = agreed;
+      useSchedule(agreed, { kind: 'upload', name: file.name, loadedAt: new Date().toISOString() }, { reprice: true });
+    } catch(err){
+      status.textContent = file.name + ' could not be used — ' + (err.message || 'it could not be read') + '.';
+      status.className = 'status-line err';
+    }
+  }
+
+  const sourceText = document.getElementById('sor-source-text');
+  function renderSource(){
+    const p = selectedProject;
+    const when = iso => new Date(iso).toLocaleString('en-AU', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    let html;
+    if(source.loadingFor){
+      html = 'Loading the agreed rates for <b>' + escapeHtml(source.loadingFor) + '</b>…';
+    } else if(source.kind === 'agreed'){
+      html = '<b>Agreed rates</b> for ' + escapeHtml(source.project || 'this project') + ' — <code>' + escapeHtml(source.name) +
+        '</code>, loaded ' + escapeHtml(when(source.loadedAt));
+    } else if(source.kind === 'upload'){
+      html = '<b>Uploaded schedule</b> — <code>' + escapeHtml(source.name) + '</code>, ' + escapeHtml(when(source.loadedAt));
+    } else {
+      html = '<b>Master schedule of rates</b>' + (source.chosen ? ', chosen for this variation'
+        : p && !p.ratesFile ? ' — this project has no agreed rates in the register' : '');
+    }
+    sourceText.innerHTML = html;
+    const status = document.getElementById('sor-source-status');
+    const lines = [];
+    if(source.error) lines.push(['err', source.error]);
+    if(source.report) lines.push(['', AgreedRates.describe(source.report)]);
+    if(source.repriced) lines.push(['ok', source.repriced + ' measured line' + (source.repriced === 1 ? '' : 's') + ' repriced to these rates.']);
+    if(source.lost) lines.push(['err', 'The schedule uploaded for this variation (' + source.lost + ') was too large to keep in the log; its measured lines keep their rates. Drop the file again to see the rest.']);
+    status.innerHTML = lines.map(l => '<div class="' + (l[0] ? 'sor-' + l[0] : '') + '">' + escapeHtml(l[1]) + '</div>').join('');
+    const n = source.kind === 'pending' ? 0 : stale();
+    const repriceBtn = document.getElementById('sor-reprice');
+    repriceBtn.hidden = !n;
+    repriceBtn.textContent = 'Reprice ' + n + ' measured line' + (n === 1 ? '' : 's') + ' to these rates';
+    document.getElementById('sor-load-agreed').hidden = !(p && p.ratesFile && Flows.has('ratesUrl'));
+    document.getElementById('sor-use-master').hidden = source.kind === 'master' || source.kind === 'pending';
+  }
+
+  document.getElementById('sor-load-agreed').addEventListener('click', () => {
+    if(selectedProject) delete agreedCache[String(selectedProject.id)];
+    uploaded = null;
+    loading = loadAgreed(true).finally(() => { loading = null; });
+  });
+  document.getElementById('sor-use-master').addEventListener('click', () => {
+    uploaded = null;
+    useSchedule(null, { chosen: true }, { reprice: true });
+  });
+  document.getElementById('sor-reprice').addEventListener('click', () => {
+    source.repriced = reprice();
+    renderRates();
+    render();
+  });
+  const uploadInput = document.getElementById('sor-upload');
+  uploadInput.addEventListener('change', () => { if(uploadInput.files[0]) uploadSchedule(uploadInput.files[0]); uploadInput.value = ''; });
+  const ratesSide = VIEWS.rates.querySelector('.form-side');
+  ratesSide.addEventListener('dragover', e => {
+    if(e.dataTransfer && [...e.dataTransfer.items].some(i => i.kind === 'file')){ e.preventDefault(); ratesSide.classList.add('sor-drop'); }
+  });
+  ratesSide.addEventListener('dragleave', e => { if(e.target === ratesSide) ratesSide.classList.remove('sor-drop'); });
+  ratesSide.addEventListener('drop', e => {
+    ratesSide.classList.remove('sor-drop');
+    const f = e.dataTransfer && e.dataTransfer.files[0];
+    if(!f) return;
+    e.preventDefault();
+    if(!/\.(xlsx|xlsm|xls|csv)$/i.test(f.name)){
+      const status = document.getElementById('sor-source-status');
+      status.textContent = f.name + ' is not a spreadsheet — drop the Excel schedule of rates.';
+      status.className = 'status-line err';
+      return;
+    }
+    uploadSchedule(f);
+  });
+
+  // What the variation remembers of its rates. An upload's rates are kept
+  // with it when they fit comfortably in the log's Payload column; the
+  // variation file always keeps them (uploadedRates below).
+  function savedSource(){
+    // not settled yet (the stage has not been opened since): what it was
+    if(source.kind === 'pending') return Object.assign({}, source.was || { kind: 'master' });
+    const out = {};
+    ['kind', 'name', 'path', 'loadedAt', 'projectId', 'project', 'chosen'].forEach(k => { if(source[k] !== undefined) out[k] = source[k]; });
+    if(source.kind === 'upload' && uploaded){
+      const text = JSON.stringify(uploaded);
+      if(text.length < 20000) out.uploaded = uploaded; else out.uploadedTooBig = true;
+    }
+    return out;
+  }
+
+  function restoreSource(saved){
+    uploaded = null;
+    SOR = MASTER_SOR;
+    source = { kind: 'pending' };
+    if(!saved) return;
+    source.was = Object.assign({}, saved);
+    delete source.was.uploaded;
+    if(saved.kind === 'upload' && saved.uploaded){
+      uploaded = saved.uploaded;
+      const o = AgreedRates.overlay(MASTER_SOR, uploaded);
+      SOR = o.schedule;
+      source = Object.assign({}, saved, { report: o.report });
+      delete source.uploaded;
+    } else if(saved.kind === 'upload'){
+      source = { kind: 'pending', lost: saved.name || 'a spreadsheet', was: source.was };
+    } else if(saved.kind === 'master' && saved.chosen){
+      source = { kind: 'master', chosen: true };
+    }
+    // agreed rates are fetched again from the project when they are needed
+  }
+
+  function uploadedRates(){ return source.kind === 'upload' ? uploaded : null; }
+  function applyUploadedRates(agreed, meta){
+    if(!agreed) return;
+    uploaded = agreed;
+    useSchedule(agreed, Object.assign({ kind: 'upload' }, meta || {}));
   }
 
   /* ========================================================================
@@ -1633,6 +1864,7 @@ const Stages = (function(){
     printStatus.textContent = '';
     fileState.textContent = '';
     try {
+      await ensureRates();
       const result = await buildVariationPdf();
       if(token !== buildToken) return;   // left the stage while it was building
       built = result;
@@ -1756,6 +1988,9 @@ const Stages = (function(){
     collect: collect,
     apply: apply,
     collectDocs: collectDocs,
+    uploadedRates: uploadedRates,
+    applyUploadedRates: applyUploadedRates,
+    ensureRates: ensureRates,
     applyDocs: applyDocs,
     appendToPdf: appendToPdf,
     valueLine: valueLine
