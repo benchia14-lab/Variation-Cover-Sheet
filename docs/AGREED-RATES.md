@@ -85,6 +85,12 @@ with agreed rates, put the file's location in it. Either form works:
 - the file's full address, from the file's **… → Details → Path** (copy) — not
   a **Share** link, which is a different kind of address
 
+Copy it with the copy button beside **Path**, not by selecting the text you
+can see: SharePoint shortens a long path on screen to
+`/Shared Documents/15.Projects_VIC/…/Schedule of Rates.xlsx`, and a path
+with `…` in it points at a folder that does not exist. The app says so if
+the register holds one, rather than asking the flow.
+
 Leave it blank for projects on the master rates.
 
 ### 2 · One line in the Get projects flow
