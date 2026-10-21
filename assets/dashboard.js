@@ -30,6 +30,8 @@ const Dashboard = (function(){
   const dbKpis = document.getElementById('db-kpis');
   const dbSearch = document.getElementById('db-search');
 
+  // the approved value as a share of the variation's value, e.g. '80'
+  const pctOf = (approved, of) => of > 0 && approved !== '' ? String(Math.round(approved / of * 10000) / 100) : '';
   const money = n => (n === null || n === undefined) ? '—'
     : Number(n).toLocaleString('en-AU', { style: 'currency', currency: 'AUD' });
   const shortMoney = n => {
@@ -383,7 +385,9 @@ const Dashboard = (function(){
     tr.appendChild(stCell);
 
     // approved value and date: entered in the commentary window, shown here
-    tr.appendChild(el('td', 'n', st.approvedValue === '' ? '—' : escapeHtml(money(st.approvedValue))));
+    const share = pctOf(st.approvedValue, Number(Flows.rowValue(row)) || 0);
+    tr.appendChild(el('td', 'n', st.approvedValue === '' ? '—' : escapeHtml(money(st.approvedValue)) +
+      (share !== '' ? '<span class="db-pct">' + escapeHtml(share) + '% of value</span>' : '')));
     tr.appendChild(el('td', 'db-date', st.approvedDate ? escapeHtml(day(st.approvedDate)) : '—'));
 
     tr.appendChild(el('td', '', escapeHtml(row.issuedBy || (row.state_ && row.state_.fields && row.state_.fields['sig-name']) || '—')));
@@ -476,6 +480,39 @@ const Dashboard = (function(){
   const bcStatus = document.getElementById('bc-status');
   const bcValue = document.getElementById('bc-value');
   const bcDate = document.getElementById('bc-date');
+  const bcPct = document.getElementById('bc-pct');
+  const bcQuick = document.getElementById('bc-pct-quick');
+
+  /* The approved value can be typed as a share of the variation's own value
+     (100% of it, 80%, 20% ...) or as the figure itself; each fills in the
+     other. Only the value is saved -- the percentage is worked out again
+     from it, so the two can never disagree. */
+  let modalValue = 0;
+  const cleanNum = v => String(v).trim().replace(/[$,%\s]/g, '');
+  const round2 = n => Math.round(n * 100) / 100;
+  function fromPct(){
+    const p = cleanNum(bcPct.value);
+    if(p === '' || isNaN(Number(p)) || !(modalValue > 0)) return;
+    bcValue.value = round2(modalValue * Number(p) / 100).toFixed(2);
+    markQuick();
+  }
+  function fromValue(){
+    const v = cleanNum(bcValue.value);
+    bcPct.value = v === '' || isNaN(Number(v)) ? '' : pctOf(Number(v), modalValue);
+    markQuick();
+  }
+  function markQuick(){
+    bcQuick.querySelectorAll('[data-pct]').forEach(b =>
+      b.classList.toggle('on', cleanNum(bcPct.value) !== '' && Number(cleanNum(bcPct.value)) === Number(b.dataset.pct)));
+  }
+  bcPct.addEventListener('input', fromPct);
+  bcValue.addEventListener('input', fromValue);
+  bcQuick.addEventListener('click', e => {
+    const b = e.target.closest('[data-pct]');
+    if(!b) return;
+    bcPct.value = b.dataset.pct;
+    fromPct();
+  });
   const bcThread = document.getElementById('bc-thread');
   const bcFrom = document.getElementById('bc-from');
   const bcBy = document.getElementById('bc-by');
@@ -602,6 +639,13 @@ const Dashboard = (function(){
     bcStatus.value = st.status;
     bcValue.value = st.approvedValue === '' ? '' : st.approvedValue;
     bcDate.value = st.approvedDate || '';
+    // a percentage only means something against a priced variation
+    const priced = modalValue > 0;
+    bcPct.disabled = !priced;
+    bcPct.placeholder = priced ? '100' : '—';
+    bcPct.title = priced ? '' : 'This variation has no value to take a percentage of';
+    bcQuick.hidden = !priced;
+    fromValue();
   }
 
   function openCommentary(row){
@@ -611,7 +655,8 @@ const Dashboard = (function(){
     document.getElementById('bc-sub').textContent = [row.description ||
       (row.state_ && row.state_.fields && row.state_.fields.variationdesc), shownProject && shownProject.project]
       .filter(Boolean).join(' · ');
-    document.getElementById('bc-sor-value').textContent = money(Flows.rowValue(row));
+    modalValue = Number(Flows.rowValue(row)) || 0;
+    document.getElementById('bc-sor-value').textContent = money(modalValue);
     fillApproval(st);
     showDeleted = false;
     renderThread(st.commentary);
