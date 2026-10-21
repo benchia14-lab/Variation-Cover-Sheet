@@ -3029,11 +3029,15 @@ function routeFromHash(){
 window.addEventListener('hashchange', routeFromHash);
 
 document.getElementById('picker-settings-btn').addEventListener('click', () => { location.hash = '#/settings'; });
-document.getElementById('back-to-picker').addEventListener('click', () => {
+// back to the project's dashboard -- or, with no project picked yet, the
+// office's projects
+function goHome(){
   if(!currentState){ location.hash = ''; return; }
   const base = '#/state/' + encodeURIComponent(currentState.code);
   location.hash = selectedProject ? base + '/project/' + encodeURIComponent(selectedProject.id) : base;
-});
+}
+document.getElementById('back-to-picker').addEventListener('click', goHome);
+document.getElementById('step-home').addEventListener('click', goHome);
 document.getElementById('chip-change').addEventListener('click', () => { location.hash = ''; });
 document.getElementById('open-admin').addEventListener('click', () => {
   location.hash = '#/settings/admin';
