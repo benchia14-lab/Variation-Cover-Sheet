@@ -524,7 +524,8 @@ REQUIRED_FIELDS.forEach(f => {
 // an office email typed in answers the PM email's requirement too
 els['co-email'].addEventListener('input', () => els['sig-email'].classList.remove('field-invalid'));
 
-// The variation file sits beside the PDF and is named after it.
+// The variation file is attached to the variation's row in the log, named
+// after it.
 function variationFileName(){
   const varref = (typeof effectiveRef === 'function') ? effectiveRef() : els['varref'].value.trim();
   const desc = els['variationdesc'].value.trim();
@@ -1327,12 +1328,13 @@ async function downloadPdf(built){
       variationStatus = Object.assign(normaliseStatus(currentStatus()), { status: 'Submitted' });
       statusRef = effectiveRef();
     }
+    // with the variation file -- everything behind the PDF, attachments
+    // included -- attached to the row, so it can be opened again in full
     if(Flows.has('logWriteUrl') && els['varref'].value.trim()){
-      await saveToLog({ downloadedAt: new Date().toISOString(), fileName: result.fileName });
+      await saveToLog({ downloadedAt: new Date().toISOString(), fileName: result.fileName,
+                        attach: typeof VariationFile !== 'undefined' && VariationFile.withPdf() });
     }
     await fileToSharePoint(result.bytes, result.fileName);
-    // and everything behind it, so the variation can be opened again in full
-    if(typeof VariationFile !== 'undefined' && VariationFile.withPdf()) await VariationFile.saveToSharePoint();
   } catch(err){
     console.error(err);
     printStatus.textContent = 'Could not build the PDF — opening the print dialog instead, choose "Save as PDF" there. ' +
@@ -1805,7 +1807,7 @@ async function openLoggedVariation(full){
     let fromFile = null;
     if(full.state_.variationFile && Flows.has('openFileUrl') && typeof VariationFile !== 'undefined'){
       setLogStatus('Opening ' + ref + ' \u2014 fetching its variation file\u2026');
-      try { fromFile = await VariationFile.fetch(full.state_.variationFile); }
+      try { fromFile = await VariationFile.fetch(full.state_.variationFile, full.variationRef); }
       catch(e){ fromFile = null; }
     }
     applyFormState(fromFile ? fromFile.form : full.state_);
@@ -1825,8 +1827,8 @@ async function openLoggedVariation(full){
     showReopened();
     setLogStatus('Opened ' + full.variationRef + (fromFile ? ' with its attachments' : ' from the log') +
                  '. Add a revision to issue it as a new entry, or save to update it.' +
-                 (!fromFile && full.state_.variationFile ? ' Its attachments are in "' + full.state_.variationFile +
-                   '" in the project folder' + (Flows.has('openFileUrl') ? ', which could not be fetched.' : '.') : ''), 'ok');
+                 (!fromFile && full.state_.variationFile && Flows.has('openFileUrl')
+                   ? ' Its variation file (with the attachments) could not be fetched from its row in the log.' : ''), 'ok');
     updateEffectiveRef();
     render();
     return true;
@@ -2040,16 +2042,36 @@ async function saveToLog(reason){
     }
 
     const wasReopened = Flows.sameRef(reopenedRef, ref) && reopenedFromLog;
-    const result = await Flows.writeLog(buildLogPayload(reason || {}));
+    // The variation file is built here, after the number can have moved, so
+    // it is named after the reference it is filed under
+    const extra = Object.assign({}, reason || {});
+    const attach = !!extra.attach;
+    delete extra.attach;
+    if(attach) extra.attachment = VariationFile.attachment();
+    let result, attached = attach, dropped = '';
+    try {
+      result = await Flows.writeLog(buildLogPayload(extra));
+    } catch(err){
+      // A file too big for the way in must not cost the row its update:
+      // save the row without it, and say so
+      if(!attach) throw err;
+      delete extra.attachment;
+      result = await Flows.writeLog(buildLogPayload(extra));
+      attached = false;
+      dropped = err.message || 'the log flow failed';
+    }
     reopenedRef = ref;
     reopenedFromLog = wasReopened;
     showReopened();
-    setLogStatus(result.status === 'confirmed'
-      ? 'Saved to the log as ' + ref + '.'
+    setLogStatus(dropped
+      ? 'Saved to the log as ' + ref + ', but WITHOUT its variation file — ' + dropped +
+        ' Download the variation file instead, so the attachments are not lost.'
+      : result.status === 'confirmed'
+      ? 'Saved to the log as ' + ref + (attached ? ', with its variation file attached.' : '.')
       : 'Sent to the log. The browser could not read the reply, so check the list to confirm ' +
-        '(the Response action needs the CORS header).', 'ok');
+        '(the Response action needs the CORS header).', dropped ? 'err' : 'ok');
     refreshLog().then(checkVarref);
-    return true;
+    return { ok: true, attached: attached, dropped: dropped, confirmed: result.status === 'confirmed', ref: ref };
   } catch(err){
     setLogStatus('Not saved — ' + (err.message || 'the log flow failed') +
                  ' Your work is still on screen.', 'err');

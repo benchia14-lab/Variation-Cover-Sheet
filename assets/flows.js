@@ -811,7 +811,7 @@ const Flows = (() => {
     try {
       data = await postJson(endpointFor('openFileUrl'), payload);
     } catch(err){
-      if(err.status === 404) err.message = 'There is no variation file called ' + payload.fileName + ' in that folder.';
+      if(err.status === 404) err.message = 'There is no variation file attached to ' + (payload.variationRef || 'that variation') + ' in the log.';
       throw err;
     }
     const file = unwrapFile(data, 0);
