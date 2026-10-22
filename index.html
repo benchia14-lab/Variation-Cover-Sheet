@@ -231,6 +231,12 @@
 <!-- ============ STEP BAR — the five stages of one variation ============ -->
 <nav class="stepper" id="stepper" hidden aria-label="Variation stages">
   <div class="stepper-inner">
+    <button type="button" class="step-home" id="step-home" title="Back to this project's dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v11h5v-6h4v6h5V9"/>
+      </svg>
+      <span>Home</span>
+    </button>
     <button type="button" class="step" data-stage="cover"><span class="step-num">1</span><span class="step-label">Cover sheet</span></button>
     <button type="button" class="step" data-stage="scope"><span class="step-num">2</span><span class="step-label">Inclusions &amp; exclusions</span></button>
     <button type="button" class="step" data-stage="rates"><span class="step-num">3</span><span class="step-label">Schedule of rates</span></button>
@@ -720,9 +726,9 @@
       <p class="form-section-title">Variation file</p>
       <p class="vf-help">Everything on all five tabs, attachments included, in one <code>.json</code> file —
         so the variation can be opened again exactly as it is now.</p>
-      <label class="vf-check"><input type="checkbox" id="vf-with-pdf" checked> Save it to the project's SharePoint folder with the PDF</label>
+      <label class="vf-check"><input type="checkbox" id="vf-with-pdf" checked> Attach it to this variation's row in the SharePoint log with the PDF</label>
       <div class="vf-actions">
-        <button type="button" class="refresh-btn" id="vf-save">Save to SharePoint now</button>
+        <button type="button" class="refresh-btn" id="vf-save">Attach to the log now</button>
         <button type="button" class="refresh-btn" id="vf-download">Download the file</button>
       </div>
       <div class="status-line" id="vf-status"></div>

@@ -86,9 +86,9 @@ reopening a variation restores them. Attachments are not logged — they are
 files — and have to be added again when re-issuing.
 
 **Variation files.** Everything on all five tabs, attachments included, can be
-kept as one `.json` file. **Download PDF** saves it into the project's
-SharePoint folder beside the PDF (through the existing filing flow), and the
-review tab can also save it on its own or download it. Reopening from
+kept as one `.json` file. **Download PDF** attaches it to the variation's row
+in the SharePoint log (through the log write flow), and the review tab can
+also attach it on its own or download it. Reopening from the dashboard or
 **Previous variations** fetches it back, attachments and all, once the optional
 *Open a variation file* flow is connected; a downloaded copy opens from this
 computer with no flow at all. Setup: [docs/VARIATION-FILES.md](docs/VARIATION-FILES.md).

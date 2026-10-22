@@ -42,7 +42,7 @@ Netlify → your site → **Site configuration → Environment variables**:
 | `VARIATION_LOG_READ_URL` | Variation log — read | Reads the log |
 | `VARIATION_LOG_WRITE_URL` | Variation log — write | Creates or updates a log row |
 | `WRITE_PROFESSIONALLY_URL` | Write professionally | Optional; tidies the description |
-| `OPEN_VARIATION_FILE_URL` | Open a variation file | Optional; reads a saved variation file back |
+| `OPEN_VARIATION_FILE_URL` | Open a variation file | Optional; reads a variation file back off its log row |
 | `GET_AGREED_RATES_URL` | Get agreed rates | Optional; reads a project's agreed schedule of rates |
 
 Paste the whole trigger URL, `sig=` and all. Leave one blank and that flow falls

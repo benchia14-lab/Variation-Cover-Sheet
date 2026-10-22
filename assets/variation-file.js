@@ -3,8 +3,9 @@
    ============================================================================
    Everything on all five stages: the cover sheet's fields and letterhead, the
    inclusions and exclusions, every schedule of rates tab, and the attachments
-   themselves. Saved beside the PDF in the project's SharePoint folder (through
-   the same filing flow) and/or downloaded, and opened again from either.
+   themselves. Attached to the variation's own row in the SharePoint log (sent
+   with the log write, on Download PDF or by hand) and/or downloaded, and
+   opened again from either.
 
    The variation log already restores the form. What only this file can bring
    back is the attachments, which a SharePoint list has nowhere to keep.
@@ -78,31 +79,37 @@ const VariationFile = (function(){
     say(reviewStatus, 'Downloaded "' + name + '" (' + Math.max(1, Math.round(blob.size / 1024)) + ' KB).', 'ok');
   }
 
-  // Through the filing flow, into the project's folder beside the PDF.
+  // what the log write carries, for the flow to attach to the row
+  function attachment(){
+    return { fileName: variationFileName(), contentBase64: bytesToBase64(new TextEncoder().encode(text())) };
+  }
+
+  // Attached to the variation's row in the log, through the log write flow.
   async function saveToSharePoint(){
-    if(!Flows.has('fileUrl')){
-      say(reviewStatus, 'Not saved to SharePoint — this app has no filing flow set up. Download the file instead.', 'err');
+    if(!Flows.has('logWriteUrl')){
+      say(reviewStatus, 'Not saved to SharePoint — this app has no variation log set up. Download the file instead.', 'err');
       return false;
     }
-    if(!selectedProject){
-      say(reviewStatus, 'Pick a project on the cover sheet first — the file goes into that project\'s folder.', 'err');
+    if(!selectedProject || !effectiveRef()){
+      say(reviewStatus, 'Pick a project and give it a reference first — the file is attached to that variation\'s row in the log.', 'err');
       return false;
     }
-    const name = variationFileName();
-    say(reviewStatus, 'Saving "' + name + '" to SharePoint…');
-    try {
-      const body = new TextEncoder().encode(text());
-      const result = await Flows.fileVariation(buildFilingPayload(bytesToBase64(body), name, 'variation-file'));
-      const where = result.status === 'confirmed' && result.response && (result.response.path || result.response.webUrl);
-      say(reviewStatus, result.status === 'confirmed'
-        ? 'Variation file saved to SharePoint' + (where ? ': ' + where : '') + '.'
-        : 'Variation file sent to the filing flow — check the project folder to confirm it landed.', 'ok');
-      return true;
-    } catch(err){
-      say(reviewStatus, 'The variation file was NOT saved to SharePoint — ' + (err.message || 'the filing flow failed') +
+    say(reviewStatus, 'Attaching the variation file to ' + effectiveRef() + ' in the log…');
+    const saved = await saveToLog({ attach: true });
+    if(!saved){
+      say(reviewStatus, 'The variation file was NOT saved to SharePoint — the log could not be written (see the cover sheet). ' +
+        'Download it instead, so nothing is lost.', 'err');
+      return false;
+    }
+    if(saved.dropped){
+      say(reviewStatus, 'The row was saved, but the variation file was NOT attached — ' + saved.dropped +
         ' Download it instead, so nothing is lost.', 'err');
       return false;
     }
+    say(reviewStatus, saved.confirmed
+      ? 'Variation file attached to ' + saved.ref + ' in the log.'
+      : 'Variation file sent to the log — check ' + saved.ref + '\'s attachments to confirm it landed.', 'ok');
+    return true;
   }
 
   function parse(raw){
@@ -116,13 +123,14 @@ const VariationFile = (function(){
     return data;
   }
 
-  // the project's folder, asked for by name
-  async function fetch(fileName){
+  // the file attached to a variation's row in the log
+  async function fetch(fileName, variationRef){
     const project = selectedProject;
     return parse(await Flows.openVariationFile({
       action: 'open',
       state: currentState ? currentState.code : '',
       projectId: project ? String(project.id) : '',
+      variationRef: variationRef || effectiveRef(),
       folderPath: project ? (project.folderPath || '') : '',
       sitePath: project ? (project.sitePath || '') : '',
       siteUrl: project ? (project.siteUrl || '') : '',
@@ -164,16 +172,15 @@ const VariationFile = (function(){
     }
   });
 
-  // ---- from SharePoint, by name ---------------------------------------------
+  // ---- from SharePoint, by reference -----------------------------------------
   const coverOpenStatus = document.getElementById('vf-open-status');
   async function openFromSharePoint(){
-    if(!selectedProject){ say(coverOpenStatus, 'Pick the project first — the file is looked for in its folder.', 'err'); return; }
-    const suggested = variationFileName();
-    const name = prompt('The variation file\'s name in the project folder:', suggested);
-    if(!name) return;
-    say(coverOpenStatus, 'Fetching "' + name + '" from SharePoint…');
+    if(!selectedProject){ say(coverOpenStatus, 'Pick the project first — the file is looked for in its log.', 'err'); return; }
+    const ref = prompt('The reference of the variation to open (its variation file is attached to its row in the log):', effectiveRef());
+    if(!ref) return;
+    say(coverOpenStatus, 'Fetching the variation file attached to ' + ref.trim() + '…');
     try {
-      await open(await fetch(name.trim()), coverOpenStatus);
+      await open(await fetch('', ref.trim()), coverOpenStatus);
     } catch(err){
       say(coverOpenStatus, 'Could not open it — ' + (err.message || 'the flow failed'), 'err');
     }
@@ -191,6 +198,6 @@ const VariationFile = (function(){
   }
   sync();
 
-  return { build: build, download: download, saveToSharePoint: saveToSharePoint, fetch: fetch, parse: parse,
-           open: open, sync: sync, withPdf: () => withPdfBox.checked && Flows.has('fileUrl') };
+  return { build: build, attachment: attachment, download: download, saveToSharePoint: saveToSharePoint, fetch: fetch,
+           parse: parse, open: open, sync: sync, withPdf: () => withPdfBox.checked && Flows.has('logWriteUrl') };
 })();
