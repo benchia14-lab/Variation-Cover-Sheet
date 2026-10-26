@@ -1738,17 +1738,19 @@ async function refreshLog(){
     const rows = await Flows.listLog(currentState.code, forProject);
     if(!selectedProject || selectedProject.id !== forProject) return;   // switched while in flight
     logRows = rows;
-    if(!rows.length){
-      logCount.innerHTML = countLine(rows);
+    // a deleted variation keeps its number (logRows) but is not offered
+    const live = rows.filter(r => !Flows.isDeleted(r));
+    if(!live.length){
+      logCount.innerHTML = countLine(live);
       allocateRef();
       updateModeHint();
       return;
     }
-    logSelect.innerHTML = '<option value="">Select one to reopen\u2026</option>' + rows.map(r =>
+    logSelect.innerHTML = '<option value="">Select one to reopen\u2026</option>' + live.map(r =>
       '<option value="' + escapeHtml(r.variationRef) + '">' +
         escapeHtml(r.variationRef) + (r.description ? '  \u2014  ' + escapeHtml(r.description) : '') +
       '</option>').join('');
-    logCount.innerHTML = countLine(rows);
+    logCount.innerHTML = countLine(live);
     allocateRef();
     updateModeHint();
   } catch(err){
@@ -1915,6 +1917,7 @@ function checkVarref(){
   varrefStatus.className = 'status-line err';
   varrefStatus.textContent = ref + ' is already logged' +
     (hit.description ? ' (' + hit.description + ')' : '') +
+    (Flows.isDeleted(hit) ? ', and was deleted from the dashboard' : '') +
     ' — saving would overwrite it. ' +
     (issueMode === 'revise' ? 'Use a different revision.' : 'Open it above instead, or Edit the reference.');
 }
@@ -1973,6 +1976,10 @@ function logPayloadFromSaved(saved, ref, extra){
     approvedValue: st.approvedValue === '' ? null : Number(st.approvedValue),
     approvedDate: st.approvedDate || null,
     builderCommentary: commentaryText(st.commentary),
+    // deleted from the dashboard (kept, and restorable by the administrator)
+    deleted: !!saved.deleted,
+    deletedAt: saved.deleted ? saved.deleted.at || null : null,
+    deletedBy: saved.deleted ? saved.deleted.by || '' : '',
 
     // the whole form, so reopening restores it exactly whatever the columns do
     payload: JSON.stringify(saved),
@@ -2808,6 +2815,7 @@ function showAdmin(){
     loadSettingsForm();
     describePasswordState();
     describeBuiltIn();
+    if(typeof Dashboard !== 'undefined') Dashboard.prepareBin();
   }else{
     // Never leave a typed password sitting in the field behind a Back.
     gatePassword.value = '';

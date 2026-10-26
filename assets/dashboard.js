@@ -119,9 +119,10 @@ const Dashboard = (function(){
   const baseOf = row => { const p = parseRef(row.variationRef); return p ? p.base : row.variationRef; };
   const numberOf = row => { const p = parseRef(row.variationRef); return p ? p.number : 0; };
 
+  // deleted variations are left out of everything on the dashboard
   function organise(rows){
     const groups = {};
-    rows.forEach(r => { const b = baseOf(r); (groups[b] = groups[b] || []).push(r); });
+    rows.filter(r => !Flows.isDeleted(r)).forEach(r => { const b = baseOf(r); (groups[b] = groups[b] || []).push(r); });
     return Object.keys(groups)
       .map(b => {
         const list = groups[b].slice().sort((x, y) => revRank(x) - revRank(y));
@@ -132,7 +133,7 @@ const Dashboard = (function(){
 
   function summarise(rows){
     const groups = organise(rows || []);
-    const s = { count: groups.length, value: 0, priced: 0, approved: 0, approvedCount: 0, awaitingValue: 0, pending: 0,
+    const s = { count: groups.length, rows: groups.reduce((n, g) => n + g.rows.length, 0), value: 0, priced: 0, approved: 0, approvedCount: 0, awaitingValue: 0, pending: 0,
                 pendingCount: 0, draft: 0, rejected: 0, latest: '' };
     groups.forEach(g => {
       const r = g.current;
@@ -318,7 +319,7 @@ const Dashboard = (function(){
       shownRows = rows;
       rowsFor(currentState.code).byProject[String(project.id)] = rows;
       renderProject();
-      setLine(dbStatus, rows.length ? '' : 'No variations logged for this project yet.');
+      setLine(dbStatus, rows.some(r => !Flows.isDeleted(r)) ? '' : 'No variations logged for this project yet.');
     } catch(err){
       setLine(dbStatus, 'Could not read the log — ' + (err.message || 'the flow failed'), 'err');
     }
@@ -328,7 +329,7 @@ const Dashboard = (function(){
     const s = summarise(shownRows);
     kpiTiles(dbKpis, [
       { k: 'Variations', v: String(s.count),
-        sub: shownRows.length > s.count ? (shownRows.length - s.count) + ' earlier revision' + (shownRows.length - s.count === 1 ? '' : 's') : '' },
+        sub: s.rows > s.count ? (s.rows - s.count) + ' earlier revision' + (s.rows - s.count === 1 ? '' : 's') : '' },
       { k: 'Total value ex GST', v: money(s.value), sub: s.priced < s.count ? (s.count - s.priced) + ' not priced' : '' },
       { k: 'Approved', v: money(s.approved), cls: 'ok',
         sub: s.approvedCount + ' variation' + (s.approvedCount === 1 ? '' : 's') +
@@ -350,7 +351,7 @@ const Dashboard = (function(){
         dbRows.appendChild(rowNode(row, st, superseded ? g.current : null));
       });
     });
-    if(!dbRows.children.length && shownRows.length){
+    if(!dbRows.children.length && shownRows.some(r => !Flows.isDeleted(r))){
       dbRows.innerHTML = '<tr><td colspan="11" class="scope-empty">Nothing matches.</td></tr>';
     }
   }
@@ -412,8 +413,35 @@ const Dashboard = (function(){
     open.disabled = !row.state_ || !row.state_.fields;
     open.addEventListener('click', () => openRow(row));
     act.appendChild(open);
+    const del = el('button', 'refresh-btn db-del', 'Delete');
+    del.type = 'button';
+    del.disabled = !canWrite;
+    del.title = canWrite ? 'Remove it from this dashboard' : open.disabled ? 'This row has no saved form to update' : 'The log write flow is not connected';
+    del.addEventListener('click', () => deleteRow(row));
+    act.appendChild(del);
     tr.appendChild(act);
     return tr;
+  }
+
+  // the form's list of previous variations, when it is on the same project
+  function refreshEditorLog(code, projectId){
+    if(currentState && currentState.code === code && selectedProject &&
+       String(selectedProject.id) === String(projectId)) refreshLog();
+  }
+
+  /* Deleting takes a variation off the dashboard and nothing else: its log
+     row, its PDF in the project folder and its variation file all stay, and
+     it keeps its number. The row is marked deleted in its saved form; the
+     administrator can put it back from Administrator settings. */
+  async function deleteRow(row){
+    const desc = row.description || (row.state_ && row.state_.fields && row.state_.fields.variationdesc) || '';
+    if(!confirm('Delete ' + row.variationRef + (desc ? ' — ' + desc : '') + '?\n\n' +
+      'It will be removed from this project\'s dashboard. Its PDF and variation file are kept, ' +
+      'and the administrator can restore it from Administrator settings.')) return;
+    const st = await updateRow(row, { deleted: { at: new Date().toISOString(), by: whoAmI() } });
+    if(!st) return;
+    setLine(dbStatus, row.variationRef + ' was deleted. The administrator can restore it from Administrator settings → Deleted variations.', 'ok');
+    refreshEditorLog(currentState.code, row.projectId);
   }
 
   /* Every change from the dashboard is a log write like any other: the whole
@@ -424,19 +452,24 @@ const Dashboard = (function(){
      The row is read again first. Someone else may have added commentary or
      approved it since this page loaded, and the write replaces the row -- so
      what is there now is the base, and the commentary threads are merged. */
-  async function updateRow(row, changes, statusEl){
-    const project = shownProject;
-    const say = (t, c) => setLine(statusEl || dbStatus, t, c);
-    say('Saving ' + row.variationRef + '…');
+  // One change to one row, written back whole: the office and project are
+  // passed in, so the administrator's bin can use it for any office.
+  async function writeChange(code, project, row, changes){
     let base = row;
     try {
-      const fresh = await Flows.listLog(currentState.code, project.id);
+      const fresh = await Flows.listLog(code, project.id);
       base = fresh.find(r => Flows.sameRef(r.variationRef, row.variationRef) && r.state_ && r.state_.fields) || row;
     } catch(e){ /* the copy on screen will do */ }
 
     const saved = JSON.parse(JSON.stringify(base.state_));
-    const st = Object.assign(Flows.rowStatus(base), changes);
-    st.commentary = mergeCommentary(Flows.rowStatus(base).commentary, Flows.rowStatus(row).commentary, changes.commentary);
+    const statusChanges = Object.assign({}, changes);
+    // deleted is the form's, not the status's: { at, by } marks it, null clears it
+    if('deleted' in statusChanges){
+      if(statusChanges.deleted) saved.deleted = statusChanges.deleted; else delete saved.deleted;
+      delete statusChanges.deleted;
+    }
+    const st = Object.assign(Flows.rowStatus(base), statusChanges);
+    st.commentary = mergeCommentary(Flows.rowStatus(base).commentary, Flows.rowStatus(row).commentary, statusChanges.commentary);
     saved.status = st;
     const parsed = parseRef(row.variationRef);
     const payload = logPayloadFromSaved(saved, {
@@ -444,16 +477,24 @@ const Dashboard = (function(){
       variationRef: row.variationRef,
       baseRef: parsed ? parsed.base : row.variationRef,
       revision: parsed ? parsed.revision.replace(/^[.\-_]/, '') : '',
-      state: currentState.code,
-      folderPath: project.folderPath || ''
+      state: code,
+      folderPath: project.folderPath || row.folderPath || ''
     }, {
       // the write flow sets this column from what it is sent; keep what it had
       downloadedAt: base.downloadedAt || row.downloadedAt || null
     });
+    await Flows.writeLog(payload);
+    Object.assign(row, { state_: saved, status: st.status, approvedValue: st.approvedValue,
+                         approvedDate: st.approvedDate, updatedAt: payload.updatedAt });
+    return st;
+  }
+
+  async function updateRow(row, changes, statusEl){
+    const project = shownProject;
+    const say = (t, c) => setLine(statusEl || dbStatus, t, c);
+    say('Saving ' + row.variationRef + '…');
     try {
-      await Flows.writeLog(payload);
-      Object.assign(row, { state_: saved, status: st.status, approvedValue: st.approvedValue,
-                           approvedDate: st.approvedDate, updatedAt: payload.updatedAt });
+      const st = await writeChange(currentState.code, project, row, changes);
       // the same variation open in the form takes the change too
       if(selectedProject && String(selectedProject.id) === String(project.id) && reopenedRef &&
          Flows.sameRef(effectiveRef(), row.variationRef)){
@@ -758,5 +799,99 @@ const Dashboard = (function(){
     renderProject();
   }));
 
-  return { showProjects: showProjects, showProject: showProject, summarise: summarise };
+  /* ========================================================================
+     DELETED VARIATIONS -- the administrator's bin, in Administrator settings
+  ======================================================================== */
+
+  const binOffice = document.getElementById('bin-office');
+  const binStatus = document.getElementById('bin-status');
+  const binWrap = document.getElementById('bin-wrap');
+  const binRows = document.getElementById('bin-rows');
+
+  function prepareBin(){
+    const keep = binOffice.value || (currentState ? currentState.code : '');
+    binOffice.innerHTML = StateRegister.rows().map(r =>
+      '<option value="' + escapeHtml(r.code) + '">' + escapeHtml(r.code + (r.name ? ' — ' + r.name : '')) + '</option>').join('');
+    if(keep) binOffice.value = keep;
+  }
+
+  // every row of an office's log: in one read where the flow can, otherwise
+  // project by project for the office whose projects are loaded
+  async function officeRows(code){
+    try { return await Flows.listStateLog(code); }
+    catch(err){
+      if(!currentState || currentState.code !== code || !projects.length){
+        throw new Error('the log flow cannot read a whole office at once yet. Open one of ' + code +
+          '\'s projects first and come back, or add the whole-office step (docs/PROJECT-DASHBOARD.md).');
+      }
+      const all = [];
+      for(const p of projects){ all.push(...await Flows.listLog(code, p.id)); }
+      return all;
+    }
+  }
+
+  async function loadBin(){
+    const code = binOffice.value;
+    binWrap.hidden = true;
+    binRows.innerHTML = '';
+    if(!code) return;
+    if(!Flows.has('logReadUrl')){ setLine(binStatus, 'The variation log is not connected.', 'err'); return; }
+    setLine(binStatus, 'Reading ' + code + '\'s variation log…');
+    let rows;
+    try { rows = await officeRows(code); }
+    catch(err){ setLine(binStatus, 'Could not read the log — ' + (err.message || 'the flow failed'), 'err'); return; }
+    if(binOffice.value !== code) return;
+    const gone = rows.filter(r => Flows.isDeleted(r))
+      .sort((a, b) => String(b.state_.deleted.at || '').localeCompare(String(a.state_.deleted.at || '')));
+    if(!gone.length){ setLine(binStatus, 'Nothing has been deleted from ' + code + '\'s dashboards.', 'ok'); return; }
+    setLine(binStatus, gone.length + ' deleted variation' + (gone.length === 1 ? '' : 's') + ' in ' + code + '.');
+    gone.forEach(row => binRows.appendChild(binRow(code, row)));
+    binWrap.hidden = false;
+  }
+
+  function projectOf(code, row){
+    const p = currentState && currentState.code === code && projects.find(x => String(x.id) === String(row.projectId));
+    return p || { id: row.projectId, project: row.project || '', folderPath: row.folderPath || '' };
+  }
+
+  function binRow(code, row){
+    const tr = el('tr');
+    const project = projectOf(code, row);
+    const d = row.state_.deleted;
+    tr.appendChild(el('td', '', escapeHtml(project.project || row.project || 'Project ' + row.projectId)));
+    tr.appendChild(el('td', 'bin-ref', escapeHtml(row.variationRef)));
+    tr.appendChild(el('td', '', escapeHtml(row.description || (row.state_.fields && row.state_.fields.variationdesc) || '—')));
+    tr.appendChild(el('td', 'n', escapeHtml(money(Flows.rowValue(row)))));
+    tr.appendChild(el('td', 'bin-when', escapeHtml(d.at ? new Date(d.at).toLocaleString('en-AU', { day: '2-digit', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—') +
+      (d.by ? '<br>by ' + escapeHtml(d.by) : '')));
+    const act = el('td');
+    const btn = el('button', 'refresh-btn', 'Restore');
+    btn.type = 'button';
+    btn.disabled = !Flows.has('logWriteUrl');
+    btn.addEventListener('click', async () => {
+      if(!confirm('Restore ' + row.variationRef + ' to its project\'s dashboard?')) return;
+      btn.disabled = true;
+      setLine(binStatus, 'Restoring ' + row.variationRef + '…');
+      try {
+        await writeChange(code, project, row, { deleted: null });
+        // the office's totals are read again next time they are shown
+        rowsFor(code).loaded = false;
+        refreshEditorLog(code, row.projectId);
+        tr.remove();
+        setLine(binStatus, row.variationRef + ' is back on ' + (project.project || 'its project') + '\'s dashboard.', 'ok');
+        if(!binRows.children.length) binWrap.hidden = true;
+      } catch(err){
+        btn.disabled = false;
+        setLine(binStatus, 'Could not restore ' + row.variationRef + ' — ' + (err.message || 'the log write flow failed'), 'err');
+      }
+    });
+    act.appendChild(btn);
+    tr.appendChild(act);
+    return tr;
+  }
+
+  document.getElementById('bin-load').addEventListener('click', loadBin);
+  binOffice.addEventListener('change', () => { binWrap.hidden = true; setLine(binStatus, ''); });
+
+  return { showProjects: showProjects, showProject: showProject, summarise: summarise, prepareBin: prepareBin };
 })();

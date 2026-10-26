@@ -86,15 +86,16 @@ Response:
    - **Data Operation → Filter array** — **From**
      `@{body('Get_attachments')}`, and in advanced mode:
      `@endsWith(item()?['DisplayName'], 'Variation File.json')`
-   - **SharePoint → Delete attachment**, which goes inside an *Apply to each*
-     over `@{body('Filter_array')}` — Site Address and List Name as above,
-     **Id** as above, **File Identifier** `@{items('Apply_to_each')?['Id']}`
+   - **Control → Apply to each** (the new designer calls it *For each*) over
+     `@{body('Filter_array')}`, and inside it **SharePoint → Delete
+     attachment** — Site Address and List Name as above, **Id** as above,
+     **File Identifier** `@{item()?['Id']}`
 
    (*Add attachment* refuses a file name the row already has, and a renamed
    variation would otherwise leave its old file behind. Clearing first keeps
    exactly one variation file per row.)
 
-4. Still in **If yes**, after the *Apply to each*: **SharePoint → Add
+4. Still in **If yes**, after the loop (not inside it): **SharePoint → Add
    attachment**
 
    | Field | Value |
