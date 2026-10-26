@@ -286,6 +286,20 @@ input[type=file]{ display:none; }
 }
 .row-btn:hover{ border-color:var(--steel); background:var(--paper); }
 .row-btn.danger:hover{ border-color:var(--red); color:var(--red); }
+.db-act .db-del{ display:block; margin-top:6px; width:100%; }
+.db-act:has(.db-del) .refresh-btn{ width:100%; }
+.db-del:not(:disabled):hover{ border-color:var(--red); color:var(--red); }
+.bin-bar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:6px 0 4px; }
+.bin-bar select{ width:auto; min-width:220px; flex:0 1 auto; }
+.bin-wrap{ overflow-x:auto; margin-top:10px; border:1px solid var(--line); border-radius:4px; }
+.bin-table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+.bin-table th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted);
+  background:var(--paper); padding:8px 10px; border-bottom:1px solid var(--line); }
+.bin-table td{ padding:8px 10px; border-bottom:1px solid var(--line-soft); vertical-align:top; }
+.bin-table tr:last-child td{ border-bottom:none; }
+.bin-table .n{ text-align:right; font-family:'IBM Plex Mono', monospace; white-space:nowrap; }
+.bin-table .bin-ref{ font-family:'IBM Plex Mono', monospace; font-weight:600; white-space:nowrap; }
+.bin-table .bin-when{ white-space:nowrap; color:var(--muted); }
 .home-empty{
   border:1px dashed var(--line); border-radius:4px; padding:44px 20px; text-align:center; color:var(--muted); font-size:13px;
 }

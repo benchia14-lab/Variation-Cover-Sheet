@@ -1000,6 +1000,27 @@
     </div>
   </div>
 
+  <div class="divider"></div>
+
+  <div class="form-section">
+    <div class="form-section-head"><span class="form-section-num">D</span><p class="form-section-title">Deleted variations</p></div>
+    <p class="settings-help">Variations deleted from a project dashboard. Deleting only hides one: its row in
+      the variation log, its PDF and its variation file are all kept, and it keeps its number.
+      <strong>Restore</strong> puts it back on its project's dashboard exactly as it was.</p>
+    <div class="bin-bar">
+      <select id="bin-office" aria-label="Office"></select>
+      <button class="refresh-btn" id="bin-load" type="button">Show deleted variations</button>
+    </div>
+    <div class="status-line" id="bin-status"></div>
+    <div class="bin-wrap" id="bin-wrap" hidden>
+      <table class="bin-table">
+        <thead><tr><th>Project</th><th>Variation</th><th>Description</th><th class="n">Value ex GST</th>
+          <th>Deleted</th><th></th></tr></thead>
+        <tbody id="bin-rows"></tbody>
+      </table>
+    </div>
+  </div>
+
   </div><!-- /#admin-body -->
 </div>
 

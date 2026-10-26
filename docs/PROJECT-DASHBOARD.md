@@ -77,6 +77,33 @@ Variations logged before this existed show as *Submitted* if their PDF was
 downloaded, otherwise *Draft*. Ones saved before the schedule of rates existed
 have no value and show **—** until they are reopened and saved again.
 
+### Deleting a variation
+
+**Delete** beside **Open** takes a variation off its project's dashboard,
+after a pop-up asks to confirm it. Nothing is destroyed:
+
+- its row stays in the variation log, marked deleted (with when and by whom)
+  inside its saved form, so **no new column or flow change is needed**;
+- its PDF stays in the project folder, and its variation file stays attached
+  to its row;
+- it keeps its number, so the next new variation does not reuse it.
+
+It drops out of the dashboard's table and totals, the projects page, and the
+cover sheet's *Previous variations*. Each revision has its own Delete, so
+deleting `VAR-001.1` leaves `VAR-001` as the current one.
+
+**Getting one back is for the administrator.** **Administrator settings → D ·
+Deleted variations**: pick the office, **Show deleted variations**, and
+**Restore** beside the one wanted. It is back on its project's dashboard
+exactly as it was. Listing an office in one go uses the log read's
+whole-office step ([section 3](#3--let-flow-4-the-log-read-answer-for-a-whole-office));
+without it, open one of that office's projects first.
+
+Optional: to see deletions in the SharePoint list itself, flow 5 is also sent
+`deleted` (true/false), `deletedAt` and `deletedBy`. Map them to columns
+(Yes/No, Date and time, Single line of text) if you want them; the app does not
+need them.
+
 ---
 
 ## 1 · Add five columns to the Variation Log list

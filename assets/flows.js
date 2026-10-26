@@ -586,7 +586,8 @@ const Flows = (() => {
     status:          ['status', 'Status', 'VariationStatus', 'Variation_x0020_Status'],
     valueExGst:      ['valueExGst', 'ValueExGst', 'Value_x0020_Ex_x0020_GST', 'Value'],
     approvedValue:   ['approvedValue', 'ApprovedValue', 'Approved_x0020_Value'],
-    approvedDate:    ['approvedDate', 'ApprovedDate', 'Approved_x0020_Date']
+    approvedDate:    ['approvedDate', 'ApprovedDate', 'Approved_x0020_Date'],
+    folderPath:      ['folderPath', 'FolderPath', 'Folder_x0020_Path']
   };
 
   const STATUS_NAMES = ['Draft', 'Submitted', 'Approved', 'Rejected'];
@@ -606,6 +607,13 @@ const Flows = (() => {
       approvedDate: (saved && saved.approvedDate) || (row.approvedDate ? String(row.approvedDate).slice(0, 10) : ''),
       commentary: (saved && Array.isArray(saved.commentary)) ? saved.commentary.slice() : []
     };
+  }
+
+  // Deleted from its project's dashboard: hidden there, kept in the log, and
+  // restored from Administrator settings. The mark lives in the saved form,
+  // so it needs no column of its own.
+  function isDeleted(row){
+    return !!(row && row.state_ && row.state_.deleted);
   }
 
   // the variation's value ex GST, or null when it was never priced
@@ -905,7 +913,7 @@ const Flows = (() => {
 
   return { get, save, has, plainMessage, probeProxy, proxyState, viaProxy, sourceOf, builtIn: FlowUrls.get,
            getProjects, fileVariation, describe, openVariationFile, unwrapFile, getAgreedRates,
-           listLog, listStateLog, getLog, writeLog, sameRef, rowStatus, rowValue, STATUS_NAMES, LOG_ALIASES,
+           listLog, listStateLog, getLog, writeLog, sameRef, rowStatus, rowValue, isDeleted, STATUS_NAMES, LOG_ALIASES,
            normaliseProject, extractRows, describeRow, describeRows, normKey,
            MAPPABLE, ALIASES, decodePath, splitSitePath };
 })();
