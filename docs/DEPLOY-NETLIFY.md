@@ -91,33 +91,18 @@ Still possible, and still what `tools/make-deploy-folder.py` builds — but
 remember the next push overwrites it. Use it for testing a build locally, not
 for putting one live.
 
-### As one file — this is how this site is deployed
+### The folder to drag
 
-`build/single-file/` holds the whole app as a single `index.html`, plus
-`netlify/functions/flow.js` beside it. Netlify → your site → **Deploys**, and
-drag that **folder** onto the drop zone. For a new site: **Sites → Add new site
-→ Deploy manually**.
+`build/variation-coversheet/` holds the site and nothing else: the guides, the
+fill-in workbooks and the tools stay out of it, because everything you drag
+ends up at a public web address. It carries the Microsoft sign-in files, the
+security headers (`_headers`), `_redirects`, `robots.txt` and
+`netlify/functions/flow.js`. Drag that **folder** onto the drop zone. For a new
+site: **Sites → Add new site → Deploy manually**.
 
-It is a folder rather than a bare file only because of the function, which is
-what lets the site hold the Power Automate URLs instead of every person pasting
-them in ([FLOW-URLS-ON-THE-SERVER.md](FLOW-URLS-ON-THE-SERVER.md)). Drop the
-`netlify` folder and you are back to a one-file deploy that works the old way.
-
-Everything is inside that file — stylesheet, scripts, the html2pdf library and
-the logos — so there is nothing else to upload and nothing that can be left
-behind half-copied. To change anything, including the password, you rebuild or
-re-download the file and drag it again.
-
-### As a folder
-
-`build/variation-coversheet/` holds the site and nothing else:
-the guides, the fill-in workbooks and the tools stay out of it, because
-everything you drag ends up at a public web address. Drag that folder onto the
-same drop zone.
-
-The folder's advantage is that a password change replaces one 15-line file
-instead of 1.4 MB. Its disadvantage is that there are nine files to keep
-together. Either works; the single file is what is live today.
+`build/single-file/` is an **offline copy**: the whole app in one `index.html`
+with no sign-in, to open from the disk. **Never deploy it** — on a web address
+it would open for anyone. See [SIGN-IN.md](SIGN-IN.md).
 
 Two things to watch:
 

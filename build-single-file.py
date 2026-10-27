@@ -190,6 +190,41 @@ def read_private(path_text, needle, what):
     return source
 
 
+def app_scripts():
+    """The app's scripts, in order, from APP_SCRIPTS in boot.js -- the one
+    list of them, so this build cannot fall behind the deployed site."""
+    source = read('boot.js')
+    m = re.search(r'const APP_SCRIPTS = \[(.*?)\];', source, re.S)
+    if not m:
+        sys.exit('boot.js has no APP_SCRIPTS list — the builder is out of date')
+    body = re.sub(r'//[^\n]*', '', m.group(1))
+    scripts = re.findall(r"'([^']+)'", body)
+    if not scripts:
+        sys.exit('APP_SCRIPTS in boot.js is empty')
+    return scripts
+
+
+GATE_SCRIPTS = ('<script src="msal-browser.min.js"></script>\n'
+                '<script src="app-config.js"></script>\n'
+                '<script src="auth.js"></script>\n'
+                '<script src="boot.js"></script>')
+
+
+def strip_sign_in(html):
+    """index.html without the sign-in gate, with the app's script tags back
+    where the gate's were (to be inlined next)."""
+    if GATE_SCRIPTS not in html:
+        sys.exit('index.html no longer ends with the sign-in scripts — the builder is out of date')
+    html = html.replace(GATE_SCRIPTS, '\n'.join('<script src="%s"></script>' % rel for rel in app_scripts()))
+    html = html.replace('<body class="auth-pending">', '<body>', 1)
+    html = html.replace('<link rel="stylesheet" href="auth-gate.css">\n', '', 1)
+    html = re.sub(r'<div id="authGate">.*?</div>\n?', '', html, count=1, flags=re.S)
+    for left in ('auth-pending', 'auth-gate.css', 'id="authGate"', 'src="boot.js"'):
+        if left in html:
+            sys.exit('index.html still has %s after taking the sign-in out' % left)
+    return html
+
+
 def build(flow_config=None, settings_password=None):
     html = read('index.html')
 
@@ -198,18 +233,13 @@ def build(flow_config=None, settings_password=None):
         '<link rel="stylesheet" href="assets/styles.css">',
         '<style>\n' + css + '\n</style>')
 
-    for rel in ['vendor/html2pdf.bundle.min.js', 'vendor/pdf-lib.min.js', 'vendor/xlsx.mini.min.js',
-                'vendor/pdf.min.js', 'vendor/pdf.worker.min.js',
-                'assets/settings-password.js',
-                'assets/settings-lock.js', 'assets/logo.js',
-                'assets/state-register.js', 'assets/flow-config.js', 'assets/flow-urls.js',
-                'assets/build-info.js', 'assets/flows.js',
-                'assets/scope-library.js', 'assets/schedule-of-rates.js', 'assets/agreed-rates.js',
-                'assets/app.js', 'assets/stages.js', 'assets/variation-file.js',
-                'assets/dashboard.js']:
+    # The deployed index.html loads only the sign-in gate; boot.js loads the
+    # app's scripts once the session is confirmed. This copy runs from the disk,
+    # where the gate never applies, so the gate comes out and the app's scripts
+    # go in where it was, in boot.js's order.
+    html = strip_sign_in(html)
+    for rel in app_scripts():
         tag = '<script src="%s"></script>' % rel
-        if tag not in html:
-            sys.exit('index.html no longer loads %s — the builder is out of date' % rel)
         source = read(rel)
         # The URLs and the administrator password hash can both come from files
         # kept outside the repository, so a build carrying them never needs a

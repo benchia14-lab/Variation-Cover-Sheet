@@ -32,22 +32,19 @@
 [functions]
   directory = "netlify/functions"
 
-# No redirect rules are needed. The app routes on the URL fragment
-# (#/state/VIC), which browsers never send to the server, so every request is
-# for a file that really exists. An SPA catch-all would only mask typos.
+# SIGN-IN DOES NOT PROTECT THIS FUNCTION. The Microsoft sign-in runs in the
+# browser and protects the app's pages only. /.netlify/functions/flow does not
+# check the caller's Entra token, so anyone who finds its address can run the
+# flows through it -- the same exposure as the trigger URLs themselves, which
+# are also built into assets/flow-config.js. Before relying on the function to
+# keep the flows private, make it verify an Entra access token (signature
+# against the tenant's keys, issuer e52a9a87-..., audience, expiry). See
+# docs/SIGN-IN.md.
 
-[[headers]]
-  for = "/*"
-  [headers.values]
-    X-Content-Type-Options = "nosniff"
-    X-Frame-Options = "DENY"
-    Referrer-Policy = "strict-origin-when-cross-origin"
+# The app routes on the URL fragment (#/state/VIC), which browsers never send
+# to the server, so it needs no SPA catch-all. _redirects only 404s what
+# travels in the published folder but must not be served (netlify/functions).
 
-# Always revalidate the entry point, so a deploy is live for everyone on their
-# next reload rather than whenever their cache happens to expire. The asset
-# filenames are not content-hashed, so they are left on Netlify's ETag
-# revalidation for the same reason.
-[[headers]]
-  for = "/index.html"
-  [headers.values]
-    Cache-Control = "public, max-age=0, must-revalidate"
+# The security headers (Content-Security-Policy and the rest) and the
+# no-cache rule for index.html are in _headers, which is copied into the
+# published folder. Keeping them in one place stops the two disagreeing.

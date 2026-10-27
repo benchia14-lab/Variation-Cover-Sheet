@@ -145,8 +145,9 @@ as issued.
 
 ## Who can open it
 
-Microsoft sign-in, per the Internal Tool Sign-In Standard: anyone not signed in
-with an Axis account is sent to `login.html` first.
+Microsoft sign-in, per the Axis Internal Tool Sign-In Standard: none of the app's
+code or data loads until Microsoft confirms a live Axis session; anyone else is
+sent to `login.html`.
 [docs/SIGN-IN.md](docs/SIGN-IN.md) covers it, including what it does **not**
 protect — the check runs in the browser, so the page itself is still served to
 anyone who asks for it.
@@ -216,9 +217,13 @@ assets/logo.js            default letterhead mark as a data URI
 assets/styles.css         styling, including the A4 page geometry
 assets/flow-config.js     flow URLs built into the deployment, or blank
 assets/flow-urls.js       reads them; the half that never changes
-login.html, msal-browser.min.js, app-config.js, axis services group.jpg
-                          the Internal Tool Sign-In Standard's files, unedited
-favicon.ico, apple-touch-icon.png   the Axis mark
+login.html, login.js, redirect.html, redirect.js, auth.js, auth-gate.css,
+msal-browser.min.js, app-config.js, axis services group.jpg
+                          the Sign-In Standard's files (docs/SIGN-IN.md)
+boot.js                   the gate: loads the app's scripts (APP_SCRIPTS) only
+                          after sign-in -- add any new script there
+_headers, _redirects, robots.txt   security headers, 404s, no crawling
+favicon.ico, favicon-32.png, apple-touch-icon.png   the Axis mark
 netlify/functions/flow.js calls the flows server-side, so their URLs stay
                           in Netlify's environment and never reach a browser
 vendor/                   html2pdf.js 0.10.1, bundled locally
@@ -232,8 +237,9 @@ tools/md-to-docx.js       regenerates docs/word/*.docx from the Markdown guides
 tools/make-deploy-folder.py      builds the folder that gets dragged onto Netlify
 tools/set-settings-password.js   the same thing from a terminal, if you have Node
 tools/set-flow-urls.js    builds the flow URLs in from a terminal
-build-single-file.py      bundles all of the above into one standalone .html
-netlify.toml              unused today — see docs/DEPLOY-NETLIFY.md
+build-single-file.py      bundles the app into one offline .html, without the
+                          sign-in -- never deploy that copy
+netlify.toml              Netlify's build settings — see docs/DEPLOY-NETLIFY.md
 ```
 
 Nothing here is compiled and nothing is installed to run the app. `npm install`

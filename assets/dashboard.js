@@ -570,18 +570,10 @@ const Dashboard = (function(){
   });
 
   // who is entering it: the signed-in Microsoft account where there is one
+  // the account boot.js confirmed with Microsoft before the app loaded
   function signedInName(){
-    try {
-      if(typeof msal === 'undefined' || location.protocol === 'file:') return '';
-      const app = new msal.PublicClientApplication({
-        auth: { clientId: '7485bf02-3fbf-478b-a4d0-05ddcc3b1c1e',
-                authority: 'https://login.microsoftonline.com/e52a9a87-78f1-4048-b915-d974ad3d98ac',
-                redirectUri: window.location.origin },
-        cache: { cacheLocation: 'localStorage' }
-      });
-      const a = app.getAllAccounts()[0];
-      return (a && (a.name || a.username)) || '';
-    } catch(e){ return ''; }
+    const a = window.AXIS_USER;
+    return (a && (a.name || a.username)) || '';
   }
   function rememberedName(){
     try { return localStorage.getItem(NAME_KEY) || ''; } catch(e){ return ''; }
