@@ -434,6 +434,11 @@ input[type=file]{ display:none; }
   font-weight:600; cursor:pointer;
 }
 .banner-btn:hover{ background:var(--steel-dark); }
+/* the signed-in name and Sign out, filled in by boot.js after sign-in */
+.auth-who[hidden], .auth-out[hidden]{ display:none !important; }
+.site-banner-inner .auth-who{ font-size:12.5px; color:var(--muted); white-space:nowrap; margin-left:auto; }
+.banner-btn-quiet{ background:transparent; color:var(--steel-dark); border:1px solid var(--line); }
+.banner-btn-quiet:hover{ background:var(--paper); color:var(--ink); }
 .banner-btn svg{ width:15px; height:15px; flex:0 0 auto; }
 
 .picker-main{

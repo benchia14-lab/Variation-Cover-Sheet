@@ -4,19 +4,21 @@
     python3 tools/make-deploy-folder.py
     python3 tools/make-deploy-folder.py --out /somewhere
 
-It builds the site in both shapes, so you drag whichever suits:
+It builds two things:
 
-    build/single-file/            index.html -- the whole app in one file
-    build/variation-coversheet/   the same app as separate files
+    build/variation-coversheet/   THE SITE: the app as separate files, behind
+                                  the Microsoft sign-in. This is what Netlify
+                                  publishes (netlify.toml) and what to drag.
+    build/single-file/            an OFFLINE copy: the whole app in one
+                                  index.html, to open from the disk. It has no
+                                  sign-in, so it must never be deployed.
 
-Both carry the Internal Tool Sign-In Standard's files — login.html,
-msal-browser.min.js, app-config.js and the logo — because index.html sends
-anyone not signed in to /login.html, and that page has to exist. Both also carry
-netlify/functions/flow.js, which can hold the Power Automate trigger URLs so
-nobody pastes them.
-
-That is why a folder is dragged now, even for the single-file shape: one file
-cannot carry the sign-in pages beside it.
+The site carries the Internal Tool Sign-In Standard's files (login, redirect,
+auth.js, boot.js and the rest): index.html loads nothing of the app until
+boot.js has confirmed a live Axis session, so a folder missing any of them is
+not deployable. It also carries _headers (the security headers), _redirects
+and robots.txt, and netlify/functions/flow.js, which can hold the Power
+Automate trigger URLs so nobody pastes them.
 
 The site is deployed by hand — Netlify is not linked to the repository — so what
 goes live is whatever folder someone drags. This builds that folder so it holds
@@ -42,14 +44,15 @@ NAME = 'variation-coversheet'
 
 # Exactly what index.html loads, and the note that travels with it.
 DIRS = ['assets', 'vendor']
-README = 'READ ME FIRST.txt'
 FUNCTIONS = Path('netlify') / 'functions'
 
-# The Internal Tool Sign-In Standard's files, which sit beside index.html and
-# are copied in unchanged. Without them the app redirects to a sign-in page that
-# is not there, so a folder missing any of these is not deployable.
-SIGN_IN = ['login.html', 'msal-browser.min.js', 'app-config.js', 'axis services group.jpg']
-ICONS = ['favicon.ico', 'apple-touch-icon.png']
+# The Internal Tool Sign-In Standard's files, which sit beside index.html in the
+# site root (the redirect URI is <origin>/redirect.html). Without them the app
+# never loads, so a folder missing any of these is not deployable.
+SIGN_IN = ['login.html', 'login.js', 'redirect.html', 'redirect.js', 'auth.js', 'boot.js',
+           'auth-gate.css', 'msal-browser.min.js', 'app-config.js', 'axis services group.jpg',
+           '_headers', '_redirects', 'robots.txt']
+ICONS = ['favicon.ico', 'favicon-32.png', 'apple-touch-icon.png']
 
 
 def check_references(folder):
@@ -81,13 +84,16 @@ def add_sign_in(folder):
             sys.exit('missing: %s — the sign-in standard needs it beside index.html' % rel)
         shutil.copy2(src, folder / rel)
 
-    # index.html redirects to /login.html when nobody is signed in. Shipping one
-    # without the other is a site that bounces everyone to a 404.
-    html = (folder / 'index.html').read_text(encoding='utf-8')
-    if '/login.html' in html and not (folder / 'login.html').exists():
-        sys.exit('index.html redirects to /login.html, which is not in the folder')
-    if 'msal-browser.min.js' in html and not (folder / 'msal-browser.min.js').exists():
-        sys.exit('index.html loads msal-browser.min.js, which is not in the folder')
+    # boot.js loads the app's scripts after sign-in; index.html does not name
+    # them, so check_references cannot see them. Every one has to be there.
+    import re
+    boot = (folder / 'boot.js').read_text(encoding='utf-8')
+    listed = re.search(r'const APP_SCRIPTS = \[(.*?)\];', boot, re.S)
+    if not listed:
+        sys.exit('boot.js has no APP_SCRIPTS list')
+    for rel in re.findall(r"'([^']+)'", re.sub(r'//[^\n]*', '', listed.group(1))):
+        if not (folder / rel).exists():
+            sys.exit('boot.js loads %s, which is not in %s' % (rel, folder))
 
 
 def report(folder, archive):
@@ -138,9 +144,8 @@ def build_multi(out_dir, flow_config=None, settings_password=None):
     # right build deployed?" the same way.
     (folder / 'assets' / 'build-info.js').write_text(bsf.build_info(flow_config), encoding='utf-8')
 
-    note = ROOT / 'tools' / 'deploy-readme.txt'
-    if note.exists():
-        shutil.copy2(note, folder / README)
+    # The deploy note is not copied in: everything in this folder is published,
+    # and it is a note for whoever deploys, not for the web.
     add_functions(folder)
     add_sign_in(folder)
     check_references(folder)
@@ -149,7 +154,10 @@ def build_multi(out_dir, flow_config=None, settings_password=None):
 
 
 def build_single(out_dir, flow_config=None, settings_password=None):
-    """The whole app bundled into one index.html, plus the function."""
+    """The whole app bundled into one index.html, to open from the disk.
+
+    It carries no sign-in (the standard exempts a copy opened from the disk),
+    so it is an offline copy and never a deploy."""
     folder = fresh(out_dir / 'single-file')
     # The bundler is the one definition of how the app inlines itself; running
     # it is better than a second copy of that logic living here.
@@ -165,10 +173,10 @@ def build_single(out_dir, flow_config=None, settings_password=None):
         # The bundler has already said what is missing; repeating a traceback
         # on top of it would only bury the message.
         sys.exit('build-single-file.py could not build the bundle — see above.')
-    add_functions(folder)
-    add_sign_in(folder)
+    for rel in ICONS:
+        shutil.copy2(ROOT / rel, folder / rel)
     check_references(folder)
-    return folder, shutil.make_archive(str(out_dir / 'single-file-site'), 'zip',
+    return folder, shutil.make_archive(str(out_dir / 'single-file-offline'), 'zip',
                                        root_dir=str(out_dir), base_dir='single-file')
 
 
@@ -200,15 +208,14 @@ def main():
         if needle not in src.read_text(encoding='utf-8'):
             sys.exit('%s does not declare %s — wrong file?' % (given, what))
 
-    print('ONE FILE (plus the function) — this is what is deployed today')
-    report(*build_single(out, args.flow_config, args.settings_password))
-    print('')
-    print('SEPARATE FILES (plus the function)')
+    print('THE SITE (separate files, sign-in, the function) — this is what is deployed')
     report(*build_multi(out, args.flow_config, args.settings_password))
     print('')
-    print('Drag one of those folders — not its contents — onto Netlify under Deploys.')
-    print('The netlify/functions folder has to go up with it, which is why it is a')
-    print('folder and not a bare index.html.')
+    print('OFFLINE COPY (one file, no sign-in) — open it from the disk; never deploy it')
+    report(*build_single(out, args.flow_config, args.settings_password))
+    print('')
+    print('Netlify builds the site from the repository. To deploy by hand, drag the')
+    print('variation-coversheet folder — not its contents — onto Netlify under Deploys.')
 
 
 if __name__ == '__main__':

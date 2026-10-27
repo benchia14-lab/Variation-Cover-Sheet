@@ -1,0 +1,5 @@
+# Files that end up in the published folder but must never be served from the live site.
+# The "!" makes Netlify return 404 even though the file exists.
+# The setup guides, workbooks and tools are never copied into the published folder at all
+# (tools/make-deploy-folder.py builds it); this covers what has to travel with it.
+/netlify/*              /404   404!

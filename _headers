@@ -1,0 +1,24 @@
+# Security headers for every file on the site (Netlify reads this file from the published folder).
+# From the Axis Internal Tool Sign-In Standard, fitted to Axis Variations:
+#   - script-src 'self' only: there are no inline scripts (the old inline sign-in snippet is gone)
+#   - connect-src: Microsoft sign-in, and the Power Automate flows the app calls
+#     (*.powerplatform.com and *.logic.azure.com). Calls to /.netlify/functions are 'self'.
+#   - fonts: Google Fonts (the stylesheet from fonts.googleapis.com, the files from fonts.gstatic.com)
+#   - blob:/data: for the PDF preview, the downloads and the pasted/dropped attachments
+#   - no Cross-Origin-Opener/Embedder-Policy: the app needs no cross-origin isolation
+# If something stops working after this goes live, open the browser console (F12): a blocked request is
+# reported there with the rule that blocked it - add that address to the matching line, nothing wider.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' blob: data:; connect-src 'self' blob: data: https://login.microsoftonline.com https://*.powerplatform.com https://*.logic.azure.com; frame-src 'self' blob: https://login.microsoftonline.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Strict-Transport-Security: max-age=31536000
+  X-Robots-Tag: noindex, nofollow
+
+# Always revalidate the entry point, so a deploy is live for everyone on their next reload.
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+/
+  Cache-Control: public, max-age=0, must-revalidate

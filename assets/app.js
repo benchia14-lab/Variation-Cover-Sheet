@@ -3102,7 +3102,10 @@ render();
 // The stages (stages.js) load after this file, and a probe that answers at once
 // would otherwise route before they exist -- so wait for every script too.
 function whenLoaded(fn){
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn, { once: true });
+  // Loaded by boot.js after sign-in: the page finished loading long ago, but the
+  // scripts after this one have not run yet, so wait for boot.js to say they have.
+  if(window.AXIS_BOOT_PENDING) window.addEventListener('axis:app-loaded', fn, { once: true });
+  else if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn, { once: true });
   else fn();
 }
 Flows.probeProxy().then(() => whenLoaded(start), () => whenLoaded(start));
