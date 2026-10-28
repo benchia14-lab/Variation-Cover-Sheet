@@ -817,18 +817,24 @@ function buildPdfDocument(extend){
   let wrapEl = null;   // the fixed-height area a page's content has to fit in
   let bodyEl = null;   // where blocks actually go
   let pageBreakPending = false;
+  // how the letter is being laid out (see "balancing the letter" below):
+  // tighter spacing, and space held back at the foot of one page
+  let pageClass = '';
+  let reserveOn = -1, reserve = 0;
   // uploaded PDFs, spliced in after this many generated pages once rendered
   const externals = [];
 
   function addPage(){
     const page = document.createElement('div');
-    page.className = 'pdf-page';
+    page.className = 'pdf-page' + (pageClass ? ' ' + pageClass : '');
     page.appendChild(stripIds(sheet.querySelector('.letterhead').cloneNode(true)));
 
     wrapEl = document.createElement('div');
     wrapEl.className = 'pdf-page-body';
     bodyEl = document.createElement('div');
     bodyEl.className = 'letter-body';
+    // padding is part of what has to fit, so it holds that much of the page back
+    if(doc.querySelectorAll('.pdf-page').length === reserveOn) bodyEl.style.paddingBottom = reserve + 'px';
     wrapEl.appendChild(bodyEl);
     page.appendChild(wrapEl);
 
@@ -941,46 +947,106 @@ function buildPdfDocument(extend){
       return wrap;
     }
 
-    place(freshPanel(false));
-    rows.forEach(tr => {
+    let panelEl = place(freshPanel(false));
+    rows.forEach((tr, i) => {
       tbody.appendChild(tr);
       if(!overflows()) return;
       tbody.removeChild(tr);
+      // the heading never stays behind without a row under it: the whole
+      // panel moves to the next page instead
+      if(i === 0 && bodyEl.childNodes.length > 1){
+        panelEl.remove();
+        addPage();
+        panelEl = bodyEl.appendChild(freshPanel(false));
+        tbody.appendChild(tr);
+        return;
+      }
       addPage();
-      bodyEl.appendChild(freshPanel(true));
+      panelEl = bodyEl.appendChild(freshPanel(true));
       tbody.appendChild(tr);
     });
   }
 
   // ---- flow the letter, block by block, in the order it reads on screen
-  addPage();
-
   const pick = sel => sheet.querySelector(sel);
   const pushIfShown = sel => {
     const el = pick(sel);
     if(isShown(el)) place(stripIds(el.cloneNode(true)));
   };
 
-  pushIfShown('#p-date');
-  pushIfShown('#p-recipient');
-  pushIfShown('#p-attn-row');
-  pushIfShown('#p-re-row');
-  pushIfShown('#p-intro');
+  // Lays the letter out from scratch, as the settings above say; returns its pages.
+  function flowLetter(){
+    doc.innerHTML = '';
+    pageBreakPending = false;
+    addPage();
 
-  placeRefRows(Array.prototype.slice.call(sheet.querySelectorAll('.ref-table tr'))
-    .filter(isShown).map(tr => stripIds(tr.cloneNode(true))));
+    pushIfShown('#p-date');
+    pushIfShown('#p-recipient');
+    pushIfShown('#p-attn-row');
+    pushIfShown('#p-re-row');
+    pushIfShown('#p-intro');
 
-  const dwgPanelEl = pick('#dwg-panel');
-  if(isShown(dwgPanelEl)) placeDwgPanel(stripIds(dwgPanelEl.cloneNode(true)));
+    placeRefRows(Array.prototype.slice.call(sheet.querySelectorAll('.ref-table tr'))
+      .filter(isShown).map(tr => stripIds(tr.cloneNode(true))));
 
-  pushIfShown('#p-closing');
+    const dwgPanelEl = pick('#dwg-panel');
+    if(isShown(dwgPanelEl)) placeDwgPanel(stripIds(dwgPanelEl.cloneNode(true)));
 
-  // the rule and the sign-off travel together -- a signature block orphaned
-  // from its rule reads as a different document
-  const signOff = document.createElement('div');
-  signOff.appendChild(stripIds(pick('.sig-line-rule').cloneNode(true)));
-  signOff.appendChild(stripIds(pick('.sig-block').cloneNode(true)));
-  place(signOff);
+    pushIfShown('#p-closing');
+
+    // the rule and the sign-off travel together -- a signature block orphaned
+    // from its rule reads as a different document
+    const signOff = document.createElement('div');
+    signOff.appendChild(stripIds(pick('.sig-line-rule').cloneNode(true)));
+    signOff.appendChild(stripIds(pick('.sig-block').cloneNode(true)));
+    place(signOff);
+    return Array.prototype.slice.call(doc.querySelectorAll('.pdf-page'));
+  }
+
+  // how full a page is, 0 to 1, not counting space held back at its foot
+  function fill(page){
+    const wrap = page.querySelector('.pdf-page-body');
+    const body = wrap.firstElementChild;
+    const held = parseFloat(body.style.paddingBottom) || 0;
+    return (body.getBoundingClientRect().height - held) / wrap.clientHeight;
+  }
+
+  /* ---- balancing the letter
+     Flowed block by block, a letter that only just runs over leaves its last
+     page holding the sign-off and nothing else -- a page that looks like an
+     afterthought. When the last page would be that empty:
+       1. lay it out again with tighter spacing, and use that if it then fits
+          on one page fewer without filling it to the brim;
+       2. otherwise hold space back at the foot of the page before it, so
+          blocks move over and the two pages end up about equally full. */
+  const SPARE = 0.4;   // a last page under 40% full gets balanced
+  const FULL = 0.97;   // ...but squeezed onto a page fewer only if that leaves some air
+  let letter = flowLetter();
+  if(letter.length > 1 && fill(letter[letter.length - 1]) < SPARE){
+    const count = letter.length;
+    pageClass = 'tight';
+    letter = flowLetter();
+    if(letter.length >= count || fill(letter[letter.length - 1]) > FULL){
+      pageClass = '';
+      reserveOn = count - 2;
+      const room = letter[0].querySelector('.pdf-page-body').clientHeight;
+      let best = { reserve: 0, score: Infinity };
+      for(let r = 0; r <= room * 0.7; r += 24){
+        reserve = r;
+        const tried = flowLetter();
+        if(tried.length !== count) continue;
+        const before = fill(tried[count - 2]), last = fill(tried[count - 1]);
+        // as even as possible, and the earlier page the fuller of the two
+        const score = Math.abs(before - last) + (last > before ? 0.1 : 0);
+        if(score < best.score) best = { reserve: r, score: score };
+      }
+      reserve = best.reserve;
+      flowLetter();
+    }
+  }
+  // the stage pages after the letter are laid out as usual
+  pageClass = '';
+  reserveOn = -1;
 
   if(extend){
     extend({
