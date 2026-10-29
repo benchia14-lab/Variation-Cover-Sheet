@@ -332,6 +332,22 @@ input[type=file]{ display:none; }
 .pdf-page .sheet-footer{ flex:0 0 auto; margin-top:0; }
 .pdf-page-num{ font-family:'IBM Plex Mono', monospace; }
 .pdf-page .intro-text{ margin-top:0; }
+/* A letter that only just runs onto another page is laid out with this
+   tighter spacing first, to see if it then fits (buildPdfDocument). */
+.pdf-page.tight .letter-body{ padding-top:16px; }
+.pdf-page.tight .letter-date{ margin-bottom:12px; }
+.pdf-page.tight .recipient-block{ margin-bottom:10px; }
+.pdf-page.tight .attn-row, .pdf-page.tight .re-row{ margin-bottom:4px; }
+.pdf-page.tight .intro-text{ margin:10px 0 12px; line-height:1.5; }
+.pdf-page.tight .ref-table{ margin-bottom:14px; }
+.pdf-page.tight .ref-table tr + tr td{ border-top-width:4px; }
+.pdf-page.tight .ref-table .k, .pdf-page.tight .ref-table .v{ padding:8px 14px; }
+.pdf-page.tight .ref-table .v{ line-height:1.45; }
+.pdf-page.tight .dwg-panel{ margin-bottom:14px; }
+.pdf-page.tight .dwg-preview-table th{ padding:7px 12px; }
+.pdf-page.tight .dwg-preview-table td{ padding:6px 12px; }
+.pdf-page.tight .closing-text{ margin:14px 0 20px; line-height:1.5; }
+.pdf-page.tight .sig-line-rule{ margin-bottom:26px; }
 
 /* ---------- PRINT ----------
    Only reached when the PDF button falls back to the print dialog, but it
