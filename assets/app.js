@@ -16,7 +16,7 @@
    working cover sheet generator that produces the same PDF.
 ============================================================================ */
 
-const textIds = ['project','varref','variationdesc','siref','clauseref','aconexref','contractordirection','emailref','desc-final',
+const textIds = ['project','projectnumber','varref','variationdesc','siref','clauseref','aconexref','contractordirection','emailref','desc-final',
                   'co-name','co-abn','co-acn','co-phone','co-address','co-email',
                   'recipient-name','recipient-address','attention',
                   'intro-text','closing-text','sig-name','sig-title','sig-email'];
@@ -81,6 +81,7 @@ function render(){
   toggleEl('p-closing', v('closing-text'));
 
   toggleTableRow('tr-project', 'p-project', v('project'));
+  toggleTableRow('tr-projectnumber', 'p-projectnumber', v('projectnumber'));
   toggleTableRow('tr-siref', 'p-siref', v('siref'));
   toggleTableRow('tr-clauseref', 'p-clauseref', v('clauseref'));
   toggleTableRow('tr-aconexref', 'p-aconexref', v('aconexref'));
@@ -253,6 +254,9 @@ function applyProject(project){
   }
 
   els['project'].value = project.project || '';
+  // the register's project number, when it has one; optional, so never reported missing
+  els['projectnumber'].value = project.projectNumber || '';
+  document.getElementById('tag-projectnumber').hidden = !project.projectNumber;
 
   // Assign whatever the register holds, empty included. Skipping the empties
   // would leave the previous project's contractor and contact sitting in the
@@ -612,6 +616,76 @@ function renderDwgPreview(){
 dwgAddBtn.addEventListener('click', () => focusFirstInput(addDwgRow()));
 addDwgRow();
 renderDwgPreview();
+
+/* ---- day sheets: the same kind of table, three columns ------------------- */
+
+const dsRowsContainer = document.getElementById('ds-rows');
+const dsPanel = document.getElementById('ds-panel');
+const dsPreviewBody = document.getElementById('ds-preview-body');
+
+function addDsRow(){
+  const row = document.createElement('div');
+  row.className = 'dwg-row ds-row';
+  row.innerHTML =
+    '<input type="text" class="dwg-input ds-number mono-input" placeholder="e.g. DS-014">' +
+    '<input type="text" class="dwg-input ds-desc" placeholder="e.g. After-hours crew to relocate sewer">' +
+    '<input type="text" class="dwg-input ds-by" placeholder="e.g. Glen O\'Connor">' +
+    '<button type="button" class="dwg-remove" title="Remove row">&times;</button>';
+  dsRowsContainer.appendChild(row);
+  row.querySelectorAll('.dwg-input').forEach(inp => {
+    inp.addEventListener('input', renderDsPreview);
+    inp.addEventListener('keydown', (e) => {
+      if(e.key !== 'Enter') return;
+      e.preventDefault();
+      const rows = Array.from(dsRowsContainer.children);
+      const idx = rows.indexOf(row);
+      focusFirstInput(idx === rows.length - 1 ? addDsRow() : rows[idx + 1]);
+    });
+  });
+  row.querySelector('.dwg-remove').addEventListener('click', () => {
+    row.remove();
+    if(!dsRowsContainer.children.length) addDsRow();
+    renderDsPreview();
+  });
+  return row;
+}
+
+function collectDaySheets(){
+  return Array.from(dsRowsContainer.children).map(row => ({
+    number: row.querySelector('.ds-number').value.trim(),
+    description: row.querySelector('.ds-desc').value.trim(),
+    approvedBy: row.querySelector('.ds-by').value.trim()
+  })).filter(r => r.number || r.description || r.approvedBy);
+}
+
+function setDaySheets(list){
+  dsRowsContainer.innerHTML = '';
+  (list || []).forEach(d => {
+    const row = addDsRow();
+    row.querySelector('.ds-number').value = d.number || '';
+    row.querySelector('.ds-desc').value = d.description || '';
+    row.querySelector('.ds-by').value = d.approvedBy || '';
+  });
+  if(!dsRowsContainer.children.length) addDsRow();
+  renderDsPreview();
+}
+
+function renderDsPreview(){
+  const rows = collectDaySheets();
+  if(!rows.length){ dsPanel.style.display = 'none'; return; }
+  dsPanel.style.display = 'block';
+  dsPreviewBody.innerHTML = rows.map(r =>
+    '<tr>' +
+      '<td>' + (escapeHtml(r.number) || '—') + '</td>' +
+      '<td>' + (escapeHtml(r.description) || '—') + '</td>' +
+      '<td>' + (escapeHtml(r.approvedBy) || '—') + '</td>' +
+    '</tr>'
+  ).join('');
+}
+
+document.getElementById('ds-add-btn').addEventListener('click', () => focusFirstInput(addDsRow()));
+addDsRow();
+renderDsPreview();
 
 /* ==========================================================================
    FIELD SUGGESTIONS — what this browser has typed before
@@ -991,6 +1065,8 @@ function buildPdfDocument(extend){
 
     const dwgPanelEl = pick('#dwg-panel');
     if(isShown(dwgPanelEl)) placeDwgPanel(stripIds(dwgPanelEl.cloneNode(true)));
+    const dsPanelEl = pick('#ds-panel');
+    if(isShown(dsPanelEl)) placeDwgPanel(stripIds(dsPanelEl.cloneNode(true)));
 
     pushIfShown('#p-closing');
 
@@ -1244,6 +1320,7 @@ function buildFilingPayload(pdfBase64, fileName, fileKind){
     emailRef: els['emailref'].value.trim(),
     descriptionOfWorks: els['desc-final'].value.trim(),
     drawings: collectDrawings(),
+    daySheets: collectDaySheets(),
     issuedDate: new Date().toISOString()
   };
 }
@@ -1473,6 +1550,7 @@ function collectFormState(){
     projectId: selectedProject ? selectedProject.id : '',
     fields: fields,
     drawings: collectDrawings(),
+    daySheets: collectDaySheets(),
     // stages 2 and 3; attachments are not logged -- they are files, not fields.
     // They are in the variation file, and this names it, so reopening from the
     // log can fetch the whole thing back.
@@ -1500,6 +1578,7 @@ function applyFormState(saved){
     row.querySelector('.dwg-new').value = d.newRev || '';
   });
   if(!dwgRowsContainer.children.length) addDwgRow();
+  setDaySheets(saved && saved.daySheets);
 
   if(typeof Stages !== 'undefined') Stages.apply(saved && saved.stages);
   variationStatus = normaliseStatus(saved && saved.status);
@@ -1950,7 +2029,7 @@ function currentHasContent(){
   return ['variationdesc','siref','desc-raw','desc-final'].some(id => {
     const el = els[id] || document.getElementById(id);
     return el && el.value.trim();
-  }) || collectDrawings().length > 0;
+  }) || collectDrawings().length > 0 || collectDaySheets().length > 0;
 }
 
 // The banner covers two situations that look the same to the code and read very
@@ -2003,6 +2082,7 @@ function logPayloadFromSaved(saved, ref, extra){
   const f = saved.fields || {};
   const v = id => String(f[id] === undefined || f[id] === null ? '' : f[id]).trim();
   const drawings = saved.drawings || [];
+  const daySheets = saved.daySheets || [];
   const st = normaliseStatus(saved.status);
   const value = saved.stages && typeof saved.stages.valueExGst === 'number' ? saved.stages.valueExGst : null;
   return Object.assign({
@@ -2013,6 +2093,7 @@ function logPayloadFromSaved(saved, ref, extra){
     revision: ref.revision || '',
 
     project: v('project'),
+    projectNumber: v('projectnumber'),
     state: ref.state || saved.office || '',
     stateEntity: v('co-name'),
     variationDescription: v('variationdesc'),
@@ -2032,6 +2113,10 @@ function logPayloadFromSaved(saved, ref, extra){
     drawings: drawings,
     drawingsText: drawings
       .map(d => [d.number, d.name, d.oldRev && d.newRev ? d.oldRev + ' \u2192 ' + d.newRev : '']
+      .filter(Boolean).join('  ')).join('\n'),
+    daySheets: daySheets,
+    daySheetsText: daySheets
+      .map(d => [d.number, d.description, d.approvedBy ? 'approved by ' + d.approvedBy : '']
       .filter(Boolean).join('  ')).join('\n'),
     folderPath: ref.folderPath || '',
     variationFile: saved.variationFile || '',
@@ -2174,6 +2259,7 @@ function clearVariation(){
   clearInvalid();
   setMode('new');
   renderDwgPreview();
+  setDaySheets([]);
 }
 
 document.getElementById('reopened-new').addEventListener('click', () => {

@@ -292,6 +292,12 @@
         <div class="ac-list" id="ac-project"></div>
       </div>
 
+      <div class="field pulled-field">
+        <span class="pulled-tag" title="Filled from the SharePoint project register" id="tag-projectnumber" hidden>auto</span>
+        <label for="projectnumber">Project number</label>
+        <input type="text" id="projectnumber" placeholder="e.g. 1507V" autocomplete="off">
+      </div>
+
       <div class="prefilled-group" id="pf-recipient">
       <div class="field pulled-field">
         <span class="pulled-tag" title="Filled from the SharePoint project register" id="tag-recipient-name" hidden>auto</span>
@@ -376,7 +382,7 @@
 
     <!-- ---- 4 · DRAWINGS ---- -->
     <div class="form-section">
-      <div class="form-section-head"><span class="form-section-num">4</span><p class="form-section-title">Drawing reference</p></div>
+      <div class="form-section-head"><span class="form-section-num">4</span><p class="form-section-title">Drawing &amp; day sheet reference</p></div>
       <div class="dwg-editor">
         <div class="dwg-row dwg-row-head">
           <div class="dwg-col">Drawing No.</div>
@@ -389,6 +395,19 @@
       </div>
       <button class="add-row-btn" id="dwg-add-btn" type="button">+ Add drawing</button>
       <div class="ac-hint">Press Enter in a field to jump to (or add) the next row</div>
+
+      <p class="form-subtitle">Day sheet reference</p>
+      <div class="dwg-editor">
+        <div class="dwg-row ds-row dwg-row-head">
+          <div class="dwg-col">Day Sheet No.</div>
+          <div class="dwg-col">Description</div>
+          <div class="dwg-col">Approved By</div>
+          <div class="dwg-col-remove"></div>
+        </div>
+        <div id="ds-rows"></div>
+      </div>
+      <button class="add-row-btn" id="ds-add-btn" type="button">+ Add day sheet</button>
+      <div class="ac-hint">Each drawing and day sheet listed here is asked for again on the Documentation step, to attach its file</div>
     </div>
 
     <div class="divider"></div>
@@ -478,6 +497,7 @@
 
           <table class="ref-table">
             <tr id="tr-project" style="display:none;"><td class="k">Project</td><td class="v" id="p-project"></td></tr>
+            <tr id="tr-projectnumber" style="display:none;"><td class="k">Project Number</td><td class="v" id="p-projectnumber"></td></tr>
             <tr id="tr-siref" style="display:none;"><td class="k">Site Instruction Ref</td><td class="v" id="p-siref"></td></tr>
             <tr id="tr-clauseref" style="display:none;"><td class="k">Clause Reference<br>(Justification)</td><td class="v" id="p-clauseref"></td></tr>
             <tr id="tr-aconexref" style="display:none;"><td class="k">Aconex Reference</td><td class="v" id="p-aconexref"></td></tr>
@@ -492,6 +512,14 @@
             <table class="dwg-preview-table">
               <thead><tr><th>Drawing No.</th><th>Drawing Name</th><th>Old Rev</th><th>New Rev</th></tr></thead>
               <tbody id="dwg-preview-body"></tbody>
+            </table>
+          </div>
+
+          <div class="dwg-panel" id="ds-panel" style="display:none;">
+            <p class="dwg-panel-title">Day Sheet Reference</p>
+            <table class="dwg-preview-table">
+              <thead><tr><th>Day Sheet No.</th><th>Description</th><th>Approved By</th></tr></thead>
+              <tbody id="ds-preview-body"></tbody>
             </table>
           </div>
 
@@ -640,6 +668,23 @@
     <div class="brand"><span class="brand-mark"></span><h1>Documentation</h1></div>
     <div class="subhead">Attach what supports the variation — it is bound into the PDF behind the schedule</div>
 
+    <div class="form-section" id="docs-listed-section" hidden>
+      <div class="form-section-head"><span class="form-section-num">✓</span><p class="form-section-title">Listed on the cover sheet</p></div>
+      <p class="docs-listed-sum" id="docs-listed-sum"></p>
+      <div class="docs-listed" id="docs-listed"></div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-head"><span class="form-section-num">+</span><p class="form-section-title">Drop all the files here</p></div>
+      <label class="drop-zone drop-zone-all" data-bucket="auto">
+        <input type="file" multiple accept="application/pdf,image/*,.eml,.txt,message/rfc822,text/plain,.msg" data-bucket="auto">
+        <span class="dz-main">Drop every file at once, or <u>browse</u></span>
+        <span class="dz-sub">Each one is matched to the drawing or day sheet whose number is in its file name. Anything left over, choose what it belongs to below.</span>
+      </label>
+    </div>
+
+    <div class="divider"></div>
+
     <div class="form-section">
       <div class="form-section-head"><span class="form-section-num">A</span><p class="form-section-title">Drawings &amp; markups</p></div>
       <label class="drop-zone" data-bucket="drawings">
@@ -653,7 +698,19 @@
     <div class="divider"></div>
 
     <div class="form-section">
-      <div class="form-section-head"><span class="form-section-num">B</span><p class="form-section-title">Approval &amp; correspondence</p></div>
+      <div class="form-section-head"><span class="form-section-num">B</span><p class="form-section-title">Day sheets</p></div>
+      <label class="drop-zone" data-bucket="daysheets">
+        <input type="file" multiple accept="application/pdf,image/*" data-bucket="daysheets">
+        <span class="dz-main">Drop signed day sheets here, or <u>browse</u></span>
+        <span class="dz-sub">PDF, PNG or JPG</span>
+      </label>
+      <div class="doc-list" id="doc-list-daysheets"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="form-section">
+      <div class="form-section-head"><span class="form-section-num">C</span><p class="form-section-title">Approval &amp; correspondence</p></div>
       <label class="drop-zone" data-bucket="approvals">
         <input type="file" multiple accept="application/pdf,image/*,.eml,.txt,message/rfc822,text/plain,.msg" data-bucket="approvals">
         <span class="dz-main">Drop emails, screenshots or approvals here, or <u>browse</u></span>

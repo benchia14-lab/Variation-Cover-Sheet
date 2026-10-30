@@ -79,6 +79,7 @@ One row per live project.
 | Display name | Internal name | Type | Holds |
 |---|---|---|---|
 | Title | `Title` | Single line of text | **The project name.** This is the dropdown label and the Project row of the letter |
+| Project Number | `ProjectNumber` | Single line of text | Optional. The project's number (e.g. `1507V`). Shown on the projects page and the project's dashboard, fills *Project number* on the cover sheet, and prints as the **Project Number** line under Project on the letter |
 | State | `State` | Choice — `VIC, NSW, QLD, SA, WA, NT, ACT, NZ` | Which state's letterhead this project belongs to |
 | Head Contractor | `HeadContractor` | Single line of text | Fills *Head contractor / company* |
 | Recipient Address | `RecipientAddress` | Multiple lines, **plain text** | Fills *Recipient address*. Use line breaks as you want them printed |

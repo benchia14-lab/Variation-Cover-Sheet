@@ -290,6 +290,8 @@ const Flows = (() => {
     position:         ['position', 'Position', 'Title2', 'JobTitle', 'Job_x0020_Title'],
     pmEmail:          ['PmEmail', 'pmEmail', 'PMEmail', 'PM_x0020_Email', 'Pm_x0020_Email',
                        'ProjectManagerEmail', 'IssuedByEmail', 'Email'],
+    projectNumber:    ['ProjectNumber', 'projectNumber', 'Project_x0020_Number', 'ProjectNo', 'Project_x0020_No',
+                       'ProjectNum', 'JobNumber', 'Job_x0020_Number', 'JobNo'],
     ratesFile:        ['RatesFile', 'ratesFile', 'Rates_x0020_File', 'AgreedRates', 'AgreedRatesFile',
                        'ScheduleOfRates', 'SORFile'],
     folderPath:       ['folderPath', 'FolderPath', 'Folder_x0020_Path', 'folder',
@@ -442,6 +444,7 @@ const Flows = (() => {
   // The register fields the app fills in, in the order the form asks for them.
   const MAPPABLE = [
     { field: 'project',          label: 'Project name' },
+    { field: 'projectNumber',    label: 'Project number' },
     { field: 'headContractor',   label: 'Head contractor / company' },
     { field: 'recipientAddress', label: 'Recipient address' },
     { field: 'attention',        label: 'Attention' },

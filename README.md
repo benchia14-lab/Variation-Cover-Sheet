@@ -64,7 +64,7 @@ own; it is stage 1 of five, shown in the step bar along the top:
 | 1 · Cover sheet | The letter, as above |
 | 2 · Inclusions & exclusions | Every line on offer, none selected to start with, in two collapsible dropdowns: **Inclusions & Exclusions** — the standard inclusions and exclusions (`assets/scope-library.js`) and the schedule of rates' own exclusions and qualifications together — and **General**. Click **Include** or **Exclude** on a line (or **Add** for a general note); click again to leave it off. They print under Inclusions, Exclusions and General. Lines can be added for one variation |
 | 3 · Schedule of rates | The master schedule (`assets/schedule-of-rates.js`, generated from `registers/Schedule of Rates.xlsx`). One **tab per zone or area**: **+ New schedule** adds one, each is named, and it can be duplicated or deleted. Search the rates, enter **Add** and **Ded**, add a **comment** to any line, and **type over a rate** to adjust it for this variation (the contract rate stays shown, with a reset). Diff × Rate is totalled per section. A **Prelims** dropdown at the top holds the percentage items — the design, co-ordination, modelling and as-builts allowance (usually 5%), and one overheads line covering equipment hire, labour hire, fire rating, fire treatment, siphonic design and seismic — each a percentage of the schedule's measured works: type the percentage and tick **Apply**. The overheads line is worded in `tools/sor-to-js.py` (`PRELIM_LINES`). Only measured lines print, each schedule on its own pages, with a summary of all of them first when there is more than one; GST is charged once on the total. Items not in the schedule go under *Additional items* with their own rate. The total also prints on the cover sheet as *Variation Value* |
-| 4 · Documentation | **A · Drawings & markups** and **B · Approval & correspondence**: PDFs, images, and emails saved as `.eml`. A screenshot can be pasted straight in with Ctrl+V. Each gets a title and can be reordered |
+| 4 · Documentation | Every drawing and day sheet listed on the cover sheet is asked for, each with a line to drop its file on. Or drop everything at once: files are matched to them by the number in the file name, and anything left over is assigned from a list. **A · Drawings & markups**, **B · Day sheets** and **C · Approval & correspondence**: PDFs, images, and emails saved as `.eml`. A screenshot can be pasted straight in with Ctrl+V. Each gets a title and can be reordered |
 | 5 · Review & download | Every page of the finished PDF, drawn in the page with pdf.js (not the browser's PDF viewer, which is blocked or blank in too many setups), with a checklist of each stage. **Download PDF** saves exactly what is shown and files it, as before |
 
 **The PDF is kept under 3 MB** so it can go by email. Every generated page is
@@ -139,7 +139,7 @@ as issued.
 | 1 · Letterhead | The state register — `assets/state-register.js`, shipped with the app |
 | 2 · Project & recipient | The SharePoint project register, via Power Automate |
 | 3 · Reference details | Typed |
-| 4 · Drawing reference | Typed |
+| 4 · Drawing & day sheet reference | Typed — drawings (No., name, old/new rev) and day sheets (No., description, approved by) |
 | 5 · Description of works | Typed, optionally reworded by a flow |
 | 6 · Letter text | Intro and closing default per state; *Issued by* and *Position* come from the project register |
 

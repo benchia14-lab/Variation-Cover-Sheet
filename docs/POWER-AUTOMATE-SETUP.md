@@ -181,6 +181,7 @@ map to text mode (the icon on the right) and paste:
 {
   "id": "@{item()?['ID']}",
   "project": "@{item()?['Title']}",
+  "projectNumber": "@{item()?['ProjectNumber']}",
   "state": "@{item()?['State']?['Value']}",
   "headContractor": "@{item()?['HeadContractor']}",
   "recipientAddress": "@{item()?['RecipientAddress']}",
@@ -365,7 +366,7 @@ project register fill nothing. Type each column name without spaces, then rename
 the display name afterwards; the internal name keeps the clean spelling.
 
 Three columns must be **Multiple lines of text, plain**: `RecipientAddress`,
-`DescriptionOfWorks`, `Notes`, `DrawingsText` and above all `Payload`, which
+`DescriptionOfWorks`, `Notes`, `DrawingsText`, `DaySheetsText` and above all `Payload`, which
 holds the whole form as JSON and is what a reopened variation is rebuilt from.
 
 ### The flow
@@ -520,8 +521,10 @@ when `variationRef` is present. Nothing in the app needs changing for that.
    `Revision` beside it. Then `ProjectId`, `State`, `VariationDescription`,
    `HeadContractor`,
    `RecipientAddress`, `Attention`, `IssuedBy`, `Position`, `PmEmail` (from `pmEmail`),
+   `ProjectNumber` (from `projectNumber`, optional — add the column if you want it in the log),
    `SiteInstructionRef`, `ClauseRef`, `AconexRef`, `ContractorDirection`,
    `EmailRef`, `DescriptionOfWorks`, `Notes` (from `notes`), `DrawingsText`,
+   `DaySheetsText` (from `daySheetsText` — see *Day sheets* below),
    `FolderPath`, `DownloadedAt`, `UpdatedAt`, and `Payload` — and, for the
    project dashboard, `Status`, `ValueExGst`, `ApprovedValue` and
    `ApprovedDate` (see [PROJECT-DASHBOARD.md](PROJECT-DASHBOARD.md)).
@@ -542,6 +545,30 @@ honest: re-issuing VAR-101 updates its row rather than adding a second one, and
 VAR-101 on another job stays a separate variation. Turn on versioning for the
 list (List settings → Versioning settings) and you get the full edit history
 behind each row without the register itself filling up with duplicates.
+
+### Day sheets
+
+The cover sheet's **Day sheet reference** table (Day Sheet No., Description,
+Approved By) is saved with every variation in `Payload`, so it always comes
+back when a variation is reopened. To see it in the list as well:
+
+1. In the variation log, add a column **`DaySheetsText`**: **Multiple lines of
+   text**, plain text (enhanced rich text **off**). One line per day sheet, e.g.
+   `DS-014  After-hours crew, sewer relocation  approved by Glen O'Connor`.
+2. In flow 5, open **Create item** and **Update item**, re-select the list so
+   the new column appears, and set **DaySheetsText** through **fx** (no `@`,
+   nothing typed before it):
+
+   ```
+   outputs('Incoming')?['daySheetsText']
+   ```
+3. **Save**, then check both steps in **Code view**: the line should read
+   `"item/DaySheetsText": "@outputs('Incoming')?['daySheetsText']"`, with no
+   `\t` in front.
+
+The request also carries `daySheets`, the same rows as a list
+(`[{ "number", "description", "approvedBy" }]`), and flow 2 (filing) is sent
+`daySheets` too, for a flow that wants them one by one.
 
 ### Numbering follows from this
 
@@ -673,6 +700,7 @@ for the row (see [VARIATION-FILES.md](VARIATION-FILES.md)).
 | `siteInstructionRef`, `clauseRef`, `aconexRef`, `contractorDirection`, `emailRef` | as typed |
 | `descriptionOfWorks` | the final description |
 | `drawings` | `[{ "number": "H-201", "name": "…", "oldRev": "C", "newRev": "D" }]` |
+| `daySheets` | `[{ "number": "DS-014", "description": "…", "approvedBy": "Glen O'Connor" }]` |
 | `issuedDate` | ISO 8601, UTC |
 | `fileKind` | `pdf` |
 
