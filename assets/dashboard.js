@@ -208,7 +208,7 @@ const Dashboard = (function(){
     const o = rowsFor(currentState.code);
     const q = pjSearch.value.trim().toLowerCase();
     const shown = projects.filter(p => !q ||
-      [p.project, p.headContractor, p.attention, String(p.id)].join(' ').toLowerCase().indexOf(q) !== -1);
+      [p.project, p.projectNumber, p.headContractor, p.attention, String(p.id)].join(' ').toLowerCase().indexOf(q) !== -1);
     const all = { count: 0, value: 0, approved: 0, pending: 0 };
 
     pjGrid.innerHTML = '';
@@ -216,6 +216,7 @@ const Dashboard = (function(){
       const rows = o.byProject[String(p.id)];
       const card = el('a', 'project-card');
       card.href = '#/state/' + encodeURIComponent(currentState.code) + '/project/' + encodeURIComponent(p.id);
+      if(p.projectNumber) card.appendChild(el('div', 'pc-num')).textContent = 'Project no. ' + p.projectNumber;
       card.appendChild(el('div', 'pc-name')).textContent = p.project || 'Project ' + p.id;
       card.appendChild(el('div', 'pc-sub')).textContent = [p.headContractor, p.attention].filter(Boolean).join(' · ') || ' ';
       const stats = el('div', 'pc-stats');
@@ -295,6 +296,7 @@ const Dashboard = (function(){
     document.getElementById('db-title').textContent = project.project || 'Project ' + project.id;
     document.getElementById('db-crumb-project').textContent = project.project || String(project.id);
     document.getElementById('db-sub').innerHTML = [
+      project.projectNumber ? 'Project no. <strong>' + escapeHtml(project.projectNumber) + '</strong>' : '',
       project.headContractor ? escapeHtml(project.headContractor) : '',
       project.attention ? 'Attention ' + escapeHtml(project.attention) : '',
       project.folderPath ? '<code>' + escapeHtml(project.folderPath) + '</code>' : ''

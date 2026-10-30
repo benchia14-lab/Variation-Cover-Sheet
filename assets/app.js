@@ -16,7 +16,7 @@
    working cover sheet generator that produces the same PDF.
 ============================================================================ */
 
-const textIds = ['project','varref','variationdesc','siref','clauseref','aconexref','contractordirection','emailref','desc-final',
+const textIds = ['project','projectnumber','varref','variationdesc','siref','clauseref','aconexref','contractordirection','emailref','desc-final',
                   'co-name','co-abn','co-acn','co-phone','co-address','co-email',
                   'recipient-name','recipient-address','attention',
                   'intro-text','closing-text','sig-name','sig-title','sig-email'];
@@ -81,6 +81,7 @@ function render(){
   toggleEl('p-closing', v('closing-text'));
 
   toggleTableRow('tr-project', 'p-project', v('project'));
+  toggleTableRow('tr-projectnumber', 'p-projectnumber', v('projectnumber'));
   toggleTableRow('tr-siref', 'p-siref', v('siref'));
   toggleTableRow('tr-clauseref', 'p-clauseref', v('clauseref'));
   toggleTableRow('tr-aconexref', 'p-aconexref', v('aconexref'));
@@ -253,6 +254,9 @@ function applyProject(project){
   }
 
   els['project'].value = project.project || '';
+  // the register's project number, when it has one; optional, so never reported missing
+  els['projectnumber'].value = project.projectNumber || '';
+  document.getElementById('tag-projectnumber').hidden = !project.projectNumber;
 
   // Assign whatever the register holds, empty included. Skipping the empties
   // would leave the previous project's contractor and contact sitting in the
@@ -2013,6 +2017,7 @@ function logPayloadFromSaved(saved, ref, extra){
     revision: ref.revision || '',
 
     project: v('project'),
+    projectNumber: v('projectnumber'),
     state: ref.state || saved.office || '',
     stateEntity: v('co-name'),
     variationDescription: v('variationdesc'),

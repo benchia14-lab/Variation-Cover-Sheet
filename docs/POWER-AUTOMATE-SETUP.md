@@ -181,6 +181,7 @@ map to text mode (the icon on the right) and paste:
 {
   "id": "@{item()?['ID']}",
   "project": "@{item()?['Title']}",
+  "projectNumber": "@{item()?['ProjectNumber']}",
   "state": "@{item()?['State']?['Value']}",
   "headContractor": "@{item()?['HeadContractor']}",
   "recipientAddress": "@{item()?['RecipientAddress']}",
@@ -520,6 +521,7 @@ when `variationRef` is present. Nothing in the app needs changing for that.
    `Revision` beside it. Then `ProjectId`, `State`, `VariationDescription`,
    `HeadContractor`,
    `RecipientAddress`, `Attention`, `IssuedBy`, `Position`, `PmEmail` (from `pmEmail`),
+   `ProjectNumber` (from `projectNumber`, optional — add the column if you want it in the log),
    `SiteInstructionRef`, `ClauseRef`, `AconexRef`, `ContractorDirection`,
    `EmailRef`, `DescriptionOfWorks`, `Notes` (from `notes`), `DrawingsText`,
    `FolderPath`, `DownloadedAt`, `UpdatedAt`, and `Payload` — and, for the
