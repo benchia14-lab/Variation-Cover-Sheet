@@ -5,7 +5,9 @@ A **variation file** is one `.json` file holding everything on all five tabs:
 - the cover sheet — every field, the letterhead as issued, the drawings table
 - inclusions, exclusions, general notes and qualifications, as picked
 - every schedule of rates tab — names, quantities, comments, adjusted rates, notes
-- the attachments themselves — drawings, markups, screenshots and emails
+- the drawing and day sheet tables
+- the attachments themselves — drawings, markups, day sheets, screenshots and
+  emails, each with the drawing or day sheet it was attached to
 
 It is kept as an **attachment on the variation's own row in the variation
 log** — the same row the dashboard shows, written by the same push. The PDF

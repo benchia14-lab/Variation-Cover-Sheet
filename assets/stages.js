@@ -80,7 +80,11 @@ const Stages = (function(){
 
   stepButtons.forEach(b => b.addEventListener('click', () => go(b.getAttribute('data-stage'))));
   document.querySelectorAll('[data-go]').forEach(b => {
-    b.addEventListener('click', () => go(b.getAttribute('data-go')));
+    b.addEventListener('click', () => {
+      // leaving the documentation with something listed and not attached
+      if(b.closest('#view-docs') && b.getAttribute('data-go') === 'review' && !confirmListedDocs()) return;
+      go(b.getAttribute('data-go'));
+    });
   });
 
   /* ------------------------------------------------------------------------
@@ -1399,9 +1403,65 @@ const Stages = (function(){
 
   const BUCKETS = [
     { key: 'drawings', letter: 'A', title: 'Drawings & Markups' },
-    { key: 'approvals', letter: 'B', title: 'Approval & Correspondence' }
+    { key: 'daysheets', letter: 'B', title: 'Day Sheets' },
+    { key: 'approvals', letter: 'C', title: 'Approval & Correspondence' }
   ];
-  const docs = { drawings: [], approvals: [] };
+  const docs = { drawings: [], daysheets: [], approvals: [] };
+
+  /* ---- what the cover sheet lists, to be attached here ----------------------
+     Every drawing and day sheet in the cover sheet's tables is asked for on
+     this page. A file belongs to one through its `ref` ('dwg:H201',
+     'ds:DS014'): the number, letters and digits only, so "H-201" in the table
+     and "H201 rev C.pdf" on the disk are the same drawing. */
+  const refKey = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+  function listedDocs(){
+    const out = [], seen = new Set();
+    const add = it => { if(it.key && !seen.has(it.ref)){ seen.add(it.ref); out.push(it); } };
+    collectDrawings().forEach(d => {
+      const key = refKey(d.number) || refKey(d.name);
+      add({ ref: 'dwg:' + key, key: refKey(d.number), bucket: 'drawings', kind: 'Drawing',
+            number: d.number || d.name,
+            label: [d.number, d.name].filter(Boolean).join(' — ') + (d.newRev ? ' (Rev ' + d.newRev + ')' : '') });
+    });
+    collectDaySheets().forEach(d => {
+      const key = refKey(d.number) || refKey(d.description);
+      add({ ref: 'ds:' + key, key: refKey(d.number), bucket: 'daysheets', kind: 'Day sheet',
+            number: d.number || d.description,
+            label: 'Day sheet ' + [d.number, d.description].filter(Boolean).join(' — ') });
+    });
+    return out;
+  }
+
+  const filesFor = item => BUCKETS.reduce((all, b) => all.concat(docs[b.key].filter(d => d.ref === item.ref)), []);
+
+  // put a document where it belongs: under a listed drawing or day sheet, or
+  // in a section on its own. Its title follows what it is attached to, until
+  // someone types their own.
+  function placeDoc(d, bucket, item){
+    BUCKETS.forEach(b => { const i = docs[b.key].indexOf(d); if(i !== -1) docs[b.key].splice(i, 1); });
+    d.ref = item ? item.ref : '';
+    d.unsorted = false;
+    if(item && (d.autoCaption || !d.caption || d.caption === baseName(d.name))){ d.caption = item.label; d.autoCaption = true; }
+    else if(!item && d.autoCaption){ d.caption = baseName(d.name); d.autoCaption = false; }
+    docs[item ? item.bucket : bucket].push(d);
+  }
+
+  // the listed drawing or day sheet whose number is in the file's name, the
+  // longest number winning ("H-201A" over "H-201")
+  function matchListed(d){
+    const name = refKey(baseName(d.name));
+    return listedDocs().filter(it => it.key.length >= 3 && name.indexOf(it.key) !== -1)
+      .sort((a, b) => b.key.length - a.key.length)[0] || null;
+  }
+
+  function confirmListedDocs(){
+    const missing = listedDocs().filter(it => !filesFor(it).length);
+    if(!missing.length) return true;
+    return confirm(missing.length + ' listed on the cover sheet ' + (missing.length === 1 ? 'has' : 'have') +
+      ' no file attached:\n\n' + missing.map(it => '  ' + it.kind + ' ' + it.number).join('\n') +
+      '\n\nGo on to the review anyway?');
+  }
   const docsStatus = document.getElementById('docs-status');
 
   function readAs(file, how){
@@ -1417,8 +1477,11 @@ const Stages = (function(){
 
   const baseName = name => String(name || '').replace(/\.[^.]+$/, '');
 
-  async function addFiles(bucket, files){
+  // bucket 'auto': matched to a listed drawing or day sheet by file name, or
+  // left for someone to say what it is. `item`: attach to that listed one.
+  async function addFiles(bucket, files, item){
     const problems = [];
+    const added = [];
     for(const file of Array.prototype.slice.call(files)){
       const name = file.name || 'Pasted image.png';
       const lower = name.toLowerCase();
@@ -1427,20 +1490,20 @@ const Stages = (function(){
           const bytes = new Uint8Array(await readAs(file, 'buffer'));
           if(typeof PDFLib === 'undefined') throw new Error('the PDF library did not load');
           const pdf = await PDFLib.PDFDocument.load(bytes, { ignoreEncryption: true });
-          docs[bucket].push({ id: newId(), kind: 'pdf', name: name, caption: baseName(name), bytes: bytes,
+          added.push({ id: newId(), kind: 'pdf', name: name, caption: baseName(name), bytes: bytes,
             pageCount: pdf.getPageCount(), thumb: await pdfThumb(bytes) });
         } else if(/^image\//.test(file.type) || /\.(png|jpe?g|gif|webp|bmp)$/.test(lower)){
           const url = await readAs(file, 'url');
-          docs[bucket].push({ id: newId(), kind: 'image', name: name, caption: baseName(name), dataUrl: await asPngOrJpeg(url) });
+          added.push({ id: newId(), kind: 'image', name: name, caption: baseName(name), dataUrl: await asPngOrJpeg(url) });
         } else if(/\.msg$/.test(lower)){
           problems.push(name + ' is an Outlook .msg, which a browser cannot open. In Outlook, use File › Save As › ' +
             '"Text Only" or print the email to PDF, and add that instead.');
         } else if(/\.eml$/.test(lower) || file.type === 'message/rfc822'){
           const email = parseEml(await readAs(file, 'text'));
-          docs[bucket].push({ id: newId(), kind: 'email', name: name, caption: email.subject || baseName(name), email: email });
+          added.push({ id: newId(), kind: 'email', name: name, caption: email.subject || baseName(name), email: email });
         } else if(/\.txt$/.test(lower) || file.type === 'text/plain'){
           const text = await readAs(file, 'text');
-          docs[bucket].push({ id: newId(), kind: 'email', name: name, caption: baseName(name), email: { body: text } });
+          added.push({ id: newId(), kind: 'email', name: name, caption: baseName(name), email: { body: text } });
         } else {
           problems.push(name + ' is not a PDF, image or email, so it cannot be bound into the PDF.');
         }
@@ -1449,6 +1512,18 @@ const Stages = (function(){
         problems.push(name + ' could not be read' + (err && err.message ? ' — ' + err.message : '') + '.');
       }
     }
+    let unsorted = 0;
+    added.forEach(d => {
+      if(item){ placeDoc(d, item.bucket, item); return; }
+      if(bucket !== 'auto'){ placeDoc(d, bucket, null); return; }
+      const hit = matchListed(d);
+      if(hit){ placeDoc(d, hit.bucket, hit); return; }
+      // an email is correspondence; anything else waits for someone to say
+      placeDoc(d, d.kind === 'email' ? 'approvals' : 'drawings', null);
+      if(d.kind !== 'email'){ d.unsorted = true; unsorted++; }
+    });
+    if(unsorted) problems.unshift(unsorted + ' file' + (unsorted === 1 ? '' : 's') +
+      ' could not be matched to a drawing or day sheet by name — choose what ' + (unsorted === 1 ? 'it belongs' : 'each belongs') + ' to below.');
     docsStatus.textContent = problems.join(' ');
     docsStatus.className = 'status-line' + (problems.length ? ' err' : '');
     renderDocs();
@@ -1648,7 +1723,9 @@ const Stages = (function(){
       cap.value = d.caption;
       cap.placeholder = 'Title';
       cap.addEventListener('input', () => { d.caption = cap.value; renderDocsPreview(); });
+      cap.addEventListener('input', () => { d.autoCaption = false; }, { once: true });
       mid.appendChild(cap);
+      mid.appendChild(assignSelect(d, bucket));
       mid.appendChild(el('div', 'doc-meta')).textContent = docKindLabel(d) + ' · ' + d.name;
       card.appendChild(mid);
       const acts = el('div', 'doc-acts');
@@ -1671,6 +1748,81 @@ const Stages = (function(){
       card.appendChild(acts);
       list.appendChild(card);
     });
+  }
+
+  // what a document belongs to: a listed drawing or day sheet, or a section
+  function assignSelect(d, bucket){
+    const sel = el('select', 'doc-assign' + (d.unsorted ? ' needs' : ''));
+    const items = listedDocs();
+    const opt = (parent, value, text) => { const o = el('option'); o.value = value; o.textContent = text; parent.appendChild(o); return o; };
+    if(d.unsorted) opt(sel, '', 'Choose what this belongs to…');
+    const group = (label, kind, bucketKey, other) => {
+      const g = el('optgroup');
+      g.label = label;
+      items.filter(it => it.bucket === bucketKey).forEach(it => opt(g, 'ref:' + it.ref, it.kind + ' ' + it.label.replace(/^Day sheet /, '')));
+      opt(g, 'bucket:' + bucketKey, other);
+      sel.appendChild(g);
+    };
+    group('Drawings & markups', 'Drawing', 'drawings', 'Another drawing or markup');
+    group('Day sheets', 'Day sheet', 'daysheets', 'Another day sheet');
+    const g = el('optgroup');
+    g.label = 'Approval & correspondence';
+    opt(g, 'bucket:approvals', 'Approval or correspondence');
+    sel.appendChild(g);
+    const listedHere = d.ref && items.some(it => it.ref === d.ref);
+    sel.value = d.unsorted ? '' : listedHere ? 'ref:' + d.ref : 'bucket:' + bucket;
+    sel.title = 'What this file is';
+    sel.addEventListener('change', () => {
+      const v = sel.value;
+      if(!v) return;
+      if(v.indexOf('ref:') === 0) placeDoc(d, null, items.find(it => it.ref === v.slice(4)));
+      else placeDoc(d, v.slice(7), null);
+      renderDocs();
+    });
+    return sel;
+  }
+
+  // the cover sheet's drawings and day sheets, each with its file or a place to drop one
+  function renderListed(){
+    const items = listedDocs();
+    const section = document.getElementById('docs-listed-section');
+    const list = document.getElementById('docs-listed');
+    section.hidden = !items.length;
+    list.innerHTML = '';
+    if(!items.length) return;
+    let have = 0;
+    items.forEach(it => {
+      const files = filesFor(it);
+      if(files.length) have++;
+      const row = el('label', 'listed-row' + (files.length ? ' has' : ''));
+      row.appendChild(el('span', 'listed-mark', files.length ? '✓' : ''));
+      const mid = el('span', 'listed-mid');
+      mid.appendChild(el('span', 'listed-kind')).textContent = it.kind;
+      mid.appendChild(el('span', 'listed-label')).textContent = it.label.replace(/^Day sheet /, '');
+      mid.appendChild(el('span', 'listed-files')).textContent = files.length
+        ? files.map(f => f.name).join(', ') : 'No file yet — drop it here or browse';
+      row.appendChild(mid);
+      const input = el('input');
+      input.type = 'file';
+      input.multiple = true;
+      input.accept = 'application/pdf,image/*,.eml,.txt';
+      input.addEventListener('change', () => { addFiles(it.bucket, input.files, it); input.value = ''; });
+      row.appendChild(input);
+      row.addEventListener('dragover', e => { e.preventDefault(); row.classList.add('over'); });
+      row.addEventListener('dragleave', () => row.classList.remove('over'));
+      row.addEventListener('drop', e => {
+        e.preventDefault();
+        row.classList.remove('over');
+        if(e.dataTransfer && e.dataTransfer.files.length) addFiles(it.bucket, e.dataTransfer.files, it);
+      });
+      list.appendChild(row);
+    });
+    const sum = document.getElementById('docs-listed-sum');
+    sum.textContent = have === items.length
+      ? 'Every drawing and day sheet on the cover sheet has its file attached.'
+      : have + ' of ' + items.length + ' listed on the cover sheet ' + (have === 1 ? 'has' : 'have') +
+        ' a file attached. Drop each one on its line, or drop them all below and they are matched by number.';
+    sum.className = 'docs-listed-sum' + (have === items.length ? ' ok' : ' warn');
   }
 
   function renderDocsPreview(){
@@ -1707,6 +1859,7 @@ const Stages = (function(){
   }
 
   function renderDocs(){
+    renderListed();
     BUCKETS.forEach(b => renderDocList(b.key));
     renderDocsPreview();
   }
@@ -1903,7 +2056,8 @@ const Stages = (function(){
   function renderReviewList(){
     const p = scopePrinted();
     const c = computeRates();
-    const drawings = docs.drawings, approvals = docs.approvals;
+    const drawings = docs.drawings, daysheets = docs.daysheets, approvals = docs.approvals;
+    const listed = listedDocs(), unattached = listed.filter(it => !filesFor(it).length);
     const missing = missingCover();
     const ref = [effectiveRef(), els['variationdesc'].value.trim()].filter(Boolean).join(' — ');
     const items = [
@@ -1914,13 +2068,20 @@ const Stages = (function(){
       { stage: 'rates', title: 'Schedule of rates', ok: true, warn: !hasPricing(c),
         text: hasPricing(c) ? money(c.exGst) + ' ex GST · ' + money(c.incGst) + ' inc GST' +
           (c.list.length > 1 ? ' · ' + c.list.length + ' schedules' : '') : 'Nothing measured — no schedule page will print' },
+      listed.length ? { stage: 'docs', title: 'Listed on the cover sheet', ok: true, warn: unattached.length > 0,
+        text: unattached.length
+          ? (listed.length - unattached.length) + ' of ' + listed.length + ' have a file — none for ' +
+            unattached.map(it => it.number).join(', ')
+          : 'Every drawing and day sheet has its file' } : null,
       { stage: 'docs', title: 'Drawings & markups', ok: true, warn: !drawings.length,
         text: drawings.length ? drawings.length + ' attached' : 'None attached' },
+      daysheets.length || collectDaySheets().length ? { stage: 'docs', title: 'Day sheets', ok: true, warn: !daysheets.length,
+        text: daysheets.length ? daysheets.length + ' attached' : 'None attached' } : null,
       { stage: 'docs', title: 'Approval & correspondence', ok: true, warn: !approvals.length,
         text: approvals.length ? approvals.length + ' attached' : 'None attached — consider adding the email or direction that approved it' }
     ];
     reviewList.innerHTML = '';
-    items.forEach(it => {
+    items.filter(Boolean).forEach(it => {
       const li = el('li', 'review-item ' + (!it.ok ? 'bad' : it.warn ? 'warn' : 'ok'));
       li.innerHTML = '<span class="ri-mark">' + (!it.ok ? '!' : it.warn ? '–' : '✓') + '</span>' +
         '<span class="ri-body"><span class="ri-title">' + escapeHtml(it.title) + '</span>' +
@@ -2012,6 +2173,7 @@ const Stages = (function(){
     });
     applyRates(saved && saved.rates);
     docs.drawings = [];
+    docs.daysheets = [];
     docs.approvals = [];
     if(stage === 'scope') renderScope();
     if(stage === 'rates') renderRates();
@@ -2024,7 +2186,7 @@ const Stages = (function(){
   function collectDocs(){
     const out = [];
     BUCKETS.forEach(b => docs[b.key].forEach(d => {
-      const item = { bucket: b.key, kind: d.kind, name: d.name, caption: d.caption };
+      const item = { bucket: b.key, kind: d.kind, name: d.name, caption: d.caption, ref: d.ref || '', autoCaption: !!d.autoCaption };
       if(d.kind === 'pdf'){ item.pageCount = d.pageCount; item.base64 = bytesToBase64(d.bytes); }
       else if(d.kind === 'image'){ item.dataUrl = d.dataUrl; }
       else { item.email = d.email; }
@@ -2035,10 +2197,12 @@ const Stages = (function(){
 
   function applyDocs(list){
     docs.drawings = [];
+    docs.daysheets = [];
     docs.approvals = [];
     (list || []).forEach(item => {
       const bucket = docs[item.bucket] ? item.bucket : 'drawings';
-      const d = { id: newId(), kind: item.kind, name: item.name || 'Attachment', caption: item.caption || '' };
+      const d = { id: newId(), kind: item.kind, name: item.name || 'Attachment', caption: item.caption || '',
+                  ref: item.ref || '', autoCaption: !!item.autoCaption };
       if(item.kind === 'pdf'){
         const bin = atob(item.base64 || '');
         d.bytes = new Uint8Array(bin.length);
