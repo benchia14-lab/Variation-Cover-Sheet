@@ -809,19 +809,38 @@ const Dashboard = (function(){
     if(keep) binOffice.value = keep;
   }
 
-  // every row of an office's log: in one read where the flow can, otherwise
-  // project by project for the office whose projects are loaded
-  async function officeRows(code){
-    try { return await Flows.listStateLog(code); }
-    catch(err){
-      if(!currentState || currentState.code !== code || !projects.length){
-        throw new Error('the log flow cannot read a whole office at once yet. Open one of ' + code +
-          '\'s projects first and come back, or add the whole-office step (docs/PROJECT-DASHBOARD.md).');
-      }
-      const all = [];
-      for(const p of projects){ all.push(...await Flows.listLog(code, p.id)); }
-      return all;
+  // the office's projects, as the register has them: the ones already loaded
+  // when it is the office open in the app, otherwise read for the bin
+  const binProjects = {};
+  async function officeProjects(code){
+    if(currentState && currentState.code === code && projects.length) return projects;
+    if(!binProjects[code]) binProjects[code] = await Flows.getProjects(code);
+    return binProjects[code];
+  }
+
+  // every row of an office's log: in one read where the log flow can answer
+  // for a whole office, otherwise project by project, from the register --
+  // which is how most log flows are built, and needs nothing added to them
+  async function officeRows(code, say){
+    try {
+      const rows = await Flows.listStateLog(code);
+      if(rows.length) return rows;
+      // nothing at all may be a flow that ignored the empty project rather
+      // than a log with nothing in it, so check project by project as well
+    } catch(err){ /* no whole-office read: project by project below */ }
+    let list;
+    try { list = await officeProjects(code); }
+    catch(err){ throw new Error('the project register could not be read (' + (err.message || 'the flow failed') + ')'); }
+    const all = [];
+    let failed = 0;
+    for(let i = 0; i < list.length; i++){
+      if(say) say('Reading ' + code + '\'s variation log — project ' + (i + 1) + ' of ' + list.length + '…');
+      try { all.push(...await Flows.listLog(code, list[i].id)); }
+      catch(e){ failed++; }
     }
+    if(failed === list.length && list.length) throw new Error('none of ' + code + '\'s ' + list.length + ' projects could be read');
+    all.failed = failed;
+    return all;
   }
 
   async function loadBin(){
@@ -832,19 +851,21 @@ const Dashboard = (function(){
     if(!Flows.has('logReadUrl')){ setLine(binStatus, 'The variation log is not connected.', 'err'); return; }
     setLine(binStatus, 'Reading ' + code + '\'s variation log…');
     let rows;
-    try { rows = await officeRows(code); }
+    try { rows = await officeRows(code, t => { if(binOffice.value === code) setLine(binStatus, t); }); }
     catch(err){ setLine(binStatus, 'Could not read the log — ' + (err.message || 'the flow failed'), 'err'); return; }
     if(binOffice.value !== code) return;
     const gone = rows.filter(r => Flows.isDeleted(r))
       .sort((a, b) => String(b.state_.deleted.at || '').localeCompare(String(a.state_.deleted.at || '')));
-    if(!gone.length){ setLine(binStatus, 'Nothing has been deleted from ' + code + '\'s dashboards.', 'ok'); return; }
-    setLine(binStatus, gone.length + ' deleted variation' + (gone.length === 1 ? '' : 's') + ' in ' + code + '.');
+    const partly = rows.failed ? ' (' + rows.failed + ' project' + (rows.failed === 1 ? '' : 's') + ' could not be read — try again)' : '';
+    if(!gone.length){ setLine(binStatus, 'Nothing has been deleted from ' + code + '\'s dashboards.' + partly, rows.failed ? 'err' : 'ok'); return; }
+    setLine(binStatus, gone.length + ' deleted variation' + (gone.length === 1 ? '' : 's') + ' in ' + code + '.' + partly);
     gone.forEach(row => binRows.appendChild(binRow(code, row)));
     binWrap.hidden = false;
   }
 
   function projectOf(code, row){
-    const p = currentState && currentState.code === code && projects.find(x => String(x.id) === String(row.projectId));
+    const known = (currentState && currentState.code === code && projects.length) ? projects : (binProjects[code] || []);
+    const p = known.find(x => String(x.id) === String(row.projectId));
     return p || { id: row.projectId, project: row.project || '', folderPath: row.folderPath || '' };
   }
 

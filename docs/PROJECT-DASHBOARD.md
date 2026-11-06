@@ -95,9 +95,10 @@ deleting `VAR-001.1` leaves `VAR-001` as the current one.
 **Getting one back is for the administrator.** **Administrator settings → D ·
 Deleted variations**: pick the office, **Show deleted variations**, and
 **Restore** beside the one wanted. It is back on its project's dashboard
-exactly as it was. Listing an office in one go uses the log read's
-whole-office step ([section 3](#3--let-flow-4-the-log-read-answer-for-a-whole-office));
-without it, open one of that office's projects first.
+exactly as it was. It reads the office's log in one go where the log read has
+the whole-office step ([section 3](#3--let-flow-4-the-log-read-answer-for-a-whole-office));
+without it, it reads the project register and then each project's log in turn,
+which takes a little longer and needs nothing added to the flows.
 
 Optional: to see deletions in the SharePoint list itself, flow 5 is also sent
 `deleted` (true/false), `deletedAt` and `deletedBy`. Map them to columns
